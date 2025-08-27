@@ -11,6 +11,9 @@ import gameRoutes from './routes/games.js';
 
 /* Initialisation de l'app */
 const app = express();
+const friendsRoutes = require("./routes/friends");
+
+
 
 // Middleware
 app.use(cors());
@@ -22,6 +25,7 @@ app.use('/api/users', userProfileRoutes);  // routes /api/users/:id (GET, PUT)
 app.use('/api/admin', adminUsersRoutes);
 app.use('/api', checkPseudoRoute);
 app.use('/api', gameRoutes);
+
 
 // Route de base
 app.get('/', (req, res) => {
