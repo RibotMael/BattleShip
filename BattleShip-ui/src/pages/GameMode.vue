@@ -1,9 +1,10 @@
+<!--GameMode.vue-->
 <template>
   <div class="game-mode-container">
     <div class="game-mode-card">
       <h1>🎮 Paramètres de la partie</h1>
 
-      <label for="language">Mode de jeu :</label>
+      <label for="language">Langue :</label>
       <select id="language" v-model="language">
         <option value="fr">Français</option>
         <option value="be">Belge</option>
@@ -14,7 +15,7 @@
         Partie privée 🔒
       </label>
 
-      <!-- Mode public -->
+      <!-- Modes publics -->
       <div v-if="!isPrivate">
         <label for="mode">Mode de bataille :</label>
         <select id="mode" v-model="mode">
@@ -25,7 +26,7 @@
         </select>
       </div>
 
-      <!-- Mode privé -->
+      <!-- Modes privés -->
       <div v-else class="private-settings">
         <label>Nombre total de participants (pair) :</label>
         <input
@@ -42,9 +43,9 @@
       <button
         class="start-button"
         @click="startGame"
-        :disabled="isPrivate && totalPlayers % 2 !== 0"
+        :disabled="!canStart || loading"
       >
-        🚀 Lancer la partie
+        {{ loading ? "⏳ Création en cours..." : "🚀 Lancer la partie" }}
       </button>
       <button class="cancel-button" @click="$router.push('/')">Retour</button>
     </div>
@@ -55,53 +56,89 @@
 export default {
   data() {
     return {
-      language: 'fr',
-      mode: '1v1',
+      language: "fr",
+      mode: "1v1",
       isPrivate: false,
-      totalPlayers: 2
+      totalPlayers: 2,
+      loading: false,
+      user: null
     };
   },
-  methods: {
-    startGame() {
-      const finalMode = this.isPrivate
+  computed: {
+    finalMode() {
+      return this.isPrivate
         ? `${this.totalPlayers / 2}v${this.totalPlayers / 2}`
         : this.mode;
-
-      const settings = {
-        langue: this.language,
-        mode: finalMode,
-        isPrivate: this.isPrivate,
-        total: this.isPrivate ? this.totalPlayers : 2,
-        hostId: this.$store.state.user?.id || null
-      };
-
-      if (!settings.hostId) {
-        alert("Utilisateur non connecté !");
+    },
+    canStart() {
+      return this.user && (!this.isPrivate || this.totalPlayers % 2 === 0);
+    }
+  },
+  mounted() {
+    this.user = JSON.parse(localStorage.getItem("user"));
+  },
+  methods: {
+    getPlayersFromMode(mode) {
+      switch(mode) {
+        case '1v1': return 2;
+        case '2v2': return 4;
+        case '4v4': return 8;
+        case 'battle-royale': return 20;
+        default: return 2;
+      }
+    },
+    async startGame() {
+      if (!this.user?.id) {
+        alert("⚠️ Utilisateur non connecté !");
         return;
       }
 
-      fetch('http://localhost:3000/api/games/create-game', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings)
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            this.$router.push(`/waiting-room/${data.gameId}`);
-          } else {
-            alert(data.message || "Erreur lors de la création de la partie.");
-          }
-        })
-        .catch(() => {
-          alert("Impossible de contacter le serveur.");
+      this.loading = true;
+
+      // Déterminer le total de joueurs
+      const totalPlayers = this.isPrivate
+        ? this.totalPlayers
+        : this.getPlayersFromMode(this.mode);
+
+      // Construire le payload à envoyer au backend
+      const payload = {
+        hostId: this.user.id,                 // ID du créateur
+        mode: this.finalMode,                 // ex: "1v1", "2v2", "4v4" ou "4v4" personnalisé
+        language: this.language,              // "fr" ou "be"
+        isPrivate: this.isPrivate,
+        totalPlayers
+      };
+
+      try {
+        const res = await fetch("http://localhost:3000/api/games/create-game", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
         });
+
+        const data = await res.json();
+
+        if (!data.success) {
+          alert(data.message || "Erreur lors de la création de la partie.");
+          return;
+        }
+
+        // Stocker la partie courante et rediriger vers la waiting room
+        localStorage.setItem("currentGame", JSON.stringify(data.game));
+        this.$router.push(`/waiting-room/${data.gameId}`);
+      } catch (err) {
+        console.error(err);
+        alert("❌ Impossible de contacter le serveur.");
+      } finally {
+        this.loading = false;
+      }
     }
   }
 };
 </script>
 
 <style scoped>
+/* Styles identiques à ta version actuelle */
 .game-mode-container {
   background: linear-gradient(to bottom, #002f4b, #005f8e);
   min-height: 100vh;

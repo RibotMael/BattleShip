@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt';
 
 const router = Router();
 
+// Inscription
 router.post('/register', async (req, res) => {
   const { email, password, pseudo, birthDay, avatar } = req.body;
 
@@ -33,19 +34,19 @@ router.post('/register', async (req, res) => {
 
     // Insertion
     const insertSql = `
-      INSERT INTO users (Email, Password, Pseudo, BirthDay, Avatar, niveau)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO users (Email, Password, Pseudo, BirthDay, Avatar, niveau, Online, Gold)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    await query(insertSql, [email, hashedPassword, pseudo, birthDay, avatarBuffer, 1]);
+    await query(insertSql, [email, hashedPassword, pseudo, birthDay, avatarBuffer, 1, 0, 0]);
 
     return res.json({ success: true });
-
   } catch (err) {
     console.error("Erreur d'inscription:", err);
     return res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
 
+// Connexion
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -67,6 +68,9 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: "Mot de passe incorrect" });
     }
 
+    // ✅ Mettre Online = 1
+    await query("UPDATE users SET Online = 1 WHERE ID_Users = ?", [user.ID_Users]);
+
     const avatarBase64 = user.Avatar ? Buffer.from(user.Avatar).toString('base64') : null;
 
     return res.json({
@@ -76,12 +80,29 @@ router.post('/login', async (req, res) => {
         email: user.Email,
         pseudo: user.Pseudo,
         niveau: user.niveau,
-        avatar: avatarBase64
+        avatar: avatarBase64,
+        online: 1
       }
     });
-
   } catch (err) {
     console.error("Erreur login:", err);
+    return res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
+});
+
+// Déconnexion
+router.post('/logout', async (req, res) => {
+  const { userId } = req.body;
+
+  if (!userId) {
+    return res.status(400).json({ success: false, message: "ID utilisateur requis" });
+  }
+
+  try {
+    await query("UPDATE users SET Online = 0 WHERE ID_Users = ?", [userId]);
+    return res.json({ success: true, message: "Déconnecté avec succès" });
+  } catch (err) {
+    console.error("Erreur logout:", err);
     return res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });

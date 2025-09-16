@@ -1,37 +1,45 @@
 // battleship-api/index.js
+import express from "express";
+import cors from "cors";
 
-import express from 'express';
-import cors from 'cors';
-import authRoutes from './routes/auth.js'; 
-import userProfileRoutes from './routes/user.js';  // GET + PUT user profile
-import adminUsersRoutes from './api/admin/users.js';
-import checkPseudoRoute from './api/check-pseudo.js';
-import gameRoutes from './routes/games.js';
+// Routes
+import authRoutes from "./routes/auth.js"; 
+import userProfileRoutes from "./routes/user.js";  
+import checkPseudoRoute from "./api/check-pseudo.js";
+import gamesRouter from "./routes/games.js"; 
+import friendsRouter from './routes/friends.js';
+import getGameRouter from "./api/games/get-game.js";
 
-
-/* Initialisation de l'app */
 const app = express();
-const friendsRoutes = require("./routes/friends");
-
-
 
 // Middleware
-app.use(cors());
-app.use(express.json({ limit: '20mb' }));
+app.use(cors({
+  origin: 'http://localhost:5173', 
+  credentials: true
+}));
+
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 // Routes API
-app.use('/api', authRoutes);                // auth routes
-app.use('/api/users', userProfileRoutes);  // routes /api/users/:id (GET, PUT)
-app.use('/api/admin', adminUsersRoutes);
-app.use('/api', checkPseudoRoute);
-app.use('/api', gameRoutes);
-
+app.use("/api", authRoutes);                
+app.use("/api/users", userProfileRoutes);   
+app.use("/api", checkPseudoRoute);
+app.use("/api/friends", friendsRouter);     
+app.use("/api/games", gamesRouter);
+app.use("/api/games", getGameRouter);
 
 // Route de base
 app.get('/', (req, res) => {
-  res.send('Bienvenue sur l\'API BattleShip ! 🚢');
+  res.send("Bienvenue sur l'API BattleShip ! 🚢");
 });
 
+// Gestion 404 pour toutes les routes non définies
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: "Route introuvable" });
+});
+
+// Démarrage serveur
 const PORT = 3000;
 app.listen(PORT, () => {
   console.log(`✅ API démarrée sur http://localhost:${PORT}`);

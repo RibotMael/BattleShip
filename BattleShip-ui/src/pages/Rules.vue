@@ -55,7 +55,7 @@
     </ul>
 
     <h2>📊 Suivi des victoires & défaites</h2>
-    <p>Chaque joueur dispose d’un **compte de victoires/défaites**, visible sur son profil :</p>
+    <p>Chaque joueur dispose d’un <strong>compte de victoires/défaites</strong>, visible sur son profil :</p>
     <ul>
       <li><strong>Victoire</strong> : Gagner une partie augmente le compteur de victoires.</li>
       <li><strong>Défaite</strong> : Perdre une partie augmente le compteur de défaites.</li>
@@ -71,9 +71,9 @@
     <p>Le créateur de la partie peut :</p>
     <ul>
       <li>Choisir un mode de jeu (1vs1, 2vs2, etc.) et un mode linguistique (Français ou Belge).</li>
-      <li>Créer une partie **publique ou privée** (avec mot de passe pour les parties privées).</li>
+      <li>Créer une partie <strong>publique ou privée</strong> (avec mot de passe pour les parties privées).</li>
       <li>Paramétrer la flotte classique : les règles de placement des navires et le type de flotte (selon le mode linguistique choisi).</li>
-      <li>Définir un **temps de réflexion par tour** pour chaque joueur.</li>
+      <li>Définir un <strong>temps de réflexion par tour</strong> pour chaque joueur.</li>
     </ul>
 
     <button @click="$router.push('/')" class="back-button">Retour au menu</button>

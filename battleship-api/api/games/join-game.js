@@ -1,33 +1,103 @@
-// battleship-api/api/join-game
-router.post('/join-game', async (req, res) => {
-  const { gameId, playerId } = req.body;
-  const game = games.find(g => g.id === gameId && g.status === 'waiting');
-  
+// battleship-api/api/games/join-game.js
+import express from "express";
+import db from "../../db.js";
 
-if (alreadyJoined.length > 0) {
-  return res.json({ success: true, message: 'Joueur déjà dans la partie' });
+const router = express.Router();
+
+function sanitize(param) {
+  return param !== undefined ? param : null;
 }
 
+// Rejoindre une partie
+router.post('/join', async (req, res) => {
+  const { gameId, playerId, totalPlayers } = req.body;
 
-  if (!game) return res.status(404).json({ success: false, message: "Partie non trouvée" });
-
-  if (game.players.length >= game.totalPlayers) {
-    return res.status(400).json({ success: false, message: "Partie déjà pleine" });
+  if (!gameId || !playerId || !totalPlayers) {
+    return res.status(400).json({ success: false, message: "Paramètres manquants" });
   }
 
-  game.players.push(playerId);
-
-  // Démarrage si assez de joueurs
-  if (game.players.length === game.totalPlayers) {
-    game.status = 'ready';
-  }
-
-  res.json({ success: true, game });
-
-  // Vérifier si le joueur est déjà dans la partie
-    const [alreadyJoined] = await db.query(
-    'SELECT * FROM game_players WHERE Game_ID = ? AND Player_ID = ?',
-    [gameId, playerId]
+  try {
+    // Vérifier si la partie existe
+    const [games] = await db.execute(
+      'SELECT * FROM games WHERE id_Game = ?',
+      [gameId]
     );
-  
+    if (!games.length) return res.status(404).json({ success: false, message: "Partie introuvable" });
+    const game = games[0];
+
+    // Vérifier si le joueur est déjà dans la partie
+    const [already] = await db.execute(
+      'SELECT * FROM game_players WHERE game_id = ? AND player_id = ?',
+      [gameId, playerId]
+    );
+    if (already.length) {
+      const [players] = await db.execute(
+        `SELECT gp.player_id AS ID_Users, u.Pseudo
+         FROM game_players gp
+         JOIN users u ON u.ID_Users = gp.player_id
+         WHERE gp.game_id = ?`,
+        [gameId]
+      );
+      return res.json({
+        success: true,
+        message: "Déjà dans la partie",
+        game: {
+          ID_Game: game.id_Game,
+          status: game.status,
+          creator_id: game.creator_id,
+          TotalPlayers: totalPlayers
+        },
+        players
+      });
+    }
+
+    // Ajouter le joueur
+    const [currentCount] = await db.execute(
+      'SELECT COUNT(*) AS count FROM game_players WHERE game_id = ?',
+      [gameId]
+    );
+    const teamNumber = currentCount[0].count + 1;
+
+    await db.execute(
+      'INSERT INTO game_players (game_id, player_id, team_number, player_status) VALUES (?, ?, ?, "in_game")',
+      [gameId, playerId, teamNumber]
+    );
+
+    // Mettre à jour le statut si nombre de joueurs atteint
+    let newStatus = game.status;
+    if (currentCount[0].count + 1 >= totalPlayers) {
+      await db.execute(
+        'UPDATE games SET status = "started" WHERE id_Game = ?',
+        [gameId]
+      );
+      newStatus = "started";
+    }
+
+    // Récupérer la liste des joueurs
+    const [players] = await db.execute(
+      `SELECT gp.player_id AS ID_Users, u.Pseudo
+       FROM game_players gp
+       JOIN users u ON u.ID_Users = gp.player_id
+       WHERE gp.game_id = ?`,
+      [gameId]
+    );
+
+    res.json({
+      success: true,
+      message: "Rejoint la partie",
+      game: {
+        ID_Game: game.id_Game,
+        status: newStatus,
+        creator_id: game.creator_id,
+        TotalPlayers: totalPlayers
+      },
+      players
+    });
+
+  } catch (err) {
+    console.error("Erreur join:", err);
+    res.status(500).json({ success: false, message: "Erreur serveur." });
+  }
 });
+
+export default router;

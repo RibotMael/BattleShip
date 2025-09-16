@@ -6,6 +6,7 @@
 
     <form @submit.prevent="handleSubmit">
       <input v-model="email" type="email" placeholder="Email" required />
+
       <div class="password-wrapper">
         <input
           v-model="password"
@@ -30,13 +31,14 @@
             {{ showConfirmPassword ? '🙈' : '👁️' }}
           </span>
         </div>
+
         <input v-model="pseudo" type="text" placeholder="Pseudo" required @blur="checkPseudo" />
         <input v-model="birthDay" type="date" required @blur="validateBirthDay" />
 
         <h3>Avatar</h3>
         <input type="file" @change="onFileChange" accept="image/*" />
         <img 
-          :src="avatar ? 'data:image/jpeg;base64,' + avatar + '?t=' + refreshKey : defaultAvatar" 
+          :src="avatar ? avatar : defaultAvatar" 
           class="avatar-preview" 
         />
 
@@ -67,6 +69,7 @@
 import axios from "axios";
 import defaultAvatarImage from '@/assets/images/ppHomme.png';
 
+
 export default {
   data() {
     return {
@@ -81,8 +84,7 @@ export default {
       errorMsg: "",
       legalAccepted: false,
       showPassword: false,
-      showConfirmPassword: false,
-      refreshKey: Date.now(),
+      showConfirmPassword: false
     };
   },
   methods: {
@@ -97,12 +99,13 @@ export default {
 
     onFileChange(event) {
       const file = event.target.files[0];
-      event.target.value = null; // important pour pouvoir réuploader la même image
       if (!file) return;
+
+      event.target.value = null;
+
       const reader = new FileReader();
       reader.onload = () => {
-        this.avatar = reader.result.split(',')[1];
-        this.refreshKey = Date.now(); // force le rafraîchissement de l’image
+        this.avatar = reader.result; // "data:image/png;base64,AAAA..."
       };
       reader.readAsDataURL(file);
     },
@@ -160,17 +163,20 @@ export default {
         }
       }
 
-       let avatarToSend = this.avatar;
+      let avatarToSend = this.avatar;
 
       if (!this.avatar && !this.isLogin) {
-        // convertir l'image par défaut en base64
         try {
-          avatarToSend = await this.getBase64FromUrl(defaultAvatarImage);
+          avatarToSend = await this.getBase64FromUrl(this.defaultAvatar);
         } catch (e) {
           console.error("Erreur lors du chargement de l'avatar par défaut", e);
         }
       }
 
+      // 🔹 Nettoyage : enlever "data:image/png;base64,"
+      if (avatarToSend && avatarToSend.startsWith("data:image")) {
+        avatarToSend = avatarToSend.split(",")[1];
+      }
 
       const formData = {
         email: this.email,
@@ -191,9 +197,17 @@ export default {
         if (data.success) {
           if (this.isLogin) {
             this.$emit("login-success", data.user);
+            this.$router.push("/");
           } else {
-            alert("Inscription réussie !");
-            this.toggleForm();
+            // 🔹 Inscription réussie → retour vers login
+            alert("Inscription réussie ! Connecte-toi maintenant.");
+            this.isLogin = true;  // bascule en mode login
+            this.email = "";
+            this.password = "";
+            this.confirmPassword = "";
+            this.pseudo = "";
+            this.birthDay = "";
+            this.avatar = null;
           }
         } else {
           this.errorMsg = data.message || "Une erreur est survenue.";
@@ -205,20 +219,19 @@ export default {
           this.errorMsg = "Erreur de communication avec le serveur.";
         }
       }
-      
     },
+
     async getBase64FromUrl(url) {
       const response = await fetch(url);
       const blob = await response.blob();
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result.split(',')[1]); // base64 only
+        reader.onloadend = () => resolve(reader.result);
         reader.onerror = reject;
         reader.readAsDataURL(blob);
       });
-    },
-
-  },
+    }
+  }
 };
 </script>
 
@@ -383,7 +396,5 @@ button:hover {
   user-select: none;
   color: #555;
 }
-
-
 
 </style>
