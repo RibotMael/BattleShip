@@ -42,19 +42,38 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// 🔹 Récupérer la liste des amis
 router.get('/:id/list', async (req, res) => {
   const userId = req.params.id;
 
   try {
     const sql = `
-      SELECT u.ID_Users AS id, u.Pseudo AS pseudo, a.Avatar AS Avatar, u.isOnline
+      SELECT u.ID_Users AS id, u.Pseudo AS pseudo, a.Avatar AS avatar_blob, u.Online AS isOnline
       FROM friends f
-      JOIN users u ON (u.ID_Users = f.friend_id OR u.ID_Users = f.user_id)
+      JOIN users u 
+        ON (u.ID_Users = f.Sender_ID OR u.ID_Users = f.Receiver_ID)
       LEFT JOIN avatar a ON u.Avatar = a.ID_Avatar
-      WHERE (f.user_id = ? OR f.friend_id = ?) AND u.ID_Users != ?
+      WHERE (f.Sender_ID = ? OR f.Receiver_ID = ?) 
+        AND u.ID_Users != ?
     `;
     const [friends] = await query(sql, [userId, userId, userId]);
-    res.json({ success: true, friends });
+
+    // Transformer les avatars en base64
+    const friendsWithAvatar = friends.map(f => {
+      let avatar = null;
+      if (f.avatar_blob) {
+        const base64 = Buffer.from(f.avatar_blob).toString('base64');
+        avatar = `data:image/png;base64,${base64}`;
+      }
+      return {
+        id: f.id,
+        pseudo: f.pseudo,
+        avatar,
+        isOnline: !!f.isOnline
+      };
+    });
+
+    res.json({ success: true, friends: friendsWithAvatar });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
@@ -71,7 +90,6 @@ router.put('/:id', async (req, res) => {
   try {
     let avatarId = null;
 
-    // Récupérer l'ancien avatar (si existe)
     const [[user]] = await query("SELECT Avatar FROM users WHERE ID_Users = ?", [userId]);
     const oldAvatarId = user?.Avatar || null;
 
@@ -80,13 +98,11 @@ router.put('/:id', async (req, res) => {
       const extension = mimeType.split('/')[1] || 'png';
       const avatarName = `user_${userId}_${Date.now()}.${extension}`;
 
-      // Insérer le nouvel avatar
       const insertSql = "INSERT INTO avatar (Avatar, Name, mime_type) VALUES (?, ?, ?)";
       const [result] = await query(insertSql, [buffer, avatarName, mimeType]);
       avatarId = result.insertId;
     }
 
-    // Mettre à jour l’utilisateur
     let updateSql, params;
     if (avatarId) {
       updateSql = "UPDATE users SET Pseudo = ?, Avatar = ? WHERE ID_Users = ?";
@@ -101,12 +117,10 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ message: "Utilisateur non trouvé" });
     }
 
-    // Supprimer l'ancien avatar si un nouveau a été ajouté
     if (avatarId && oldAvatarId) {
       await query("DELETE FROM avatar WHERE ID_Avatar = ?", [oldAvatarId]);
     }
 
-    // Récupérer l’utilisateur mis à jour
     const selectSql = `
       SELECT u.ID_Users, u.Email, u.Pseudo, u.BirthDay, u.niveau,
              a.Avatar AS avatar_blob, a.mime_type
@@ -143,14 +157,11 @@ router.delete('/:id', async (req, res) => {
   const userId = req.params.id;
 
   try {
-    // Vérifier si utilisateur existe
     const [[user]] = await query("SELECT Avatar FROM users WHERE ID_Users = ?", [userId]);
     if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
 
-    // Supprimer l’utilisateur
     await query("DELETE FROM users WHERE ID_Users = ?", [userId]);
 
-    // Supprimer l’avatar lié
     if (user.Avatar) {
       await query("DELETE FROM avatar WHERE ID_Avatar = ?", [user.Avatar]);
     }

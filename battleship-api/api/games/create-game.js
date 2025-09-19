@@ -23,7 +23,7 @@ router.post('/create-game', async (req, res) => {
 
   try {
     const [result] = await db.execute(
-      `INSERT INTO games (creator_id, game_mode_id, game_type_id, team_mode_id, version_id, status)
+      `INSERT INTO games (id_creator, id_game_mode, id_game_type, id_team_mode, id_version, status)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [creatorId, gameModeId, gameTypeId, teamModeId, versionId, 'preparation']
     );
@@ -35,11 +35,11 @@ router.post('/create-game', async (req, res) => {
       gameId,
       game: {
         id_Game: gameId,
-        creator_id: creatorId,
-        game_mode_id: gameModeId,
-        game_type_id: gameTypeId,
-        team_mode_id: teamModeId,
-        version_id: versionId,
+        id_creator: creatorId,
+        id_game_mode: gameModeId,
+        id_game_type: gameTypeId,
+        id_team_mode: teamModeId,
+        id_version: versionId,
         totalPlayers, // <-- on renvoie le totalPlayers côté front
         status: 'preparation'
       }
@@ -63,10 +63,10 @@ router.get('/:id', async (req, res) => {
     const game = games[0];
 
     const [players] = await db.execute(
-      `SELECT gp.player_id AS ID_Users, u.Pseudo 
+      `SELECT gp.id_player AS ID_Users, u.Pseudo 
        FROM game_players gp
-       JOIN users u ON u.ID_Users = gp.player_id
-       WHERE gp.game_id = ?`,
+       JOIN users u ON u.ID_Users = gp.id_player
+       WHERE gp.id_game = ?`,
       [gameId]
     );
 

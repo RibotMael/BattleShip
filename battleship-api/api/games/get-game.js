@@ -11,7 +11,7 @@ router.get("/:id", async (req, res) => {
   try {
     // Récupérer la partie
     const [gameRows] = await db.execute(
-      "SELECT *, team_mode_id AS TotalPlayers FROM games WHERE id_Game = ?",
+      "SELECT *, id_team_mode AS TotalPlayers FROM games WHERE id_Game = ?",
       [id]
     );
 
@@ -22,10 +22,10 @@ router.get("/:id", async (req, res) => {
 
     // Récupérer les joueurs
     const [players] = await db.execute(
-      `SELECT gp.player_id AS ID_Users, u.Pseudo
+      `SELECT gp.id_player AS ID_Users, u.Pseudo
        FROM game_players gp
-       JOIN users u ON u.ID_Users = gp.player_id
-       WHERE gp.game_id = ?`,
+       JOIN users u ON u.ID_Users = gp.id_player
+       WHERE gp.id_game = ?`,
       [id]
     );
 

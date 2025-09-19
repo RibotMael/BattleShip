@@ -58,13 +58,13 @@
 </template>
 
 <script>
+import { invitationStore, removeInvitation, addInvitation } from '@/eventBus';
 export default {
   props: ["userId"],
   data() {
     return {
       friends: [],
       requests: [],
-      invitations: [],
       identifier: "",
     };
   },
@@ -78,6 +78,11 @@ export default {
   },
   beforeUnmount() {
     clearInterval(this.refreshInterval);
+  },
+  computed: {
+    invitations() {
+      return invitationStore.invitations;
+    }
   },
   methods: {
     async fetchFriends() {
@@ -100,15 +105,15 @@ export default {
       try {
         const res = await fetch(`http://localhost:3000/api/invitations/${this.userId}`);
         const data = await res.json();
-        this.invitations = data.invitations || [];
+        invitationStore.invitations = data.invitations || [];
       } catch (err) {
         console.error("Erreur récupération invitations :", err);
       }
     },
 
     async inviteFriend(friendId) {
-      if (!friendId) return alert("ID de l'ami invalide !");
-      const payload = { userId: this.userId, toId: friendId };
+      if (!this.game.ID_Game || !this.userId) return;
+      const payload = { gameId: this.game.ID_Game, fromId: this.userId, toId: friendId };
       try {
         const res = await fetch("http://localhost:3000/api/games/invite", {
           method: "POST",
@@ -116,7 +121,9 @@ export default {
           body: JSON.stringify(payload)
         });
         const data = await res.json();
-        if (!data.success) alert("Erreur invitation : " + data.message);
+        if (!data.success) return alert("Erreur invitation : " + data.message);
+        // ✅ Ne pas ajouter le joueur directement
+        alert("Invitation envoyée !");
       } catch (err) {
         console.error(err);
         alert("Erreur serveur lors de l'invitation");
@@ -131,10 +138,20 @@ export default {
           body: JSON.stringify({ userId: this.userId, gameId, senderId, accept })
         });
         const data = await res.json();
+
+        removeInvitation(gameId, this.userId);
+
         if (accept && data.success) {
+          await fetch("http://localhost:3000/api/games/join", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              gameId,
+              playerId: this.userId,
+              totalPlayers: data.game?.TotalPlayers || 2
+            })
+          });
           this.$router.push(`/waiting-room/${gameId}`);
-        } else {
-          this.fetchInvitations();
         }
       } catch (err) {
         console.error("Erreur respondInvite :", err);

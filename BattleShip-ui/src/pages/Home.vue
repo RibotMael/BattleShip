@@ -10,8 +10,12 @@
       <div v-else>
         <header class="top-bar">
           <div class="add-friend">
-            <button @click="openFriendsPopup">➕ Amis</button>
+            <button @click="openFriendsPopup">
+              ➕ Amis
+              <span v-if="invitationCount > 0" class="invite-count">{{ invitationCount }}</span>
+            </button>
           </div>
+
 
           <div class="user-info" @click="toggleUserMenu">
             <img :src="avatarSrc" class="avatar" />
@@ -51,6 +55,8 @@ import logo from '@/assets/images/BATTLESHIPLOGO.png';
 import { eventBus } from '@/eventBus';
 import { watch } from 'vue';
 import defaultAvatar from '@/assets/images/ppHomme.png';
+import { invitationStore } from '@/eventBus';
+
 
 export default {
   components: { AuthForm, FriendsPopup },
@@ -65,7 +71,10 @@ export default {
   computed: {
     avatarSrc() {
       if (!this.user) return defaultAvatar;
-      return this.user.avatar || defaultAvatar; // avatar déjà prêt depuis le backend
+      return this.user.avatar || defaultAvatar;
+    },
+    invitationCount() {
+      return invitationStore.invitations.length;
     },
   },
   created() {
@@ -407,4 +416,15 @@ export default {
   transform: scale(1.05);
   opacity: 0.9;
 }
+
+.invite-count {
+  background: red;
+  color: white;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 50%;
+  margin-left: 5px;
+  font-size: 0.8rem;
+}
+
 </style>

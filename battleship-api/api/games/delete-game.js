@@ -16,7 +16,7 @@ router.delete('/:gameId', async (req, res) => {
   try {
     // Vérifier que la partie existe et récupérer l'hôte
     const [gameRows] = await db.execute(
-      "SELECT creator_id FROM games WHERE id_Game = ?",
+      "SELECT id_creator FROM games WHERE id_Game = ?",
       [gameId]
     );
 
@@ -27,12 +27,12 @@ router.delete('/:gameId', async (req, res) => {
     const game = gameRows[0];
 
     // Vérifier que c'est bien l'hôte
-    if (Number(game.creator_id) !== Number(playerId)) {
+    if (Number(game.id_creator) !== Number(playerId)) {
       return res.status(403).json({ success: false, message: "Seul l'hôte peut supprimer la partie" });
     }
 
     // Supprimer tous les joueurs de cette partie
-    await db.execute("DELETE FROM game_players WHERE game_id = ?", [gameId]);
+    await db.execute("DELETE FROM game_players WHERE id_game = ?", [gameId]);
 
     // Supprimer la partie
     await db.execute("DELETE FROM games WHERE id_Game = ?", [gameId]);

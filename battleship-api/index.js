@@ -9,6 +9,7 @@ import checkPseudoRoute from "./api/check-pseudo.js";
 import gamesRouter from "./routes/games.js"; 
 import friendsRouter from './routes/friends.js';
 import getGameRouter from "./api/games/get-game.js";
+import invitationsRouter from './routes/invitations.js';
 
 const app = express();
 
@@ -22,12 +23,13 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 // Routes API
-app.use("/api", authRoutes);                
-app.use("/api/users", userProfileRoutes);   
-app.use("/api", checkPseudoRoute);
-app.use("/api/friends", friendsRouter);     
-app.use("/api/games", gamesRouter);
-app.use("/api/games", getGameRouter);
+app.use("/api", authRoutes);                     // Auth
+app.use("/api/users", userProfileRoutes);       // Profils
+app.use("/api", checkPseudoRoute);              // Check pseudo
+app.use("/api/friends", friendsRouter);         // Friends
+app.use("/api/games", gamesRouter);             // Création, join, invite, leave
+app.use("/api/games/get", getGameRouter);       // Routes pour récupérer les parties
+app.use("/api/invitations", invitationsRouter); // Invitations
 
 // Route de base
 app.get('/', (req, res) => {

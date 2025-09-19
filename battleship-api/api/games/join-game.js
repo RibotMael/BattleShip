@@ -27,15 +27,15 @@ router.post('/join', async (req, res) => {
 
     // Vérifier si le joueur est déjà dans la partie
     const [already] = await db.execute(
-      'SELECT * FROM game_players WHERE game_id = ? AND player_id = ?',
+      'SELECT * FROM game_players WHERE id_game = ? AND id_player = ?',
       [gameId, playerId]
     );
     if (already.length) {
       const [players] = await db.execute(
-        `SELECT gp.player_id AS ID_Users, u.Pseudo
+        `SELECT gp.id_player AS ID_Users, u.Pseudo
          FROM game_players gp
-         JOIN users u ON u.ID_Users = gp.player_id
-         WHERE gp.game_id = ?`,
+         JOIN users u ON u.ID_Users = gp.id_player
+         WHERE gp.id_game = ?`,
         [gameId]
       );
       return res.json({
@@ -44,7 +44,7 @@ router.post('/join', async (req, res) => {
         game: {
           ID_Game: game.id_Game,
           status: game.status,
-          creator_id: game.creator_id,
+          id_creator: game.id_creator,
           TotalPlayers: totalPlayers
         },
         players
@@ -53,13 +53,13 @@ router.post('/join', async (req, res) => {
 
     // Ajouter le joueur
     const [currentCount] = await db.execute(
-      'SELECT COUNT(*) AS count FROM game_players WHERE game_id = ?',
+      'SELECT COUNT(*) AS count FROM game_players WHERE id_game = ?',
       [gameId]
     );
     const teamNumber = currentCount[0].count + 1;
 
     await db.execute(
-      'INSERT INTO game_players (game_id, player_id, team_number, player_status) VALUES (?, ?, ?, "in_game")',
+      'INSERT INTO game_players (id_game, id_player, team_number, player_status) VALUES (?, ?, ?, "in_game")',
       [gameId, playerId, teamNumber]
     );
 
@@ -75,10 +75,10 @@ router.post('/join', async (req, res) => {
 
     // Récupérer la liste des joueurs
     const [players] = await db.execute(
-      `SELECT gp.player_id AS ID_Users, u.Pseudo
+      `SELECT gp.id_player AS ID_Users, u.Pseudo
        FROM game_players gp
-       JOIN users u ON u.ID_Users = gp.player_id
-       WHERE gp.game_id = ?`,
+       JOIN users u ON u.ID_Users = gp.id_player
+       WHERE gp.id_game = ?`,
       [gameId]
     );
 
@@ -88,7 +88,7 @@ router.post('/join', async (req, res) => {
       game: {
         ID_Game: game.id_Game,
         status: newStatus,
-        creator_id: game.creator_id,
+        id_creator: game.id_creator,
         TotalPlayers: totalPlayers
       },
       players

@@ -28,6 +28,7 @@
         </li>
       </ul>
 
+
       <button 
         v-if="friends.length > 0"
         @click="inviteAllFriends"
@@ -88,8 +89,8 @@ export default {
       );
     },
     canStartGame() {
-      if (Number(this.userId) !== Number(this.game.creator_id)) return false;
-      const requiredPlayers = this.game.TotalPlayers || this.game.team_mode_id || 2;
+      if (Number(this.userId) !== Number(this.game.id_creator)) return false;
+      const requiredPlayers = this.game.TotalPlayers || this.game.id_team_mode || 2;
       return this.playersWithMe.length === requiredPlayers;
     },
   },
@@ -116,14 +117,56 @@ export default {
       try {
         const res = await fetch(`http://localhost:3000/api/friends/list/${this.userId}`);
         const friendsData = await res.json();
+
+        if (!Array.isArray(friendsData)) {
+          console.error("Réponse inattendue / erreur backend :", friendsData);
+          this.friends = [];
+          return;
+        }
+
+        // Normalisation uniforme comme dans FriendsPopup.vue
         this.friends = friendsData.map(f => ({
           ID_Users: f.id ?? f.ID_Users,
           Pseudo: f.pseudo ?? f.Pseudo,
           avatar: f.avatar || null,
           isOnline: f.isOnline ?? false,
         }));
+
       } catch (err) {
         console.error("Erreur récupération amis :", err);
+        this.friends = [];
+      }
+    },
+    async respondInvite(senderId, accept) {
+      try {
+        const res = await fetch("http://localhost:3000/api/friends/respond", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            senderId,
+            receiverId: this.userId,
+            accept
+          })
+        });
+        const data = await res.json();
+        if (!data.success) return alert("Erreur réponse invitation : " + data.message);
+
+        if (accept) {
+          // Rejoindre la partie du créateur
+          await fetch("http://localhost:3000/api/games/join", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              gameId: data.gameId,
+              playerId: this.userId,
+              totalPlayers: data.totalPlayers || 2
+            })
+          });
+          this.$router.push(`/waiting-room/${data.gameId}`);
+        }
+      } catch (err) {
+        console.error("respondInvite error :", err);
+        alert("Erreur serveur lors de la réponse à l'invitation");
       }
     },
     async fetchGame() {
@@ -143,8 +186,8 @@ export default {
 
         this.players = data.players || [];
         this.onlinePlayers = data.onlinePlayers || [];
-        this.isHost = Number(this.userId) === Number(this.game.creator_id);
-        this.totalPlayers = this.game.TotalPlayers || this.game.team_mode_id || 2;
+        this.isHost = Number(this.userId) === Number(this.game.id_creator);
+        this.totalPlayers = this.game.TotalPlayers || this.game.id_team_mode || 2;
 
         if (!this.game.status) this.game.status = "preparation";
 
@@ -183,7 +226,7 @@ export default {
         if (!this.game.ID_Game) this.game.ID_Game = gameIdFromRoute;
 
         this.players = data.players || [];
-        this.isHost = Number(this.userId) === Number(this.game.creator_id);
+        this.isHost = Number(this.userId) === Number(this.game.id_creator);
 
         this.inviteLink = `${window.location.origin}/waiting-room/${this.game.ID_Game}`;
 
@@ -199,19 +242,29 @@ export default {
       return this.onlinePlayers.includes(playerId);
     },
     async inviteFriend(friendId) {
-      if (!this.game.ID_Game || !this.userId || this.isPlayerInGame(friendId)) return;
-      const payload = { gameId: this.game.ID_Game, fromId: this.userId, toId: friendId, senderPseudo: this.user?.pseudo || "Moi" };
+      if (!this.userId || !friendId || !this.game.ID_Game) return;
       try {
+        console.log("[WaitingRoom] Invitation partie envoyée à friendId:", friendId);
+
         const res = await fetch("http://localhost:3000/api/games/invite", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            gameId: this.game.ID_Game,
+            senderId: this.userId,       // hôte de la partie
+            receiverId: friendId         // ami à inviter
+          })
         });
+
         const data = await res.json();
-        if (!data.success) alert("Erreur invitation : " + data.message);
+        console.log("[WaitingRoom] Réponse backend inviteFriend:", data);
+
+        if (!data.success) return alert("Erreur invitation : " + data.message);
+
+        alert(`Invitation envoyée à ${this.friends.find(f => f.ID_Users === friendId)?.Pseudo} !`);
       } catch (err) {
-        console.error(err);
-        alert("Erreur serveur lors de l'invitation");
+        console.error("inviteFriend error :", err);
+        alert("Erreur serveur lors de l'invitation à la partie");
       }
     },
     async inviteAllFriends() {

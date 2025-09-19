@@ -96,6 +96,8 @@ export default {
           avatar: updatedUser.avatar || defaultAvatar
         }));
 
+
+
         this.avatarPreviewUrl = updatedUser.avatar || defaultAvatar;
         this.pseudo = updatedUser.pseudo;
         eventBus.userUpdated = !eventBus.userUpdated;

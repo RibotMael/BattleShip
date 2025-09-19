@@ -1,8 +1,7 @@
 // battleship-api/routes/games.js
 import express from 'express';
 import db from '../db.js';
-import { sendInvite, getInvitationsForUser, removeInvite } from '../stores/invitationStore.js';
-
+import { sendInvite, getInvitationsForUser, removeInvitation } from '../stores/invitationStore.js';
 
 const router = express.Router();
 
@@ -18,49 +17,44 @@ router.post('/create-game', async (req, res) => {
   }
 
   try {
-    // Récupérer mode
     const [modeRow] = await db.execute(
       'SELECT id_Mode FROM mode WHERE name = ?',
       [isPrivate ? 'Private' : 'Public']
     );
     if (!modeRow.length) throw new Error("Mode introuvable");
-    const game_mode_id = modeRow[0].id_Mode;
+    const id_game_mode = modeRow[0].id_Mode;
 
-    // Récupérer type
     const typeName = totalPlayers > 2 ? 'Team' : 'Solo';
     const [typeRow] = await db.execute(
       'SELECT id_Type FROM type WHERE name = ?',
       [typeName]
     );
     if (!typeRow.length) throw new Error("Type introuvable");
-    const game_type_id = typeRow[0].id_Type;
+    const id_game_type = typeRow[0].id_Type;
 
-    // Récupérer version
     const versionName = language === 'fr' ? 'French' : 'Belgium';
     const [versionRow] = await db.execute(
       'SELECT id_Version FROM version WHERE name = ?',
       [versionName]
     );
     if (!versionRow.length) throw new Error("Version introuvable");
-    const version_id = versionRow[0].id_Version;
+    const id_version = versionRow[0].id_Version;
 
-    // Récupérer team_mode_id seulement si Team
-    let team_mode_id = null;
+    let id_team_mode = null;
     if (totalPlayers > 2) {
       const [teamRow] = await db.execute(
         'SELECT id_Team FROM team_mode WHERE team_size = ?',
         [totalPlayers]
       );
       if (!teamRow.length) throw new Error("Team mode introuvable");
-      team_mode_id = teamRow[0].id_Team;
+      id_team_mode = teamRow[0].id_Team;
     }
 
-    // Créer la partie
     const [result] = await db.execute(
       `INSERT INTO games 
-        (creator_id, game_mode_id, game_type_id, team_mode_id, version_id, status)
+        (id_creator, id_game_mode, id_game_type, id_team_mode, id_version, status)
         VALUES (?, ?, ?, ?, ?, 'preparation')`,
-      [hostId, game_mode_id, game_type_id, team_mode_id, version_id]
+      [hostId, id_game_mode, id_game_type, id_team_mode, id_version]
     );
 
     const gameId = result.insertId;
@@ -70,13 +64,13 @@ router.post('/create-game', async (req, res) => {
       gameId,
       game: {
         ID_Game: gameId,
-        creator_id: hostId,
-        game_mode_id,
-        game_type_id,
-        team_mode_id,
-        version_id,
+        id_creator: hostId,
+        id_game_mode,
+        id_game_type,
+        id_team_mode,
+        id_version,
         Status: 'preparation',
-        TotalPlayers: totalPlayers // côté front seulement
+        TotalPlayers: totalPlayers
       }
     });
   } catch (err) {
@@ -89,13 +83,13 @@ router.post('/create-game', async (req, res) => {
 router.post('/join', async (req, res) => {
   const gameId = sanitize(req.body.gameId);
   const playerId = sanitize(req.body.playerId);
-  const totalPlayers = sanitize(req.body.totalPlayers); // envoyé par le front
+  const totalPlayers = sanitize(req.body.totalPlayers);
   if (!gameId || !playerId || !totalPlayers) 
     return res.status(400).json({ success: false, message: "Paramètres manquants" });
 
   try {
     const [already] = await db.execute(
-      'SELECT * FROM game_players WHERE game_id = ? AND player_id = ?',
+      'SELECT * FROM game_players WHERE id_game = ? AND id_player = ?',
       [gameId, playerId]
     );
     if (already.length) return res.json({ success: true, message: "Joueur déjà dans la partie" });
@@ -104,17 +98,16 @@ router.post('/join', async (req, res) => {
     if (!games.length) return res.status(404).json({ success: false, message: "Partie non trouvée" });
     const game = games[0];
 
-    const [current] = await db.execute('SELECT COUNT(*) AS count FROM game_players WHERE game_id = ?', [gameId]);
+    const [current] = await db.execute('SELECT COUNT(*) AS count FROM game_players WHERE id_game = ?', [gameId]);
     if (current[0].count >= totalPlayers) 
       return res.status(400).json({ success: false, message: "Partie déjà pleine" });
 
     const teamNumber = current[0].count + 1;
     await db.execute(
-      'INSERT INTO game_players (game_id, player_id, team_number, player_status) VALUES (?, ?, ?, "in_game")',
+      'INSERT INTO game_players (id_game, id_player, team_number, player_status) VALUES (?, ?, ?, "in_game")',
       [gameId, playerId, teamNumber]
     );
 
-    // Mettre à jour status si complet
     let newStatus = game.status;
     if (current[0].count + 1 === totalPlayers) {
       await db.execute('UPDATE games SET status = "started" WHERE id_Game = ?', [gameId]);
@@ -122,10 +115,10 @@ router.post('/join', async (req, res) => {
     }
 
     const [players] = await db.execute(
-      `SELECT gp.player_id AS ID_Users, u.Pseudo 
+      `SELECT gp.id_player AS ID_Users, u.Pseudo 
        FROM game_players gp
-       JOIN users u ON u.ID_Users = gp.player_id
-       WHERE gp.game_id = ?`,
+       JOIN users u ON u.ID_Users = gp.id_player
+       WHERE gp.id_game = ?`,
       [gameId]
     );
 
@@ -135,7 +128,7 @@ router.post('/join', async (req, res) => {
       game: {
         ID_Game: gameId,
         status: newStatus,
-        creator_id: game.creator_id,
+        id_creator: game.id_creator,
         TotalPlayers: totalPlayers
       },
       players
@@ -147,40 +140,84 @@ router.post('/join', async (req, res) => {
   }
 });
 
-// Envoyer une invitation
-router.post("/invite", (req, res) => {
-  const { gameId, fromId, toId, senderPseudo } = req.body;
-  if (!gameId || !fromId || !toId) {
+// Envoyer une invitation à un ami pour rejoindre la partie
+router.post('/invite', async (req, res) => {
+  const { gameId, senderId, receiverId } = req.body;
+  if (!gameId || !senderId || !receiverId)
     return res.status(400).json({ success: false, message: "Paramètres manquants" });
-  }
 
-  sendInvite({ gameId, fromId, toId, senderPseudo });
-  res.json({ success: true, message: "Invitation envoyée" });
+  try {
+    // Récupère pseudo de l'envoyeur
+    const [rows] = await db.execute('SELECT Pseudo FROM users WHERE ID_Users = ?', [senderId]);
+    const senderPseudo = rows[0]?.Pseudo || 'Anonyme';
+
+    sendInvite(gameId, senderId, receiverId, senderPseudo);
+
+    res.json({ success: true, message: "Invitation envoyée" });
+  } catch (err) {
+    console.error("invite error :", err);
+    res.status(500).json({ success: false, message: "Erreur serveur lors de l'invitation" });
+  }
 });
 
 // Récupérer les invitations pour un utilisateur
-router.get("/invitations/:userId", (req, res) => {
+router.get('/invitations/:userId', (req, res) => {
   const userId = Number(req.params.userId);
   if (!userId) return res.status(400).json({ success: false, message: "ID manquant" });
 
-  const invs = getInvitationsForUser(userId);
-  res.json(invs);
+  try {
+    const userInvitations = getInvitationsForUser(userId);
+    res.json({ invitations: userInvitations });
+  } catch (err) {
+    console.error("get invitations error :", err);
+    res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
 });
 
 // Répondre à une invitation
-router.post("/respond-invite", (req, res) => {
-  const { userId, gameId, senderId, accept } = req.body;
-  if (!userId || !gameId || !senderId) {
-    return res.status(400).json({ success: false, message: "Paramètres manquants" });
+router.post('/respond', async (req, res) => {
+  const { senderId, receiverId, accept } = req.body;
+  if (!senderId || !receiverId) 
+    return res.status(400).json({ success: false, message: "IDs manquants" });
+
+  try {
+    const status = accept ? 'Accepted' : 'Rejected';
+    await db.execute(
+      "UPDATE friends SET Status = ? WHERE Sender_ID = ? AND Receiver_ID = ?",
+      [status, senderId, receiverId]
+    );
+
+    let gameId = null, totalPlayers = 2;
+    if (accept) {
+      const [gameRows] = await db.execute(
+        "SELECT id_Game, id_team_mode FROM games WHERE id_creator = ?",
+        [senderId]
+      );
+      if (gameRows.length) {
+        gameId = gameRows[0].id_Game;
+        totalPlayers = gameRows[0].id_team_mode || 2;
+      }
+    }
+
+    res.json({ success: true, gameId, totalPlayers });
+  } catch (err) {
+    console.error("respond error :", err);
+    res.status(500).json({ success: false, message: "Erreur serveur" });
   }
+});
 
-  removeInvite(gameId, userId);
+// Répondre à une invitation (accept/reject)
+router.post('/respond-invite', async (req, res) => {
+  const { userId, gameId, senderId, accept } = req.body;
+  if (!userId || !gameId || !senderId)
+    return res.status(400).json({ success: false, message: "Paramètres manquants" });
 
-  if (accept) {
-    // Rediriger l'utilisateur côté front pour rejoindre la partie
-    return res.json({ success: true, message: "Invitation acceptée" });
-  } else {
-    return res.json({ success: true, message: "Invitation refusée" });
+  try {
+    removeInvitation(gameId, userId);
+    res.json({ success: true, message: accept ? "Invitation acceptée" : "Invitation refusée" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
 
@@ -191,16 +228,15 @@ router.post('/leave', async (req, res) => {
   if (!gameId || !playerId) return res.status(400).json({ success: false, message: "Paramètres manquants" });
 
   try {
-    await db.execute('DELETE FROM game_players WHERE game_id = ? AND player_id = ?', [gameId, playerId]);
+    await db.execute('DELETE FROM game_players WHERE id_game = ? AND id_player = ?', [gameId, playerId]);
 
-    const [remaining] = await db.execute('SELECT COUNT(*) AS count FROM game_players WHERE game_id = ?', [gameId]);
+    const [remaining] = await db.execute('SELECT COUNT(*) AS count FROM game_players WHERE id_game = ?', [gameId]);
     if (remaining[0].count === 0) {
       await db.execute('DELETE FROM games WHERE id_Game = ?', [gameId]);
       return res.json({ success: true, message: "Partie supprimée, aucun joueur restant" });
     }
 
     res.json({ success: true, message: "Joueur retiré", remainingPlayers: remaining[0].count });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Erreur serveur lors du départ du joueur" });
@@ -212,7 +248,7 @@ router.post('/clear-players', async (req, res) => {
   const { gameId } = req.body;
   if (!gameId) return res.status(400).json({ success: false, message: "Paramètre manquant" });
   try {
-    await db.execute('DELETE FROM game_players WHERE game_id = ?', [gameId]);
+    await db.execute('DELETE FROM game_players WHERE id_game = ?', [gameId]);
     await db.execute('DELETE FROM games WHERE id_Game = ?', [gameId]);
     res.json({ success: true });
   } catch (err) {
@@ -233,10 +269,10 @@ router.get('/:id', async (req, res) => {
     const game = games[0];
 
     const [players] = await db.execute(
-      `SELECT gp.player_id AS ID_Users, u.Pseudo 
+      `SELECT gp.id_player AS ID_Users, u.Pseudo 
        FROM game_players gp
-       JOIN users u ON u.ID_Users = gp.player_id
-       WHERE gp.game_id = ?`,
+       JOIN users u ON u.ID_Users = gp.id_player
+       WHERE gp.id_game = ?`,
       [gameId]
     );
 
