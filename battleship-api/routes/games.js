@@ -109,10 +109,7 @@ router.post('/join', async (req, res) => {
     );
 
     let newStatus = game.status;
-    if (current[0].count + 1 === totalPlayers) {
-      await db.execute('UPDATE games SET status = "started" WHERE id_Game = ?', [gameId]);
-      newStatus = 'started';
-    }
+    
 
     const [players] = await db.execute(
       `SELECT gp.id_player AS ID_Users, u.Pseudo 
@@ -284,16 +281,50 @@ router.get('/:id', async (req, res) => {
 });
 
 // Démarrer la partie (host)
-router.post('/start/:id', async (req, res) => {
-  const gameId = sanitize(req.params.id);
-  if (!gameId) return res.status(400).json({ success: false, message: "ID de partie manquant" });
+router.post("/start/:id", async (req, res) => {
+  const gameId = req.params.id;
 
   try {
-    await db.execute('UPDATE games SET status = "started" WHERE id_Game = ?', [gameId]);
-    res.json({ success: true, message: "Partie démarrée" });
+    // Vérifier si la partie existe
+    const [rows] = await db.query("SELECT * FROM games WHERE ID_Game = ?", [gameId]);
+    if (rows.length === 0) {
+      return res.json({ success: false, message: "Partie introuvable" });
+    }
+
+    const game = rows[0];
+
+    // Vérifier que la partie n'est pas déjà lancée
+    if (game.status === "in_progress") {
+      return res.json({ success: false, message: "La partie est déjà en cours", game });
+    }
+
+    // Vérifier que le nombre de joueurs est atteint
+    const [players] = await db.query(
+      "SELECT * FROM game_players WHERE id_game = ?",
+      [gameId]
+    );
+
+    if (players.length < game.TotalPlayers) {
+      return res.json({ success: false, message: "Nombre de joueurs insuffisant", players });
+    }
+
+    // Mettre à jour le statut de la partie
+    await db.query(
+      "UPDATE games SET status = 'in_progress' WHERE ID_Game = ?",
+      [gameId]
+    );
+
+    // Récupérer la partie mise à jour
+    const [updated] = await db.query("SELECT * FROM games WHERE ID_Game = ?", [gameId]);
+
+    return res.json({
+      success: true,
+      game: updated[0],
+      players
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Erreur serveur" });
+    console.error("Erreur start game:", err);
+    return res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
 

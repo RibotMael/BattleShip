@@ -16,21 +16,21 @@ router.post("/start/:gameId", async (req, res) => {
   if (!gameId) return res.status(400).json({ success: false, message: "ID de partie manquant" });
 
   try {
-    const [games] = await db.execute("SELECT * FROM game WHERE ID_Game = ?", [gameId]);
+    const [games] = await db.execute("SELECT * FROM games WHERE id_Game = ?", [gameId]);
     if (!games.length) return res.status(404).json({ success: false, message: "Partie introuvable" });
 
     const game = games[0];
 
-    if (userId && Number(userId) !== Number(game.Host_ID)) {
+    if (userId && Number(userId) !== Number(game.id_creator)) {
       return res.status(403).json({ success: false, message: "Seul le host peut démarrer la partie." });
     }
 
-    const [players] = await db.execute("SELECT * FROM player WHERE ID_Game = ?", [gameId]);
-    if (players.length < 2) { // minimum dynamique possible ici
-      return res.status(400).json({ success: false, message: `Nombre de joueurs insuffisant (${players.length}/${game.TotalPlayers})` });
+    const [players] = await db.execute("SELECT * FROM game_players WHERE id_game = ?", [gameId]);
+    if (players.length < 2) {
+      return res.status(400).json({ success: false, message: `Nombre de joueurs insuffisant (${players.length}/${game.id_team_mode || 2})` });
     }
 
-    await db.execute("UPDATE game SET Status = 'in_progress' WHERE ID_Game = ?", [gameId]);
+    await db.execute("UPDATE games SET status = 'in_progress' WHERE id_Game = ?", [gameId]);
 
     res.json({ success: true, message: "Partie démarrée !" });
   } catch (err) {

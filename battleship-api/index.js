@@ -10,6 +10,7 @@ import gamesRouter from "./routes/games.js";
 import friendsRouter from './routes/friends.js';
 import getGameRouter from "./api/games/get-game.js";
 import invitationsRouter from './routes/invitations.js';
+import leaveGameRouter from "./api/games/leave-game.js";
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use("/api/friends", friendsRouter);         // Friends
 app.use("/api/games", gamesRouter);             // Création, join, invite, leave
 app.use("/api/games/get", getGameRouter);       // Routes pour récupérer les parties
 app.use("/api/invitations", invitationsRouter); // Invitations
+app.use("/api/games", leaveGameRouter);
 
 // Route de base
 app.get('/', (req, res) => {

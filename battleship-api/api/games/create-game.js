@@ -15,17 +15,18 @@ router.post('/create-game', async (req, res) => {
   const gameTypeId = sanitizeParam(req.body.gameTypeId);
   const teamModeId = sanitizeParam(req.body.teamModeId); // optionnel
   const versionId = sanitizeParam(req.body.versionId);
-  const totalPlayers = sanitizeParam(req.body.totalPlayers); // <-- nouveau
+  const language = sanitizeParam(req.body.language) || 'fr'; // <-- prend la langue envoyée ou 'fr'
+  let totalPlayers = sanitizeParam(req.body.totalPlayers) || 2;
 
-  if (!creatorId || !gameModeId || !gameTypeId || !versionId || !totalPlayers) {
+  if (!creatorId || !gameModeId || !gameTypeId || !versionId) {
     return res.status(400).json({ success: false, message: "Paramètres manquants ou invalides." });
   }
 
   try {
     const [result] = await db.execute(
-      `INSERT INTO games (id_creator, id_game_mode, id_game_type, id_team_mode, id_version, status)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [creatorId, gameModeId, gameTypeId, teamModeId, versionId, 'preparation']
+      `INSERT INTO games (id_creator, id_game_mode, id_game_type, id_team_mode, id_version, status, language)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [creatorId, gameModeId, gameTypeId, teamModeId, versionId, 'preparation', language]
     );
 
     const gameId = result.insertId;
@@ -40,7 +41,8 @@ router.post('/create-game', async (req, res) => {
         id_game_type: gameTypeId,
         id_team_mode: teamModeId,
         id_version: versionId,
-        totalPlayers, // <-- on renvoie le totalPlayers côté front
+        totalPlayers,
+        language, // <-- renvoie la langue côté front
         status: 'preparation'
       }
     });

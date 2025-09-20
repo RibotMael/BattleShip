@@ -58,7 +58,7 @@
 </template>
 
 <script>
-import { invitationStore, removeInvitation, addInvitation } from '@/eventBus';
+import { invitationStore, removeInvitation, sendInvite } from '@/eventBus';
 export default {
   props: ["userId"],
   data() {

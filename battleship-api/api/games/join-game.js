@@ -4,10 +4,6 @@ import db from "../../db.js";
 
 const router = express.Router();
 
-function sanitize(param) {
-  return param !== undefined ? param : null;
-}
-
 // Rejoindre une partie
 router.post('/join', async (req, res) => {
   const { gameId, playerId, totalPlayers } = req.body;
@@ -30,14 +26,23 @@ router.post('/join', async (req, res) => {
       'SELECT * FROM game_players WHERE id_game = ? AND id_player = ?',
       [gameId, playerId]
     );
+
     if (already.length) {
+      // Forcer player_status à 'in_game'
+      await db.execute(
+        'UPDATE game_players SET player_status = "in_game" WHERE id_game = ? AND id_player = ?',
+        [gameId, playerId]
+      );
+
+      // Récupérer tous les joueurs avec le statut
       const [players] = await db.execute(
-        `SELECT gp.id_player AS ID_Users, u.Pseudo
+        `SELECT gp.id_player AS ID_Users, gp.player_status, u.Pseudo
          FROM game_players gp
          JOIN users u ON u.ID_Users = gp.id_player
          WHERE gp.id_game = ?`,
         [gameId]
       );
+
       return res.json({
         success: true,
         message: "Déjà dans la partie",
@@ -67,15 +72,15 @@ router.post('/join', async (req, res) => {
     let newStatus = game.status;
     if (currentCount[0].count + 1 >= totalPlayers) {
       await db.execute(
-        'UPDATE games SET status = "started" WHERE id_Game = ?',
+        'UPDATE games SET status = "in_progress" WHERE id_Game = ?',
         [gameId]
       );
-      newStatus = "started";
+      newStatus = "in_progress";
     }
 
-    // Récupérer la liste des joueurs
+    // Récupérer la liste complète des joueurs avec le statut
     const [players] = await db.execute(
-      `SELECT gp.id_player AS ID_Users, u.Pseudo
+      `SELECT gp.id_player AS ID_Users, gp.player_status, u.Pseudo
        FROM game_players gp
        JOIN users u ON u.ID_Users = gp.id_player
        WHERE gp.id_game = ?`,

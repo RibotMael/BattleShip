@@ -17,11 +17,12 @@ const routes = [
     component: GameMode
   },
   { path: '/waiting-room/:gameId', name: 'WaitingRoom', component: WaitingRoom, props: true },
-  { path: '/join/:gameId', name: 'JoinRoom', component: WaitingRoom },
+  { path: '/join/:gameId', name: 'JoinRoom', component: WaitingRoom, props: true },
   {
     path: '/place-ships/:gameId',
     name: 'PlaceShips',
-    component: PlaceShips
+    component: PlaceShips,
+    props: true
   }
 ];
 

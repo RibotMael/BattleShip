@@ -4,7 +4,7 @@ import db from '../../db.js';
 
 const router = express.Router();
 
-router.post('/leave-game', async (req, res) => {
+router.post('/leave', async (req, res) => {
   const { gameId, playerId } = req.body;
   if (!gameId || !playerId) {
     return res.status(400).json({ success: false, message: "Paramètres manquants" });
@@ -50,12 +50,21 @@ router.post('/leave-game', async (req, res) => {
       );
 
       // Mettre à jour le statut de la partie si nécessaire
-      if (game.status === 'ready') {
-        const totalPlayers = game.id_team_mode || 2; 
+      if (game.status === 'in_progress') {
+        const totalPlayers = game.id_team_mode || 2;
+
+        // Compter combien restent encore
+        const [remaining] = await db.execute(
+          "SELECT COUNT(*) as count FROM game_players WHERE id_game = ? AND player_status = 'in_game'",
+          [gameId]
+        );
+
+        // Si pas assez de joueurs, on repasse en préparation
         if (remaining[0].count < totalPlayers) {
-          await db.execute("UPDATE games SET status = 'waiting' WHERE id_Game = ?", [gameId]);
+          await db.execute("UPDATE games SET status = 'preparation' WHERE id_Game = ?", [gameId]);
         }
       }
+
 
       return res.json({ 
         success: true, 

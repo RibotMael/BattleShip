@@ -23,6 +23,7 @@
 
 <script>
 export default {
+  props: { gameId: { type: String, required: true } },
   data() {
     return {
       game: {},
@@ -39,11 +40,19 @@ export default {
     }
   },
   async created() {
-    // Récupérer la partie
-    const res = await fetch(`http://localhost:3000/api/games/${this.$route.params.gameId}`);
+    const res = await fetch(`http://localhost:3000/api/games/${this.gameId}`);
     const data = await res.json();
+
     if (data.success) {
       this.game = data.game;
+
+      // Si la BDD n'a pas la langue, on prend celle du localStorage
+      if (!this.game.language) {
+        this.game.language = localStorage.getItem("currentLanguage") || 'fr';
+      }
+    } else {
+      alert("Partie introuvable !");
+      this.$router.push("/gamemode");
     }
   },
   methods: {
@@ -68,7 +77,6 @@ export default {
         const data = await res.json();
         if (data.success) {
           alert("Placement validé !");
-          // Rediriger vers l’écran de jeu réel
           this.$router.push(`/game/${this.game.ID_Game}`);
         }
       } catch (err) {
