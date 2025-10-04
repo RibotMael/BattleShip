@@ -1,22 +1,40 @@
-<!--PlaceShips-->
 <template>
   <div class="place-ships-container">
-    <h1>⚓ Placement des bateaux</h1>
-    <p>Mode : {{ game.language === 'fr' ? 'Français (5 bateaux)' : 'Belge (10 bateaux)' }}</p>
-    <p>Bateaux restants : {{ shipsLeft }}</p>
+    <h1>🚢 Placement des bateaux</h1>
+    <p>Partie ID : {{ game.ID_Game }}</p>
+    <p>Joueurs prêts : {{ readyPlayers.length }}/{{ game.TotalPlayers }}</p>
 
-    <div class="grid">
-      <div
-        v-for="cell in 100"
-        :key="cell"
-        class="cell"
-        :class="{ ship: placedShips.includes(cell) }"
-        @click="placeShip(cell)"
-      ></div>
+    <!-- Grille adversaire (en haut) -->
+    <div class="enemy-grid">
+      <h2>Grille adversaire</h2>
+      <div class="grid">
+        <div
+          v-for="(cell, index) in enemyGrid"
+          :key="index"
+          class="cell"
+        ></div>
+      </div>
     </div>
 
-    <button :disabled="shipsLeft > 0" @click="confirmPlacement">
-      ✅ Valider le placement
+    <!-- Grille joueur (en bas) -->
+    <div class="player-grid">
+      <h2>Votre grille</h2>
+      <div class="grid">
+        <div
+          v-for="(cell, index) in grid"
+          :key="index"
+          class="cell"
+          :class="{ ship: cell.hasShip }"
+          @click="placeShip(index)"
+        ></div>
+      </div>
+    </div>
+
+    <button
+      :disabled="!canValidate"
+      @click="validatePlacement"
+    >
+      ✅ Valider mes bateaux
     </button>
   </div>
 </template>
@@ -26,91 +44,75 @@ export default {
   props: { gameId: { type: String, required: true } },
   data() {
     return {
-      game: {},
-      placedShips: [],
-      user: JSON.parse(localStorage.getItem("user")) || null
+      game: { ID_Game: 0, TotalPlayers: 2 },
+      grid: Array(100).fill({ hasShip: false }),
+      enemyGrid: Array(100).fill({ hit: false }),
+      readyPlayers: [],
+      user: JSON.parse(localStorage.getItem("user")),
+      userId: 0
     };
   },
   computed: {
-    shipsRequired() {
-      return this.game.language === "fr" ? 5 : 10;
-    },
-    shipsLeft() {
-      return this.shipsRequired - this.placedShips.length;
+    canValidate() {
+      return this.grid.filter(c => c.hasShip).length > 0;
     }
   },
-  async created() {
-    const res = await fetch(`http://localhost:3000/api/games/${this.gameId}`);
-    const data = await res.json();
-
-    if (data.success) {
-      this.game = data.game;
-
-      // Si la BDD n'a pas la langue, on prend celle du localStorage
-      if (!this.game.language) {
-        this.game.language = localStorage.getItem("currentLanguage") || 'fr';
-      }
-    } else {
-      alert("Partie introuvable !");
-      this.$router.push("/gamemode");
-    }
+  mounted() {
+    this.userId = Number(this.user?.id);
+    this.game.ID_Game = Number(this.gameId);
+    this.fetchGame();
   },
   methods: {
-    placeShip(cell) {
-      if (this.placedShips.includes(cell)) {
-        this.placedShips = this.placedShips.filter(c => c !== cell);
-      } else if (this.placedShips.length < this.shipsRequired) {
-        this.placedShips.push(cell);
-      }
-    },
-    async confirmPlacement() {
+    async fetchGame() {
       try {
-        const res = await fetch("http://localhost:3000/api/games/place-ships", {
+        const res = await fetch(`http://localhost:3000/api/games/${this.game.ID_Game}`);
+        const data = await res.json();
+        if (data.success) {
+          this.game = { ...this.game, ...data.game };
+          this.readyPlayers = data.readyPlayers || [];
+        }
+      } catch (err) { console.error(err); }
+    },
+    placeShip(index) {
+      this.$set(this.grid, index, { hasShip: !this.grid[index].hasShip });
+    },
+    async validatePlacement() {
+      try {
+        const res = await fetch(`http://localhost:3000/api/games/place-ships`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             gameId: this.game.ID_Game,
-            playerId: this.user.id,
-            ships: this.placedShips
+            playerId: this.userId,
+            ships: this.grid.map(c => c.hasShip ? 1 : 0)
           })
         });
         const data = await res.json();
-        if (data.success) {
-          alert("Placement validé !");
-          this.$router.push(`/game/${this.game.ID_Game}`);
-        }
-      } catch (err) {
-        console.error("Erreur confirmPlacement :", err);
-      }
+        if (data.success) alert("Placement validé ! En attente des autres joueurs.");
+        await this.fetchGame();
+      } catch (err) { console.error(err); }
     }
   }
 };
 </script>
 
 <style scoped>
-.place-ships-container {
-  text-align: center;
-  padding: 2rem;
-  background: linear-gradient(to bottom, #002f4b, #005f8e);
-  color: white;
-  min-height: 100vh;
-}
 .grid {
   display: grid;
   grid-template-columns: repeat(10, 30px);
   grid-template-rows: repeat(10, 30px);
   gap: 2px;
-  margin: 1rem auto;
-  width: max-content;
 }
 .cell {
   width: 30px;
   height: 30px;
-  background: #34495e;
-  border: 1px solid #2c3e50;
-  cursor: pointer;
+  border: 1px solid #444;
+  background-color: #87ceeb;
 }
 .cell.ship {
-  background: #27ae60;
+  background-color: #444;
+}
+.enemy-grid, .player-grid {
+  margin-bottom: 20px;
 }
 </style>

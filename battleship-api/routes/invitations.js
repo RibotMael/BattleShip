@@ -1,29 +1,64 @@
-//routes/invitation.js
-
-import express from 'express';
-import { sendInvite, getInvitationsForUser, removeInvitation } from '../stores/invitationStore.js';
+//invitation.js
+import express from "express";
+import {
+  sendInviteToDB,
+  getInvitationsForUserFromDB,
+  removeInvitationFromDB,
+  respondInviteDB
+} from "../stores/invitationStore.js";
 
 const router = express.Router();
 
-// Récupérer toutes les invitations pour un utilisateur
-router.get('/:userId', (req, res) => {
-  const userId = parseInt(req.params.userId);
-  const invitations = getInvitationsForUser(userId);
-  res.json({ invitations });
-});
-
 // Envoyer une invitation
-router.post('/send', (req, res) => {
-  const invite = req.body; // { gameId, fromId, toId, senderPseudo }
-  sendInvite(invite);
-  res.json({ success: true });
+router.post("/", async (req, res) => {
+  const { gameId, senderId, receiverId } = req.body;
+  if (!gameId || !senderId || !receiverId) {
+    return res.json({ success: false, message: "Paramètres manquants" });
+  }
+
+  try {
+    const inviteId = await sendInviteToDB({ gameId, senderId, receiverId });
+    res.json({ success: true, inviteId });
+  } catch (err) {
+    res.json({ success: false, message: "Erreur serveur" });
+  }
 });
 
-// Supprimer une invitation (acceptée ou refusée)
-router.post('/remove', (req, res) => {
-  const { gameId, toId } = req.body;
-  removeInvitation(gameId, toId);
-  res.json({ success: true });
+// Récupérer les invitations d'un utilisateur
+router.get("/:userId", async (req, res) => {
+  const userId = Number(req.params.userId);
+  try {
+    const invitations = await getInvitationsForUserFromDB(userId);
+    res.json({ success: true, invitations });
+  } catch (err) {
+    res.json({ success: false, message: "Erreur serveur" });
+  }
+});
+
+// Supprimer une invitation (ex: après rejet ou annulation)
+router.post("/remove", async (req, res) => {
+  const { inviteId } = req.body;
+  try {
+    await removeInvitationFromDB(inviteId);
+    res.json({ success: true });
+  } catch (err) {
+    res.json({ success: false, message: "Erreur serveur" });
+  }
+});
+
+// Répondre à une invitation (accept/reject)
+router.post("/respond", async (req, res) => {
+  const { inviteId, accept } = req.body;
+  if (inviteId === undefined || accept === undefined) {
+    return res.json({ success: false, message: "Paramètres manquants" });
+  }
+
+  try {
+    await respondInviteDB(inviteId, accept); // gère accept/reject
+    res.json({ success: true });
+  } catch(err) {
+    res.json({ success: false, message: err.message });
+  }
 });
 
 export default router;

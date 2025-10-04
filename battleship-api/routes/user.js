@@ -88,49 +88,53 @@ router.put('/:id', async (req, res) => {
   if (!pseudo) return res.status(400).json({ message: "Pseudo requis." });
 
   try {
-    let avatarId = null;
+    let newAvatarId = null;
 
+    // Vérifier l'avatar actuel
     const [[user]] = await query("SELECT Avatar FROM users WHERE ID_Users = ?", [userId]);
     const oldAvatarId = user?.Avatar || null;
 
-    if (avatar) {
+    // 🟢 Cas 1 : avatar est un nombre (ID_Avatar existant en BDD)
+    if (typeof avatar === "number") {
+      newAvatarId = avatar;
+
+      // Update uniquement le lien
+      await query("UPDATE users SET Pseudo = ?, Avatar = ? WHERE ID_Users = ?", [pseudo, newAvatarId, userId]);
+
+    // 🟢 Cas 2 : avatar est une chaîne base64 → upload comme avant
+    } else if (avatar && typeof avatar === "string") {
       const buffer = Buffer.from(avatar, 'base64');
       const extension = mimeType.split('/')[1] || 'png';
       const avatarName = `user_${userId}_${Date.now()}.${extension}`;
 
       const insertSql = "INSERT INTO avatar (Avatar, Name, mime_type) VALUES (?, ?, ?)";
       const [result] = await query(insertSql, [buffer, avatarName, mimeType]);
-      avatarId = result.insertId;
-    }
+      newAvatarId = result.insertId;
 
-    let updateSql, params;
-    if (avatarId) {
-      updateSql = "UPDATE users SET Pseudo = ?, Avatar = ? WHERE ID_Users = ?";
-      params = [pseudo, avatarId, userId];
+      // Mise à jour du user
+      await query("UPDATE users SET Pseudo = ?, Avatar = ? WHERE ID_Users = ?", [pseudo, newAvatarId, userId]);
+
+      // Supprimer l’ancien avatar seulement si c'était un upload perso (⚠️ pas un avatar global de la BDD)
+      if (oldAvatarId) {
+        await query("DELETE FROM avatar WHERE ID_Avatar = ?", [oldAvatarId]);
+      }
+
+    // 🟢 Cas 3 : pas d’avatar, juste pseudo
     } else {
-      updateSql = "UPDATE users SET Pseudo = ? WHERE ID_Users = ?";
-      params = [pseudo, userId];
+      await query("UPDATE users SET Pseudo = ? WHERE ID_Users = ?", [pseudo, userId]);
+      newAvatarId = oldAvatarId;
     }
 
-    const [updateResult] = await query(updateSql, params);
-    if (updateResult.affectedRows === 0) {
-      return res.status(404).json({ message: "Utilisateur non trouvé" });
-    }
-
-    if (avatarId && oldAvatarId) {
-      await query("DELETE FROM avatar WHERE ID_Avatar = ?", [oldAvatarId]);
-    }
-
-    const selectSql = `
+    // 🔹 Récupérer l’utilisateur mis à jour
+    const [rows] = await query(`
       SELECT u.ID_Users, u.Email, u.Pseudo, u.BirthDay, u.niveau,
-             a.Avatar AS avatar_blob, a.mime_type
+             a.Avatar AS avatar_blob, a.mime_type, u.Avatar AS avatarId
       FROM users u
       LEFT JOIN avatar a ON u.Avatar = a.ID_Avatar
       WHERE u.ID_Users = ?
-    `;
-    const [rows] = await query(selectSql, [userId]);
-    const updatedUser = rows[0];
+    `, [userId]);
 
+    const updatedUser = rows[0];
     let avatarUrl = null;
     if (updatedUser.avatar_blob) {
       const base64 = Buffer.from(updatedUser.avatar_blob).toString('base64');
@@ -143,7 +147,8 @@ router.put('/:id', async (req, res) => {
       pseudo: updatedUser.Pseudo,
       birthDay: updatedUser.BirthDay,
       niveau: updatedUser.niveau,
-      avatar: avatarUrl
+      avatar: avatarUrl,
+      avatarId: updatedUser.avatarId   // 🔹 On renvoie aussi l'ID
     });
 
   } catch (err) {
@@ -153,23 +158,17 @@ router.put('/:id', async (req, res) => {
 });
 
 // 🔹 Supprimer un utilisateur (+ son avatar lié)
-router.delete('/:id', async (req, res) => {
+router.delete('/users/:id', async (req, res) => {
   const userId = req.params.id;
 
   try {
-    const [[user]] = await query("SELECT Avatar FROM users WHERE ID_Users = ?", [userId]);
-    if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
-
+    // Supprime uniquement l'utilisateur
     await query("DELETE FROM users WHERE ID_Users = ?", [userId]);
 
-    if (user.Avatar) {
-      await query("DELETE FROM avatar WHERE ID_Avatar = ?", [user.Avatar]);
-    }
-
-    res.sendStatus(204);
+    res.json({ success: true, message: "Utilisateur supprimé, avatar conservé." });
   } catch (err) {
-    console.error("Erreur suppression utilisateur :", err.message);
-    res.status(500).json({ message: "Erreur lors de la suppression : " + err.message });
+    console.error("Erreur suppression utilisateur:", err);
+    res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
 

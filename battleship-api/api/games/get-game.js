@@ -1,8 +1,10 @@
+//get-game.js
 import express from "express";
 import db from "../../db.js";
 
 const router = express.Router();
 
+// GET /api/games/:id
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
   if (!id) return res.status(400).json({ success: false, message: "ID manquant" });
@@ -10,21 +12,30 @@ router.get("/:id", async (req, res) => {
   try {
     // Partie
     const [gameRows] = await db.execute(
-      `SELECT id_Game AS ID_Game,
-              id_creator,
-              status,
-              id_game_type,
-              id_team_mode,
-              id_version
-       FROM games
-       WHERE id_Game = ?`,
+      `SELECT ID_Game,
+              ID_Creator AS id_creator,
+              Status AS status,
+              ID_Game_Type AS id_game_type,
+              ID_Team_Mode AS id_team_mode,
+              ID_Version AS id_version
+      FROM games
+      WHERE ID_Game = ?`,
       [id]
     );
 
-    if (gameRows.length === 0)
+
+    if (gameRows.length === 0) {
       return res.status(404).json({ success: false, message: "Partie introuvable" });
+    }
 
     const game = gameRows[0];
+
+    // ⚡ Récupérer la langue à partir de id_version
+    const [versionRows] = await db.execute(
+      "SELECT Name FROM Version WHERE ID_Version = ?",
+      [game.id_version]
+    );
+    const language = versionRows.length ? versionRows[0].Name : "fr";
 
     // Calcul dynamique du nombre de joueurs attendu
     let totalPlayers = null;
@@ -50,12 +61,13 @@ router.get("/:id", async (req, res) => {
       [id]
     );
 
-    // On renvoie le totalPlayers calculé sans toucher à la BDD
+    // Réponse finale
     res.json({
       success: true,
-      game: { ...game, TotalPlayers: totalPlayers },
+      game: { ...game, language, TotalPlayers: totalPlayers },
       players
     });
+
   } catch (err) {
     console.error("Erreur get-game:", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });

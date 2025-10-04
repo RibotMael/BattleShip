@@ -1,4 +1,3 @@
-// battleship-api/api/games/start-game.js
 import express from "express";
 import db from '../../db.js';
 
@@ -9,7 +8,7 @@ function sanitize(param) {
 }
 
 // Démarrer une partie
-router.post("/start/:gameId", async (req, res) => {
+router.post("/:gameId", async (req, res) => { 
   const gameId = sanitize(req.params.gameId);
   const userId = sanitize(req.body.userId);
 
@@ -21,13 +20,19 @@ router.post("/start/:gameId", async (req, res) => {
 
     const game = games[0];
 
-    if (userId && Number(userId) !== Number(game.id_creator)) {
+    if (!userId || Number(userId) !== Number(game.id_creator)) {
       return res.status(403).json({ success: false, message: "Seul le host peut démarrer la partie." });
     }
 
+    // Vérifie que TotalPlayers existe, sinon fallback à 2
+    const totalPlayers = game.TotalPlayers ?? 2;
+
     const [players] = await db.execute("SELECT * FROM game_players WHERE id_game = ?", [gameId]);
-    if (players.length < 2) {
-      return res.status(400).json({ success: false, message: `Nombre de joueurs insuffisant (${players.length}/${game.id_team_mode || 2})` });
+    if (players.length < totalPlayers) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Nombre de joueurs insuffisant (${players.length}/${totalPlayers})` 
+      });
     }
 
     await db.execute("UPDATE games SET status = 'in_progress' WHERE id_Game = ?", [gameId]);
@@ -40,4 +45,3 @@ router.post("/start/:gameId", async (req, res) => {
 });
 
 export default router;
-

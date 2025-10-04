@@ -1,21 +1,35 @@
-// battleship-api/stores/invitationStore.js
+// stores/invitationStore.js
+import db from "../db.js";
 
-export const invitations = [];
-
-// Ajouter une invitation
-export function sendInvite(gameId, fromId, toId, senderPseudo) {
-  invitations.push({ gameId, senderId: fromId, receiverId: toId, senderPseudo });
+// Envoyer une invitation
+export async function sendInviteToDB({ gameId, senderId, receiverId }) {
+  try {
+    const [result] = await db.execute(
+      `INSERT INTO game_invites (id_game, sender_id, receiver_id, status)
+       VALUES (?, ?, ?, 'Pending')`,
+      [gameId, senderId, receiverId]
+    );
+    return result.insertId;
+  } catch (err) {
+    throw err;
+  }
 }
 
-// Supprimer une invitation (acceptée ou refusée)
-export function removeInvitation(gameId, receiverId) {
-  const index = invitations.findIndex(
-    inv => inv.gameId === gameId && inv.receiverId === receiverId
+export async function getInvitationsForUserFromDB(userId) {
+  const [rows] = await db.execute(
+    `SELECT * FROM game_invites WHERE receiver_id = ? AND status = 'Pending'`,
+    [userId]
   );
-  if (index !== -1) invitations.splice(index, 1);
+  return rows;
 }
 
-// Récupérer les invitations pour un utilisateur
-export function getInvitationsForUser(userId) {
-  return invitations.filter(inv => inv.receiverId === userId);
+// Supprimer invitation
+export async function removeInvitationFromDB(inviteId) {
+  await db.execute(`DELETE FROM game_invites WHERE ID = ?`, [inviteId]);
 }
+
+export async function respondInviteDB(inviteId, accept) {
+  const status = accept ? 'Accepted' : 'Rejected';
+  await db.execute(`UPDATE game_invites SET status = ? WHERE ID = ?`, [status, inviteId]);
+}
+

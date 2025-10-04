@@ -1,34 +1,45 @@
-// battleship-api/stores/invitationStore.js
-
 export const invitationStore = {
   invitations: []
 };
 
 /**
  * Ajouter une invitation
- * invite = { gameId, fromId, toId, senderPseudo }
+ * invite = { gameId, senderId, receiverId, senderPseudo }
  */
-export function sendInvite(invite) {
-  invitationStore.invitations.push({
-    gameId: invite.gameId,
-    senderId: invite.fromId,
-    receiverId: invite.toId,
-    senderPseudo: invite.senderPseudo
-  });
+export function sendInviteToDB(invite) {
+  const newInvite = {
+    ID: invitationStore.invitations.length + 1,
+    ...invite
+  };
+  invitationStore.invitations.push(newInvite);
+  return newInvite.ID;
 }
 
 /**
  * Récupérer toutes les invitations pour un utilisateur
  */
-export function getInvitationsForUser(userId) {
+export function getInvitationsForUserFromDB(userId) {
   return invitationStore.invitations.filter(inv => inv.receiverId === userId);
 }
 
 /**
- * Supprimer une invitation (par gameId et receiverId)
+ * Supprimer une invitation
  */
-export function removeInvitation(gameId, receiverId) {
-  invitationStore.invitations = invitationStore.invitations.filter(
-    inv => !(inv.gameId === gameId && inv.receiverId === receiverId)
-  );
+export function removeInvitationFromDB(inviteId) {
+  invitationStore.invitations = invitationStore.invitations.filter(inv => inv.ID !== inviteId);
+}
+
+/**
+ * Répondre à une invitation (accept/reject)
+ */
+export function respondInviteDB(inviteId, accept) {
+  const index = invitationStore.invitations.findIndex(inv => inv.ID === inviteId);
+  if (index !== -1) {
+    const invite = invitationStore.invitations[index];
+    invitationStore.invitations.splice(index, 1);
+    if (accept) {
+      return { success: true, joinGameId: invite.gameId, playerId: invite.receiverId };
+    }
+  }
+  return { success: true };
 }

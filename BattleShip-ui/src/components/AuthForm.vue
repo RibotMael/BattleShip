@@ -36,11 +36,27 @@
         <input v-model="birthDay" type="date" required @blur="validateBirthDay" />
 
         <h3>Avatar</h3>
-        <input type="file" @change="onFileChange" accept="image/*" />
+
+        <div class="avatar-selection">
+          <div 
+            v-for="av in avatars" 
+            :key="av.ID_Avatar" 
+            class="avatar-option" 
+            :class="{ selected: avatar === av.ID_Avatar }"
+            @click="selectAvatar(av.ID_Avatar)"
+          >
+            <img :src="'data:' + av.mime_type + ';base64,' + av.Avatar" :alt="'Avatar ' + av.ID_Avatar" />
+          </div>
+        </div>
+
+
+        <!-- Aperçu -->
         <img 
-          :src="avatar ? avatar : defaultAvatar" 
+          v-if="avatar" 
+          :src="'data:' + selectedMime + ';base64,' + selectedBase64" 
           class="avatar-preview" 
         />
+
 
         <div class="legal-consent">
           <input id="legal" type="checkbox" v-model="legalAccepted" required />
@@ -67,8 +83,6 @@
 
 <script>
 import axios from "axios";
-import defaultAvatarImage from '@/assets/images/ppHomme.png';
-
 
 export default {
   data() {
@@ -79,14 +93,17 @@ export default {
       confirmPassword: "",
       pseudo: "",
       birthDay: "",
-      avatar: null,
-      defaultAvatar: defaultAvatarImage,
+      avatars: [],       // liste des avatars de la BDD
+      avatar: null,      // ID de l'avatar choisi
+      selectedBase64: '', 
+      selectedMime: '',
       errorMsg: "",
       legalAccepted: false,
       showPassword: false,
       showConfirmPassword: false
     };
   },
+
   methods: {
     showLegal() {
       alert(`Conditions Générales d'Utilisation :\n\n- Aucun bot ni logiciel de triche n'est autorisé.\n- Le respect des autres joueurs est obligatoire.\n- Les comptes multiples sont interdits.\n- Vos statistiques (pseudo, victoires, avatar) sont publiques.`);
@@ -117,6 +134,26 @@ export default {
         this.errorMsg = "Date de naissance invalide.";
       } else {
         this.errorMsg = "";
+      }
+    },
+
+    async fetchAvatars() {
+      try {
+        const res = await axios.get("http://localhost:3000/api/avatars");
+        console.log("Avatars reçus :", res.data);
+        // la BDD doit renvoyer [{ID_Avatar, Avatar, mime_type, Name}, ...]
+        this.avatars = res.data.avatars;
+      } catch (e) {
+        console.error("Erreur récupération avatars :", e);
+      }
+    },
+
+    selectAvatar(id) {
+      this.avatar = id;
+      const sel = this.avatars.find(a => a.ID_Avatar === id);
+      if (sel) {
+        this.selectedBase64 = sel.Avatar;
+        this.selectedMime = sel.mime_type;
       }
     },
 
@@ -163,28 +200,15 @@ export default {
         }
       }
 
-      let avatarToSend = this.avatar;
-
-      if (!this.avatar && !this.isLogin) {
-        try {
-          avatarToSend = await this.getBase64FromUrl(this.defaultAvatar);
-        } catch (e) {
-          console.error("Erreur lors du chargement de l'avatar par défaut", e);
-        }
-      }
-
-      // 🔹 Nettoyage : enlever "data:image/png;base64,"
-      if (avatarToSend && avatarToSend.startsWith("data:image")) {
-        avatarToSend = avatarToSend.split(",")[1];
-      }
-
+      // 🔹 On envoie simplement l'ID de l'avatar choisi
       const formData = {
-        email: this.email,
-        password: this.password,
-        pseudo: this.pseudo,
-        birthDay: this.birthDay,
-        avatar: avatarToSend,
+        email: this.email || null,
+        password: this.password || null,
+        pseudo: this.pseudo || null,
+        birthDay: this.birthDay || null,
+        avatar: this.avatar || 1 // ID par défaut si aucun choisi
       };
+
 
       const url = this.isLogin
         ? "http://localhost:3000/api/login"
@@ -199,9 +223,8 @@ export default {
             this.$emit("login-success", data.user);
             this.$router.push("/");
           } else {
-            // 🔹 Inscription réussie → retour vers login
             alert("Inscription réussie ! Connecte-toi maintenant.");
-            this.isLogin = true;  // bascule en mode login
+            this.isLogin = true;
             this.email = "";
             this.password = "";
             this.confirmPassword = "";
@@ -219,6 +242,7 @@ export default {
           this.errorMsg = "Erreur de communication avec le serveur.";
         }
       }
+
     },
 
     async getBase64FromUrl(url) {
@@ -231,7 +255,11 @@ export default {
         reader.readAsDataURL(blob);
       });
     }
-  }
+  },
+  mounted() {
+    this.fetchAvatars();
+  },
+
 };
 </script>
 
@@ -396,5 +424,33 @@ button:hover {
   user-select: none;
   color: #555;
 }
+
+.avatar-selection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.avatar-option {
+  border: 2px solid transparent;
+  border-radius: 50%;
+  padding: 2px;
+  cursor: pointer;
+  width: 60px;
+  height: 60px;
+}
+
+.avatar-option.selected {
+  border-color: #3498db;
+}
+
+.avatar-option img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 
 </style>

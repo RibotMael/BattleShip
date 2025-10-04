@@ -6,6 +6,7 @@ import Profile from '../pages/Profile.vue';
 import GameMode from '../pages/GameMode.vue';
 import WaitingRoom from '../pages/WaitingRoom.vue';
 import PlaceShips from '../pages/PlaceShips.vue';
+import GameBoard from '../pages/GameBoard.vue';
 
 const routes = [
   { path: '/', component: Home },
@@ -22,6 +23,12 @@ const routes = [
     path: '/place-ships/:gameId',
     name: 'PlaceShips',
     component: PlaceShips,
+    props: true
+  },
+  {
+    path: '/game/:gameId',
+    name: 'GameBoard',
+    component: GameBoard,
     props: true
   }
 ];

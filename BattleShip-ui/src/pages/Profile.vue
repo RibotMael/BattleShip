@@ -1,19 +1,26 @@
-<!--Profile.vue-->
+<!-- Profile.vue -->
 <template>
   <div class="profile-container">
     <h1>👤 Mon Profil</h1>
 
     <div class="profile-form">
+      <!-- Aperçu -->
       <label>Avatar</label>
       <div class="avatar-preview">
         <img :src="avatarPreviewUrl" alt="Avatar actuel" />
       </div>
 
-      <div class="avatar-upload">
-        <label class="custom-file-upload">
-          📁 Choisir un fichier
-          <input type="file" @change="handleAvatarChange" accept="image/*" />
-        </label>
+      <!-- Sélection des avatars depuis la BDD -->
+      <div class="avatar-selection">
+        <div 
+          v-for="av in avatars" 
+          :key="av.ID_Avatar" 
+          class="avatar-option" 
+          :class="{ selected: avatar === av.ID_Avatar }"
+          @click="selectAvatar(av.ID_Avatar)"
+        >
+          <img :src="'data:' + av.mime_type + ';base64,' + av.Avatar" />
+        </div>
       </div>
 
       <label>Pseudo</label>
@@ -27,16 +34,21 @@
 </template>
 
 <script>
-import { eventBus } from '@/eventBus';
+import { userBus } from '@/eventBus.js';
+
+import axios from "axios";
 import defaultAvatar from '@/assets/images/ppHomme.png';
 
 export default {
   data() {
     return {
       pseudo: '',
-      avatarFile: null,
+      userId: null,
+      avatars: [],       // tous les avatars dispo
+      avatar: null,      // ID sélectionné
       avatarPreviewUrl: defaultAvatar,
-      userId: null
+      selectedBase64: '',
+      selectedMime: ''
     };
   },
   mounted() {
@@ -44,36 +56,51 @@ export default {
     if (user) {
       this.userId = user.id;
       this.pseudo = user.pseudo;
+      this.avatar = user.avatarId || null; // on garde l'ID en mémoire
       this.avatarPreviewUrl = user.avatar || defaultAvatar;
     }
+    this.fetchAvatars();
   },
   methods: {
-    handleAvatarChange(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      if (file.size > 500 * 1024) return alert("L'image est trop lourde (max 500 Ko)");
+    async fetchAvatars() {
+      try {
+        const res = await axios.get("http://localhost:3000/api/avatars");
+        this.avatars = res.data.avatars;
 
-      this.avatarFile = file;
-      this.avatarPreviewUrl = URL.createObjectURL(file);
-      event.target.value = null;
+        // si l'user a déjà un avatar enregistré → mettre le preview à jour
+        if (this.avatar) {
+          const sel = this.avatars.find(a => a.ID_Avatar === this.avatar);
+          if (sel) {
+            this.selectedBase64 = sel.Avatar;
+            this.selectedMime = sel.mime_type;
+            this.avatarPreviewUrl = `data:${sel.mime_type};base64,${sel.Avatar}`;
+          }
+        }
+      } catch (e) {
+        console.error("Erreur récupération avatars :", e);
+      }
+    },
+
+    selectAvatar(id) {
+      this.avatar = id;
+      const sel = this.avatars.find(a => a.ID_Avatar === id);
+      if (sel) {
+        this.selectedBase64 = sel.Avatar;
+        this.selectedMime = sel.mime_type;
+        this.avatarPreviewUrl = `data:${sel.mime_type};base64,${sel.Avatar}`;
+      }
     },
 
     async saveProfile() {
       if (!this.userId) return;
 
-      let avatarBase64 = null;
-      let mimeType = null;
+      // Préparer le payload
+      let payload = { pseudo: this.pseudo };
 
-      if (this.avatarFile) {
-        avatarBase64 = await this.fileToBase64(this.avatarFile);
-        mimeType = this.avatarFile.type; // ✅ "image/png", "image/jpeg", etc.
+      // Si un avatar est sélectionné
+      if (this.avatar) {
+        payload.avatar = this.avatar; // ID de l'avatar
       }
-
-      const payload = {
-        pseudo: this.pseudo,
-        avatar: avatarBase64,
-        mimeType
-      };
 
       try {
         const response = await fetch(`http://localhost:3000/api/users/${this.userId}`, {
@@ -90,17 +117,23 @@ export default {
 
         const updatedUser = await response.json();
 
+        // 🔹 Utiliser directement l'avatar envoyé par le back (base64 ou URL)
+        const avatarUrl = updatedUser.avatar || defaultAvatar;
+
+        // Mettre à jour localStorage
         localStorage.setItem('user', JSON.stringify({
           id: updatedUser.id,
           pseudo: updatedUser.pseudo,
-          avatar: updatedUser.avatar || defaultAvatar
+          avatarId: updatedUser.avatarId, // ID pour garder la sélection
+          avatar: avatarUrl
         }));
 
-
-
-        this.avatarPreviewUrl = updatedUser.avatar || defaultAvatar;
+        // Mettre à jour le preview
+        this.avatarPreviewUrl = avatarUrl;
         this.pseudo = updatedUser.pseudo;
-        eventBus.userUpdated = !eventBus.userUpdated;
+
+        // 🔹 Notifier les autres composants (Home.vue)
+        userBus.userUpdated = !userBus.userUpdated;
 
         alert("Profil mis à jour !");
       } catch (error) {
@@ -109,22 +142,13 @@ export default {
       }
     },
 
-    fileToBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]); // ✅ uniquement la partie base64
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    },
-
     async deleteAccount() {
       const user = JSON.parse(localStorage.getItem('user'));
       if (!user) return;
       if (!confirm("Êtes-vous sûr de vouloir supprimer votre compte ?")) return;
 
       try {
-        const response = await fetch(`http://localhost:3000/api/admin/users/${user.id}`, {
+        const response = await fetch(`http://localhost:3000/api/users/${user.id}`, {
           method: 'DELETE'
         });
 
@@ -175,15 +199,6 @@ export default {
   display: block;
 }
 
-.profile-form input[type="text"],
-.profile-form input[type="file"] {
-  width: 100%;
-  margin-top: 0.3rem;
-  padding: 0.4rem;
-  margin-bottom: 0.5rem;
-  font-size: 0.9rem;
-}
-
 .avatar-preview img {
   width: 80px;
   height: 80px;
@@ -192,21 +207,33 @@ export default {
   margin-bottom: 0.5rem;
 }
 
-.avatar-upload input[type="file"] { display: none; }
-
-.custom-file-upload {
-  display: inline-block;
-  padding: 0.5rem 0.8rem;
-  cursor: pointer;
-  background-color: #3498db;
-  color: white;
-  border-radius: 6px;
-  font-weight: bold;
-  margin-bottom: 0.5rem;
-  font-size: 0.9rem;
+.avatar-selection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1rem;
 }
 
-.custom-file-upload:hover { background-color: #2980b9; }
+.avatar-option {
+  border: 2px solid transparent;
+  border-radius: 50%;
+  padding: 2px;
+  cursor: pointer;
+  width: 60px;
+  height: 60px;
+}
+
+.avatar-option.selected {
+  border-color: #3498db;
+}
+
+.avatar-option img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
 
 .profile-form button {
   margin-bottom: 0.5rem;

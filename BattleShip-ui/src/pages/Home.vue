@@ -52,10 +52,10 @@
 import AuthForm from '../components/AuthForm.vue';
 import FriendsPopup from '../components/FriendsPopup.vue';
 import logo from '@/assets/images/BATTLESHIPLOGO.png';
-import { eventBus } from '@/eventBus';
 import { watch } from 'vue';
 import defaultAvatar from '@/assets/images/ppHomme.png';
-import { invitationStore } from '@/eventBus';
+import { userBus, invitationStore, sendInvite, removeInvitation, fetchInvitations } from '@/eventBus.js';
+
 
 
 export default {
@@ -80,10 +80,12 @@ export default {
   created() {
     this.refreshUser();
     watch(
-      () => eventBus.userUpdated,
+      () => userBus.userUpdated,
       () => this.refreshUser(),
       { immediate: true }
     );
+
+
   },
   methods: {
     refreshUser() {
@@ -102,7 +104,7 @@ export default {
     logout() {
       localStorage.removeItem('user');
       this.user = null;
-      eventBus.userUpdated = !eventBus.userUpdated;
+      userBus.userUpdated = !userBus.userUpdated;
       this.$router.push('/');
     },
 

@@ -8,33 +8,58 @@ router.post("/add", async (req, res) => {
   const { userId, identifier } = req.body;
   console.log("[FRIENDS] POST /add", req.body);
 
-  if (!userId || !identifier) return res.status(400).json({ success: false, message: "Champs manquants" });
+  if (!userId || !identifier) {
+    return res.status(400).json({ success: false, message: "Champs manquants" });
+  }
+
+  const identifierTrimmed = identifier.trim();
 
   try {
+    // Recherche pseudo ou email (LIKE pour partiel, insensible à la casse)
     const [users] = await query(
-      "SELECT ID_Users, Pseudo FROM users WHERE Pseudo = ? OR Email = ?",
-      [identifier, identifier]
+      `SELECT ID_Users, Pseudo 
+       FROM users 
+       WHERE Pseudo LIKE ? OR Email LIKE ?`,
+      [`%${identifierTrimmed}%`, `%${identifierTrimmed}%`]
     );
 
-    if (users.length === 0) return res.status(404).json({ success: false, message: "Utilisateur introuvable" });
+    if (users.length === 0) {
+      return res.status(404).json({ success: false, message: "Utilisateur introuvable" });
+    }
 
-    const friendId = users[0].ID_Users;
-    if (friendId === userId) return res.status(400).json({ success: false, message: "Impossible de s'ajouter soi-même" });
+    const friend = users[0];
+    const friendId = friend.ID_Users;
 
+    if (friendId === userId) {
+      return res.status(400).json({ success: false, message: "Impossible de s'ajouter soi-même" });
+    }
+
+    // Vérifie qu’une relation n’existe pas déjà
     const [rel] = await query(
-      "SELECT * FROM friends WHERE (Sender_ID=? AND Receiver_ID=?) OR (Sender_ID=? AND Receiver_ID=?)",
+      `SELECT * 
+       FROM friends 
+       WHERE (Sender_ID=? AND Receiver_ID=?) OR (Sender_ID=? AND Receiver_ID=?)`,
       [userId, friendId, friendId, userId]
     );
 
-    if (rel.length > 0) return res.status(400).json({ success: false, message: "Relation déjà existante" });
+    if (rel.length > 0) {
+      return res.status(400).json({ success: false, message: "Relation déjà existante" });
+    }
 
+    // Ajoute la demande
     const [result] = await query(
       "INSERT INTO friends (Sender_ID, Receiver_ID, Status) VALUES (?, ?, 'Pending')",
       [userId, friendId]
     );
 
-    console.log(`[FRIENDS] Invitation ajoutée, ID: ${result.insertId}`);
-    res.json({ success: true, message: "Demande d'ami envoyée", relationId: result.insertId, friend: { id: friendId, pseudo: users[0].Pseudo } });
+    console.log(`[FRIENDS] Invitation envoyée, ID: ${result.insertId}`);
+    res.json({ 
+      success: true, 
+      message: "Demande d'ami envoyée", 
+      relationId: result.insertId, 
+      friend: { id: friendId, pseudo: friend.Pseudo } 
+    });
+
   } catch (err) {
     console.error("Erreur SQL friends/add:", err);
     res.status(500).json({ success: false, message: err.message });
@@ -54,7 +79,8 @@ router.post("/accept", async (req, res) => {
       [friendId, userId]
     );
 
-    if (result.affectedRows === 0) return res.status(400).json({ success: false, message: "Pas de demande en attente" });
+    if (result.affectedRows === 0)
+      return res.status(400).json({ success: false, message: "Pas de demande en attente" });
 
     console.log(`[FRIENDS] Demande acceptée entre ${friendId} -> ${userId}`);
     res.json({ success: true, message: "Demande acceptée", friendId });
@@ -64,7 +90,7 @@ router.post("/accept", async (req, res) => {
   }
 });
 
-// 🔹 Liste des amis
+// 🔹 Liste des amis acceptés
 router.get("/list/:userId", async (req, res) => {
   const { userId } = req.params;
   console.log("[FRIENDS] GET /list/:userId", userId);
@@ -73,24 +99,21 @@ router.get("/list/:userId", async (req, res) => {
     const [results] = await query(
       `SELECT u.ID_Users AS id, u.Pseudo AS pseudo, u.Online, u.Avatar
        FROM friends f
-       JOIN users u ON u.ID_Users = f.Receiver_ID
-       WHERE f.Sender_ID=? AND f.Status='Accepted'
-       UNION
-       SELECT u.ID_Users AS id, u.Pseudo AS pseudo, u.Online, u.Avatar
-       FROM friends f
-       JOIN users u ON u.ID_Users = f.Sender_ID
-       WHERE f.Receiver_ID=? AND f.Status='Accepted'
-      `, [userId, userId]
+       JOIN users u 
+         ON (u.ID_Users = f.Sender_ID AND f.Receiver_ID = ?) 
+         OR (u.ID_Users = f.Receiver_ID AND f.Sender_ID = ?)
+       WHERE f.Status='Accepted'`,
+      [userId, userId]
     );
 
-    const friends = results.map(f => ({
-      ID_Users: f.id,
-      Pseudo: f.pseudo,
-      avatar: f.Avatar ? `data:image/png;base64,${f.Avatar}` : null,
-      isOnline: f.Online === 1
+    const friends = results.map(r => ({
+      ID_Users: r.id,
+      Pseudo: r.pseudo,
+      avatar: r.Avatar ? `data:image/png;base64,${r.Avatar}` : null,
+      isOnline: r.Online === 1
     }));
 
-    console.log(`[FRIENDS] ${friends.length} amis trouvés pour user ${userId}`);
+    console.log(`[FRIENDS] ${friends.length} amis pour user ${userId}`);
     res.json(friends);
   } catch (err) {
     console.error("Erreur SQL friends/list:", err);
@@ -105,10 +128,9 @@ router.get("/requests/:userId", async (req, res) => {
 
   try {
     const [results] = await query(
-      `SELECT f.ID_Friends AS requestId, u.ID_Users AS id, u.Pseudo AS pseudo, u.Online, u.ID_Avatar AS Avatar
+      `SELECT f.ID_Friends AS requestId, u.ID_Users AS id, u.Pseudo AS pseudo, u.Online, u.Avatar
        FROM friends f
        JOIN users u ON u.ID_Users = f.Sender_ID
-       LEFT JOIN avatar a ON a.ID_Avatar = u.ID_Avatar
        WHERE f.Receiver_ID=? AND f.Status='Pending'`,
       [userId]
     );

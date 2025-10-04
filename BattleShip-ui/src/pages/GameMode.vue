@@ -1,15 +1,17 @@
-<!--GameMode.vue-->
+<!-- GameMode.vue -->
 <template>
   <div class="game-mode-container">
     <div class="game-mode-card">
       <h1>🎮 Paramètres de la partie</h1>
 
+      <!-- Choix de la langue -->
       <label for="language">Langue :</label>
       <select id="language" v-model="language">
         <option value="fr">Français</option>
         <option value="be">Belge</option>
       </select>
 
+      <!-- Partie privée -->
       <label class="checkbox-label">
         <input type="checkbox" v-model="isPrivate" />
         Partie privée 🔒
@@ -65,26 +67,24 @@ export default {
     };
   },
   computed: {
-    finalMode() {
-      return this.isPrivate
-        ? `${this.totalPlayers / 2}v${this.totalPlayers / 2}`
-        : this.mode;
-    },
     canStart() {
-      return this.user && (!this.isPrivate || this.totalPlayers % 2 === 0);
+      return (
+        this.user &&
+        (!this.isPrivate || (this.totalPlayers >= 2 && this.totalPlayers % 2 === 0))
+      );
     }
   },
   mounted() {
     this.user = JSON.parse(localStorage.getItem("user"));
   },
   methods: {
-    getPlayersFromMode(mode) {
+    getTeamModeFromSelection(mode) {
       switch(mode) {
-        case '1v1': return 2;
-        case '2v2': return 4;
-        case '4v4': return 8;
-        case 'battle-royale': return 20;
-        default: return 2;
+        case '1v1': return 1;
+        case '2v2': return 2;
+        case '4v4': return 3;
+        case 'battle-royale': return 4;
+        default: return 1;
       }
     },
     async startGame() {
@@ -95,50 +95,106 @@ export default {
 
       this.loading = true;
 
-      // Déterminer le total de joueurs
-      const totalPlayers = this.isPrivate
-        ? this.totalPlayers
-        : this.getPlayersFromMode(this.mode);
-
-      // Construire le payload à envoyer au backend
-      const payload = {
-        hostId: this.user.id,                 // ID du créateur
-        mode: this.finalMode,                 // ex: "1v1", "2v2", "4v4" ou "4v4" personnalisé
-        language: this.language,              // "fr" ou "be"
-        isPrivate: this.isPrivate,
-        totalPlayers
-      };
-
       try {
-        const res = await fetch("http://localhost:3000/api/games/create-game", {
+        // 🔹 ID du mode d'équipe
+        const teamModeId = this.isPrivate ? 2 : this.getTeamModeFromSelection(this.mode);
+
+        // 🔹 Calcul du nombre total de joueurs
+        let totalPlayers;
+        if (this.isPrivate) {
+          totalPlayers = this.totalPlayers;
+        } else {
+          switch(teamModeId) {
+            case 1: totalPlayers = 2; break;
+            case 2: totalPlayers = 4; break;
+            case 3: totalPlayers = 8; break;
+            case 4: totalPlayers = 20; break;
+            default: totalPlayers = 2;
+          }
+        }
+
+        const payload = {
+          hostId: Number(this.user.id),
+          id_game_mode: 1,
+          id_game_type: 2, // Team
+          id_team_mode: teamModeId,
+          id_version: this.language === "fr" ? 1 : 2,
+          totalPlayers
+        };
+
+        console.log("🎮 Création partie payload:", payload);
+
+        const res = await fetch("http://localhost:3000/api/games/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
 
         const data = await res.json();
-
         if (!data.success) {
           alert(data.message || "Erreur lors de la création de la partie.");
           return;
         }
 
-        // Stocker la partie courante et rediriger vers la waiting room
-        localStorage.setItem("currentGame", JSON.stringify(data.game));
-        this.$router.push(`/waiting-room/${data.gameId}`);
+        const normalizedGame = {
+          ID_Game: data.game.ID_Game || data.game.id_game || data.game.id,
+          ID_Creator: data.game.ID_Creator || data.game.id_creator || data.game.creatorId,
+          TotalPlayers: data.game.TotalPlayers || data.game.totalPlayers || totalPlayers,
+          Status: data.game.Status || data.game.status || "preparation"
+        };
+
+        localStorage.setItem("currentGame", JSON.stringify(normalizedGame));
+        localStorage.setItem("currentLanguage", this.language);
+        localStorage.setItem("user", JSON.stringify(this.user));
+
+        // 🔹 Passage à la salle d'attente
+        this.$router.push({ 
+          name: "WaitingRoom", 
+          params: { gameId: normalizedGame.ID_Game } 
+        });
+
       } catch (err) {
-        console.error(err);
-        alert("❌ Impossible de contacter le serveur.");
+        console.error("❌ Erreur dans startGame:", err);
+        alert("Impossible de contacter le serveur.");
       } finally {
         this.loading = false;
       }
     }
+  },
+  watch: {
+    mode(newMode) {
+      if (!this.isPrivate) {
+        const teamModeId = this.getTeamModeFromSelection(newMode);
+        switch (teamModeId) {
+          case 1: this.totalPlayers = 2; break;
+          case 2: this.totalPlayers = 4; break;
+          case 3: this.totalPlayers = 8; break;
+          case 4: this.totalPlayers = 20; break;
+          default: this.totalPlayers = 2;
+        }
+        console.log(`[WATCH] Mode changé : ${newMode}, totalPlayers = ${this.totalPlayers}`);
+      }
+    },
+    isPrivate(isPrivate) {
+      if (!isPrivate) {
+        // Recalculer totalPlayers selon le mode public
+        const teamModeId = this.getTeamModeFromSelection(this.mode);
+        switch (teamModeId) {
+          case 1: this.totalPlayers = 2; break;
+          case 2: this.totalPlayers = 4; break;
+          case 3: this.totalPlayers = 8; break;
+          case 4: this.totalPlayers = 20; break;
+          default: this.totalPlayers = 2;
+        }
+      }
+    }
   }
+
 };
 </script>
 
 <style scoped>
-/* Styles identiques à ta version actuelle */
+/* Ton style existant */
 .game-mode-container {
   background: linear-gradient(to bottom, #002f4b, #005f8e);
   min-height: 100vh;

@@ -8,40 +8,31 @@ const router = Router();
 
 // -------------------- INSCRIPTION --------------------
 router.post('/register', async (req, res) => {
-  const { email, password, pseudo, birthDay, avatar, mimeType } = req.body;
+  const { email, password, pseudo, birthDay, avatar } = req.body;
 
   if (!email || !password || !pseudo || !birthDay || !avatar) {
     return res.status(400).json({ success: false, message: "Tous les champs sont requis." });
   }
 
   try {
-    // Vérifier si email ou pseudo existent déjà
     const [existingEmails] = await query("SELECT ID_Users FROM users WHERE Email = ?", [email]);
     if (existingEmails.length > 0) return res.status(409).json({ success: false, message: "Email déjà utilisé." });
 
     const [existingPseudos] = await query("SELECT ID_Users FROM users WHERE Pseudo = ?", [pseudo]);
     if (existingPseudos.length > 0) return res.status(409).json({ success: false, message: "Pseudo déjà utilisé." });
 
-    // Hasher le mot de passe
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Inserer l'avatar dans la table avatar
-    const avatarBuffer = Buffer.from(avatar, 'base64');
-    const mime = mimeType || "image/png";
-    const name = "avatar_" + crypto.randomBytes(6).toString("hex");
-    const insertAvatarSql = `INSERT INTO avatar (Avatar, mime_type, Name) VALUES (?, ?, ?)`;
-    const avatarResult = await query(insertAvatarSql, [avatarBuffer, mime, name]);
-    const avatarId = avatarResult.insertId;
+    // 🔹 On garde juste l'ID de l'avatar
+    const avatarId = avatar;
 
-    // Inserer l'utilisateur avec Avatar = avatarId
     const insertUserSql = `
       INSERT INTO users (Email, Password, Pseudo, BirthDay, Avatar, niveau, Online, Gold)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const result = await query(insertUserSql, [email, hashedPassword, pseudo, birthDay, avatarId, 1, 0, 0]);
 
-    const avatarBase64 = `data:${mime};base64,${avatar}`;
-    return res.json({ success: true, user: { id: result.insertId, pseudo, avatar: avatarBase64 } });
+    return res.json({ success: true, user: { id: result.insertId, pseudo, avatar: avatarId } });
   } catch (err) {
     console.error("Erreur d'inscription:", err);
     return res.status(500).json({ success: false, message: "Erreur serveur" });
@@ -104,52 +95,6 @@ router.post('/logout', async (req, res) => {
   }
 });
 
-// -------------------- MISE À JOUR PROFIL --------------------
-router.put('/users/:id', async (req, res) => {
-  const userId = req.params.id;
-  const { pseudo, avatar, mimeType } = req.body;
-
-  try {
-    let avatarId = null;
-
-    if (avatar && avatar.trim() !== '') {
-      const avatarBuffer = Buffer.from(avatar, 'base64');
-      const mime = mimeType || "image/png";
-      const name = "avatar_" + crypto.randomBytes(6).toString("hex");
-
-      const insertAvatarSql = `INSERT INTO avatar (Avatar, mime_type, Name) VALUES (?, ?, ?)`;
-      const avatarResult = await query(insertAvatarSql, [avatarBuffer, mime, name]);
-      avatarId = avatarResult.insertId;
-    }
-
-    if (avatarId) {
-      await query(`UPDATE users SET Pseudo = ?, Avatar = ? WHERE ID_Users = ?`, [pseudo, avatarId, userId]);
-    } else {
-      await query(`UPDATE users SET Pseudo = ? WHERE ID_Users = ?`, [pseudo, userId]);
-    }
-
-    const [rows] = await query(
-      `SELECT u.ID_Users, u.Pseudo, a.Avatar, a.mime_type
-       FROM users u
-       LEFT JOIN avatar a ON u.Avatar = a.ID_Avatar
-       WHERE u.ID_Users = ?`,
-      [userId]
-    );
-    const updatedUser = rows[0];
-    const avatarBase64 = updatedUser.Avatar
-      ? `data:${updatedUser.mime_type};base64,${updatedUser.Avatar.toString("base64")}`
-      : null;
-
-    res.json({
-      id: updatedUser.ID_Users,
-      pseudo: updatedUser.Pseudo,
-      avatar: avatarBase64
-    });
-  } catch (err) {
-    console.error("Erreur update profil:", err);
-    res.status(500).json({ success: false, message: "Erreur serveur" });
-  }
-});
 
 // -------------------- GET USER --------------------
 router.get('/users/:id', async (req, res) => {
