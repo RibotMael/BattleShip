@@ -1,4 +1,5 @@
-// stores/invitationStore.js
+//BattleShip-api/routes/stores/invitationStore.js
+
 import db from "../db.js";
 
 // Envoyer une invitation

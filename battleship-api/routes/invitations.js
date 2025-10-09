@@ -48,14 +48,12 @@ router.post("/remove", async (req, res) => {
 
 // Répondre à une invitation (accept/reject)
 router.post("/respond", async (req, res) => {
-  const { inviteId, accept } = req.body;
-  if (inviteId === undefined || accept === undefined) {
-    return res.json({ success: false, message: "Paramètres manquants" });
-  }
+  const { inviteId, accept, userId } = req.body;
+  if (!inviteId || accept === undefined || !userId) return res.json({ success: false, message: "Paramètres manquants" });
 
   try {
-    await respondInviteDB(inviteId, accept); // gère accept/reject
-    res.json({ success: true });
+    const result = await respondInviteDB(inviteId, accept, userId);
+    res.json({ success: true, result });
   } catch(err) {
     res.json({ success: false, message: err.message });
   }

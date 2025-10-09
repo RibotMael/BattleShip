@@ -1,3 +1,4 @@
+<!--GameBoard.vue-->
 <template>
   <div class="battle-container">
     <!-- Grille adversaire -->
@@ -9,7 +10,7 @@
         class="cell"
         :class="{
           hit: cell === 'hit',
-          miss: cell === 'miss'
+          miss: cell === 'miss',
         }"
         @click="shoot(index)"
       ></div>
@@ -25,7 +26,7 @@
         :class="{
           ship: cell === 1,
           hit: cell === 'hit',
-          miss: cell === 'miss'
+          miss: cell === 'miss',
         }"
       ></div>
     </div>
@@ -41,12 +42,12 @@ export default {
   },
   data() {
     return {
-      playerGrid: Array(100).fill(0),       // notre flotte
-      opponentGrid: Array(100).fill(0),     // état des tirs sur l'adversaire
-      placedShips: [],                       // navires placés
+      playerGrid: Array(100).fill(0), // notre flotte
+      opponentGrid: Array(100).fill(0), // état des tirs sur l'adversaire
+      placedShips: [], // navires placés
       readyCount: 0,
       total: 0,
-      polling: null
+      polling: null,
     };
   },
   methods: {
@@ -61,12 +62,12 @@ export default {
           body: JSON.stringify({
             gameId: this.game.ID_Game,
             playerId: this.user.id,
-            cell: index + 1
-          })
+            cell: index + 1,
+          }),
         });
         const data = await res.json();
         if (data.success) {
-          this.opponentGrid[index] = data.hit ? 'hit' : 'miss';
+          this.opponentGrid[index] = data.hit ? "hit" : "miss";
         }
       } catch (err) {
         console.error("Erreur shoot :", err);
@@ -75,19 +76,17 @@ export default {
 
     async fetchFullGame() {
       try {
-        const res = await fetch(`http://localhost:3000/api/games/${this.game.ID_Game}/full`);
+        if (!this.game || !this.game.ID_Game) {
+          console.warn("⏳ Game non défini, on attend...");
+          return;
+        }
+
+        const res = await fetch(`http://localhost:3000/api/games/${this.game.ID_Game}`);
         const data = await res.json();
         if (data.success) {
-          // Mettre à jour notre grille uniquement pour les tirs adverses
-          const opponentId = data.players.find(p => p.ID_Users !== this.user.id)?.ID_Users;
-          if (opponentId && data.ships[opponentId]) {
-            // Montrer nos bateaux uniquement lorsqu'ils ont été touchés
-            data.shots.forEach(shot => {
-              if (shot.target === this.user.id) {
-                this.playerGrid[shot.cell - 1] = shot.hit ? 'hit' : 'miss';
-              }
-            });
-          }
+          this.fullGame = data.game;
+        } else {
+          console.error("Erreur chargement partie :", data.message);
         }
       } catch (err) {
         console.error("Erreur fetchFullGame :", err);
@@ -95,17 +94,30 @@ export default {
     },
 
     startPolling() {
-      this.polling = setInterval(async () => {
-        await this.fetchFullGame();
+      this.pollInterval = setInterval(() => {
+        this.fetchFullGame();
       }, 1000);
-    }
+    },
+    beforeUnmount() {
+      clearInterval(this.pollInterval);
+    },
   },
   mounted() {
+    this.gameId = Number(this.$route.params.gameId);
+
+    if (!this.gameId) {
+      console.error("❌ Aucun gameId trouvé dans les params !");
+      return;
+    }
+
+    this.game = { ID_Game: this.gameId };
+
+    // ✅ Démarrer le polling seulement après avoir défini this.game
     this.startPolling();
   },
   beforeUnmount() {
     if (this.polling) clearInterval(this.polling);
-  }
+  },
 };
 </script>
 

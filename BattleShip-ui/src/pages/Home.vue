@@ -16,7 +16,6 @@
             </button>
           </div>
 
-
           <div class="user-info" @click="toggleUserMenu">
             <img :src="avatarSrc" class="avatar" />
             <span class="pseudo">{{ user.pseudo }}</span>
@@ -38,25 +37,19 @@
         </div>
 
         <!-- Popups -->
-        <FriendsPopup
-          v-if="showFriendsPopup"
-          :userId="user.id"
-          @close="closeFriendsPopup"
-        />
+        <FriendsPopup v-if="showFriendsPopup" :userId="user.id" @close="closeFriendsPopup" />
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import AuthForm from '../components/AuthForm.vue';
-import FriendsPopup from '../components/FriendsPopup.vue';
-import logo from '@/assets/images/BATTLESHIPLOGO.png';
-import { watch } from 'vue';
-import defaultAvatar from '@/assets/images/ppHomme.png';
-import { userBus, invitationStore, sendInvite, removeInvitation, fetchInvitations } from '@/eventBus.js';
-
-
+import AuthForm from "../components/AuthForm.vue";
+import FriendsPopup from "../components/FriendsPopup.vue";
+import logo from "@/assets/images/BATTLESHIPLOGO.png";
+import { watch } from "vue";
+import defaultAvatar from "@/assets/images/ppHomme.png";
+import { invitationStore, userBus } from "@/eventBus.js";
 
 export default {
   components: { AuthForm, FriendsPopup },
@@ -84,12 +77,10 @@ export default {
       () => this.refreshUser(),
       { immediate: true }
     );
-
-
   },
   methods: {
     refreshUser() {
-      const savedUser = localStorage.getItem('user');
+      const savedUser = localStorage.getItem("user");
       this.user = savedUser ? JSON.parse(savedUser) : null;
     },
 
@@ -97,15 +88,15 @@ export default {
       if (!userData.avatar) {
         userData.avatar = defaultAvatar;
       }
-      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem("user", JSON.stringify(userData));
       this.user = userData;
     },
 
     logout() {
-      localStorage.removeItem('user');
+      localStorage.removeItem("user");
       this.user = null;
       userBus.userUpdated = !userBus.userUpdated;
-      this.$router.push('/');
+      this.$router.push("/");
     },
 
     toggleUserMenu() {
@@ -113,19 +104,19 @@ export default {
     },
 
     viewProfile() {
-      this.$router.push('/profile');
+      this.$router.push("/profile");
     },
 
     goToSettings() {
-      alert('Redirection vers les paramètres (à développer)');
+      alert("Redirection vers les paramètres (à développer)");
     },
 
     startGame() {
-      this.$router.push('/gamemode');
+      this.$router.push("/gamemode");
     },
 
     showRules() {
-      this.$router.push('/rules');
+      this.$router.push("/rules");
     },
 
     openFriendsPopup() {
@@ -428,5 +419,4 @@ export default {
   margin-left: 5px;
   font-size: 0.8rem;
 }
-
 </style>

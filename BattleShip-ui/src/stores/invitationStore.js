@@ -1,3 +1,4 @@
+//BattleShip-ui/src/stores/invitationStore.js
 export const invitationStore = {
   invitations: []
 };
@@ -32,13 +33,13 @@ export function removeInvitationFromDB(inviteId) {
 /**
  * Répondre à une invitation (accept/reject)
  */
-export function respondInviteDB(inviteId, accept) {
-  const index = invitationStore.invitations.findIndex(inv => inv.ID === inviteId);
+export function respondInviteDB(inviteId, accept, userId) {
+  const index = invitationStore.invitations.findIndex(inv => inv.ID === inviteId && inv.receiverId === userId);
   if (index !== -1) {
     const invite = invitationStore.invitations[index];
     invitationStore.invitations.splice(index, 1);
     if (accept) {
-      return { success: true, joinGameId: invite.gameId, playerId: invite.receiverId };
+      return { joinGameId: invite.gameId, playerId: invite.receiverId };
     }
   }
   return { success: true };

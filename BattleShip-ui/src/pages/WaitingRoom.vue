@@ -1,5 +1,4 @@
 <!--WaitingRoom.vue-->
-<!--WaitingRoom.vue-->
 <template>
   <div class="waiting-room-container">
     <h1>⏳ Salle d'attente</h1>
@@ -36,20 +35,29 @@
           </li>
         </ul>
 
-        <button class="start-game-button" :disabled="!canStartGame" @click="startGame">
+        <button
+          v-if="isHost"
+          class="start-game-button"
+          :disabled="!canStartGame"
+          @click="startGame"
+        >
           🚀 Démarrer la partie
         </button>
+
         <p v-if="!canStartGame" class="info-text">
-          Attendez que tous les joueurs requis rejoignent la partie ({{ playersWithMe.length }}/{{
-            game?.TotalPlayers || totalPlayers
-          }})
+          <template v-if="playersWithMe.length < (game?.TotalPlayers || totalPlayers)">
+            Attendez que tous les joueurs requis rejoignent la partie ({{ playersWithMe.length }}/{{
+              game?.TotalPlayers || totalPlayers
+            }})
+          </template>
+          <template v-else>
+            Tous les joueurs sont là ! ⏳ Attendez que l'hôte lance la partie.
+          </template>
         </p>
 
         <button @click="leaveRoom" :disabled="!game?.ID_Game">
           {{ isHost ? "🗑️ Supprimer la partie" : "❌ Quitter la partie" }}
         </button>
-
-        <p>DEBUG: game?.ID_Game={{ game?.ID_Game }}, isHost={{ isHost }}, userId={{ userId }}</p>
 
         <p v-if="errorMsg" class="error-text">{{ errorMsg }}</p>
       </div>
@@ -218,7 +226,7 @@ export default {
     },
     async fetchInvitations() {
       try {
-        const res = await fetch(`http://localhost:3000/api/games/invite/${this.userId}`);
+        const res = await fetch(`http://localhost:3000/api/invitation/${this.userId}`);
         const data = await res.json();
         this.invitationsList =
           data.success && Array.isArray(data.invitations) ? data.invitations : [];
@@ -265,7 +273,7 @@ export default {
     async inviteFriend(friendId) {
       if (!this.game?.ID_Game || !friendId) return;
       try {
-        const res = await fetch("http://localhost:3000/api/games/invite", {
+        const res = await fetch("http://localhost:3000/api/invitation", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -299,17 +307,17 @@ export default {
     },
     async leaveRoom() {
       if (!this.game?.ID_Game) return;
+
       try {
-        if (this.isHost) {
-          const res = await fetch(
-            `http://localhost:3000/api/games/delete/${this.game.ID_Game}?playerId=${this.userId}`,
-            {
-              method: "DELETE",
-            }
-          );
-          const data = await res.json();
-          if (!data.success) return alert("Erreur suppression : " + data.message);
-        }
+        const res = await fetch("http://localhost:3000/api/games/leave", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ gameId: this.game.ID_Game, playerId: this.userId }),
+        });
+        const data = await res.json();
+        if (!data.success) return alert("Erreur départ de la partie : " + data.message);
+
+        // Nettoyage local
         localStorage.removeItem("currentGame");
         clearInterval(this.polling);
         this.$router.push("/gamemode");
@@ -322,10 +330,28 @@ export default {
         alert("Erreur de communication avec le serveur.");
       }
     },
-    startGame() {
+    async startGame() {
       if (!this.canStartGame) return;
-      console.log("[START GAME] Partie démarrée par host");
-      this.game.status = "started";
+
+      try {
+        console.log("[START GAME] Partie démarrée par host");
+
+        const res = await fetch("http://localhost:3000/api/games/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ gameId: this.game.ID_Game, userId: this.userId }),
+        });
+
+        const data = await res.json();
+        if (!data.success) {
+          return alert("Erreur lors du démarrage de la partie : " + data.message);
+        }
+
+        // Mettre à jour localement pour l'hôte également
+        this.game.status = "started";
+      } catch (err) {
+        console.error("[START GAME] Erreur:", err);
+      }
     },
   },
 };

@@ -2,6 +2,8 @@
 
 import express from "express";
 import db from "../db.js";
+import { fleetsByVersion } from "../utils/fleets.js";
+
 
 const router = express.Router();
 
@@ -35,10 +37,27 @@ router.post("/create", async (req, res) => {
 
     await db.execute("INSERT INTO game_players (id_game, id_player) VALUES (?, ?)", [gameId, hostId]);
 
-    const [versionRows] = await db.execute("SELECT name FROM version WHERE id_Version = ?", [id_version]);
-    const language = versionRows.length ? versionRows[0].name : "fr";
+    const [versionRows] = await db.execute(
+      "SELECT name FROM version WHERE id_Version = ?",
+      [id_version]
+    );
+
+    const rawLang = versionRows.length ? versionRows[0].name.toLowerCase() : "french";
+
+    // Normalisation
+    let langKey;
+    if (rawLang.startsWith("fr")) langKey = "fr";
+    else if (rawLang.startsWith("bel") || rawLang === "be" || rawLang === "belgium") langKey = "be";
+    else langKey = "fr";
+
+    console.log(`🌍 [VERSION] SQL="${rawLang}" → clé="${langKey}"`);
+
+
+    const fleet = fleetsByVersion[langKey];
+
 
     console.log(`✅ [CREATE GAME] Partie ${gameId} créée (${totalPlayersFinal} joueurs attendus)`);
+    console.log(`🌍 Version trouvée = ${rawLang}, Clé utilisée = ${langKey}`);
 
     res.json({
       success: true,
@@ -51,7 +70,7 @@ router.post("/create", async (req, res) => {
         id_version,
         TotalPlayers: totalPlayersFinal,
         status: "preparation",
-        language,
+        language: rawLang,
       },
     });
   } catch (err) {
@@ -88,31 +107,54 @@ router.post("/join", async (req, res) => {
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const [gameRows] = await db.execute("SELECT * FROM games WHERE ID_Game = ?", [id]);
+    const [gameRows] = await db.execute("SELECT * FROM games WHERE id_Game = ?", [id]);
     if (!gameRows.length) return res.status(404).json({ success: false, message: "Partie introuvable" });
 
     const game = gameRows[0];
 
-    let computedTotal;
-    switch (game.id_team_mode) {
-      case 1: computedTotal = 2; break;
-      case 2: computedTotal = 4; break;
-      case 3: computedTotal = 8; break;
-      case 4: computedTotal = 20; break;
-      default: computedTotal = 2;
-    }
+    // Détermination de la langue à partir de l'id_version
+    const [versionRows] = await db.execute("SELECT name FROM version WHERE id_Version = ?", [game.id_version]);
+    const language = versionRows.length ? versionRows[0].name : "fr";
 
-    const TotalPlayers = computedTotal;
-
+    // Récupération des joueurs
     const [players] = await db.execute(
-      `SELECT gp.ID_Player AS ID_Users, u.Pseudo, u.Avatar
-       FROM game_players gp
-       JOIN users u ON u.ID_Users = gp.ID_Player
-       WHERE gp.ID_Game = ?`,
+      `SELECT gp.id_player AS ID_Users, u.Pseudo, u.Avatar,
+              IFNULL(pb.validated, 0) AS validated
+      FROM game_players gp
+      JOIN users u ON u.ID_Users = gp.id_player
+      LEFT JOIN player_boards pb ON pb.game_id = gp.id_game AND pb.player_id = gp.id_player
+      WHERE gp.id_game = ?`,
       [id]
     );
 
-    res.json({ success: true, game: { ...game, TotalPlayers }, players });
+
+    // Calcul du nombre total de joueurs selon le mode
+    let totalPlayers;
+    switch (game.id_team_mode) {
+      case 1: totalPlayers = 2; break;
+      case 2: totalPlayers = 4; break;
+      case 3: totalPlayers = 8; break;
+      case 4: totalPlayers = 20; break;
+      default: totalPlayers = 2;
+    }
+
+    // Sélection de la flotte correspondante
+    const rawLang = language.toLowerCase();
+    let langKey;
+    if (rawLang.startsWith("fr")) langKey = "fr";
+    else if (rawLang.startsWith("bel") || rawLang === "be" || rawLang === "belgium") langKey = "be";
+    else langKey = "fr";
+
+    const fleet = fleetsByVersion[langKey] || fleetsByVersion.fr;
+    console.log(`🌍 [GET GAME] Version SQL="${language}" → clé="${langKey}" → ${fleet.length} bateaux`);
+
+
+    res.json({
+      success: true,
+      game: { ...game, TotalPlayers: totalPlayers, language },
+      players,
+      fleet,
+    });
   } catch (err) {
     console.error("❌ Erreur get-game:", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
@@ -123,14 +165,20 @@ router.get("/:id", async (req, res) => {
 router.post("/start", async (req, res) => {
   const { gameId, userId } = req.body;
   try {
-    const [gameRows] = await db.execute("SELECT * FROM games WHERE ID_Game = ?", [gameId]);
+    // ⚠️ Utiliser les bons noms de colonnes
+    const [gameRows] = await db.execute("SELECT * FROM games WHERE id_Game = ?", [gameId]);
     if (!gameRows.length) return res.status(404).json({ success: false, message: "Partie introuvable" });
 
-    if (Number(gameRows[0].ID_Creator) !== Number(userId))
+    const game = gameRows[0];
+
+    if (Number(game.id_creator) !== Number(userId))
       return res.status(403).json({ success: false, message: "Non autorisé" });
 
-    await db.execute("UPDATE games SET Status = 'started' WHERE ID_Game = ?", [gameId]);
-    res.json({ success: true });
+    // On met à jour le statut
+    await db.execute("UPDATE games SET status = 'in_progress' WHERE id_Game = ?", [gameId]);
+
+    console.log(`🚀 [START GAME] Partie ${gameId} démarrée par l'hôte ${userId}`);
+    res.json({ success: true, message: "Partie démarrée !" });
   } catch (err) {
     console.error("❌ Erreur start-game:", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
@@ -214,5 +262,54 @@ router.delete("/delete/:gameId", async (req, res) => {
     res.status(500).json({ success: false, message: "Erreur serveur lors de la suppression de la partie" });
   }
 });
+
+// 🔹 Enregistrer le placement des bateaux
+router.post("/place-ships", async (req, res) => {
+  console.log("🚀 Route /place-ships appelée", req.body);
+  const { gameId, playerId, ships, mode } = req.body;
+
+  if (!gameId || !playerId || !Array.isArray(ships)) {
+    return res.status(400).json({ success: false, message: "Paramètres manquants ou invalides" });
+  }
+
+  try {
+    // ✅ On reformate la grille 1D (100 cases) en 10x10
+    const board2D = [];
+    for (let y = 0; y < 10; y++) {
+      board2D.push(ships.slice(y * 10, (y + 1) * 10));
+    }
+
+    // ✅ Conversion en JSON
+    const boardJson = JSON.stringify(board2D);
+
+    // ✅ On enregistre ou met à jour l’entrée pour ce joueur et cette partie
+    const [existing] = await db.execute(
+      "SELECT id FROM player_boards WHERE game_id = ? AND player_id = ?",
+      [gameId, playerId]
+    );
+
+    if (existing.length) {
+      // Mise à jour si déjà existant
+      await db.execute(
+        "UPDATE player_boards SET board_json = ?, validated = 1 WHERE game_id = ? AND player_id = ?",
+        [boardJson, gameId, playerId]
+      );
+      console.log(`♻️ [UPDATE BOARD] game=${gameId}, player=${playerId}`);
+    } else {
+      // Insertion sinon
+      await db.execute(
+        "INSERT INTO player_boards (game_id, player_id, board_json, validated) VALUES (?, ?, ?, 1)",
+        [gameId, playerId, boardJson]
+      );
+      console.log(`💾 [SAVE BOARD] game=${gameId}, player=${playerId}`);
+    }
+
+    res.json({ success: true, message: "Placement enregistré avec succès !" });
+  } catch (err) {
+    console.error("❌ [PLACE SHIPS ERROR]", err);
+    res.status(500).json({ success: false, message: "Erreur serveur lors de l'enregistrement." });
+  }
+});
+
 
 export default router;

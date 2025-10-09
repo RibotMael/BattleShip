@@ -1,41 +1,63 @@
+<!--PlaceShips.vue-->
 <template>
   <div class="place-ships-container">
     <h1>🚢 Placement des bateaux</h1>
-    <p>Partie ID : {{ game.ID_Game }}</p>
-    <p>Joueurs prêts : {{ readyPlayers.length }}/{{ game.TotalPlayers }}</p>
 
-    <!-- Grille adversaire (en haut) -->
-    <div class="enemy-grid">
-      <h2>Grille adversaire</h2>
-      <div class="grid">
-        <div
-          v-for="(cell, index) in enemyGrid"
-          :key="index"
-          class="cell"
-        ></div>
-      </div>
+    <div class="top-info">
+      <p>Partie ID : {{ game.ID_Game }}</p>
+      <p>Joueurs prêts : {{ readyPlayers.length }}/{{ game.TotalPlayers }}</p>
     </div>
 
-    <!-- Grille joueur (en bas) -->
-    <div class="player-grid">
-      <h2>Votre grille</h2>
-      <div class="grid">
-        <div
-          v-for="(cell, index) in grid"
-          :key="index"
-          class="cell"
-          :class="{ ship: cell.hasShip }"
-          @click="placeShip(index)"
-        ></div>
+    <div class="main-layout">
+      <!-- 🗺️ Grille du joueur -->
+      <div class="player-grid">
+        <h2>Votre grille</h2>
+        <div class="grid" @mouseleave="hoverCells = []">
+          <div
+            v-for="(cell, index) in grid"
+            :key="index"
+            class="cell"
+            :class="getCellClass(index)"
+            @mouseenter="previewShip(index)"
+            @click="placeOrRemoveShip(index)"
+          ></div>
+        </div>
+        <button class="validate-btn" :disabled="!canValidate" @click="validatePlacement">
+          ✅ Valider mes bateaux
+        </button>
+      </div>
+
+      <!-- ⚓ Flotte -->
+      <div class="side-panel">
+        <h2>Flotte</h2>
+        <div class="fleet-list">
+          <div
+            v-for="(ship, i) in fleet"
+            :key="i"
+            class="ship-card"
+            :class="{ selected: selectedShipIndex === i, placed: ship.placed }"
+            @click="selectShip(i)"
+          >
+            <div class="ship-header">
+              <span>{{ ship.name }}</span>
+              <span v-if="ship.placed" class="status">✅</span>
+            </div>
+            <div class="ship-size">
+              <span v-for="n in ship.size" :key="n" class="size-block"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="orientation-toggle">
+          <label>Orientation :</label>
+          <button @click="toggleOrientation">
+            {{ orientation === "horizontal" ? "➡️ Horizontale" : "⬇️ Verticale" }}
+          </button>
+        </div>
+
+        <p class="ships-left">🛳️ Restants : {{ remainingShips }}</p>
       </div>
     </div>
-
-    <button
-      :disabled="!canValidate"
-      @click="validatePlacement"
-    >
-      ✅ Valider mes bateaux
-    </button>
   </div>
 </template>
 
@@ -44,23 +66,46 @@ export default {
   props: { gameId: { type: String, required: true } },
   data() {
     return {
-      game: { ID_Game: 0, TotalPlayers: 2 },
-      grid: Array(100).fill({ hasShip: false }),
-      enemyGrid: Array(100).fill({ hit: false }),
+      game: { ID_Game: 0, TotalPlayers: 2, mode: "fr" },
+      grid: Array.from({ length: 100 }, () => ({ hasShip: false, shipId: null })),
       readyPlayers: [],
       user: JSON.parse(localStorage.getItem("user")),
-      userId: 0
+      userId: 0,
+      fleet: [],
+      selectedShipIndex: null,
+      orientation: "horizontal",
+      hoverCells: [],
+      invalidPreview: false,
     };
   },
   computed: {
+    remainingShips() {
+      return this.fleet.filter((s) => !s.placed).length;
+    },
     canValidate() {
-      return this.grid.filter(c => c.hasShip).length > 0;
-    }
+      return this.remainingShips === 0;
+    },
   },
   mounted() {
     this.userId = Number(this.user?.id);
     this.game.ID_Game = Number(this.gameId);
-    this.fetchGame();
+    this.game.mode = localStorage.getItem("currentLanguage") || "fr";
+
+    this.fetchGame().then((data) => {
+      this.fleet = (data.fleet || []).map((ship) => ({ ...ship, placed: false }));
+    });
+
+    // 🔹 Vérification périodique si tous les joueurs sont prêts
+    this.readyInterval = setInterval(async () => {
+      const allReady = await this.checkAllPlayersReady();
+      if (allReady) {
+        clearInterval(this.readyInterval);
+        this.$router.push({ name: "GameBoard", params: { gameId: this.game.ID_Game } });
+      }
+    }, 1000); // toutes les secondes
+  },
+  beforeUnmount() {
+    clearInterval(this.readyInterval);
   },
   methods: {
     async fetchGame() {
@@ -69,14 +114,108 @@ export default {
         const data = await res.json();
         if (data.success) {
           this.game = { ...this.game, ...data.game };
-          this.readyPlayers = data.readyPlayers || [];
+          this.readyPlayers = data.players || [];
+          // Retourner la flotte pour le mounted()
+          return { fleet: data.fleet };
         }
-      } catch (err) { console.error(err); }
+      } catch (err) {
+        console.error("[FETCH GAME]", err);
+      }
     },
-    placeShip(index) {
-      this.$set(this.grid, index, { hasShip: !this.grid[index].hasShip });
+
+    selectShip(index) {
+      if (this.fleet[index].placed) return;
+      this.selectedShipIndex = index;
     },
+    toggleOrientation() {
+      this.orientation = this.orientation === "horizontal" ? "vertical" : "horizontal";
+    },
+
+    /** Vérifie si une case touche un navire (même en diagonale) */
+    isAdjacent(index) {
+      const x = index % 10;
+      const y = Math.floor(index / 10);
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || nx >= 10 || ny < 0 || ny >= 10) continue;
+          const nIndex = ny * 10 + nx;
+          if (this.grid[nIndex].hasShip) return true;
+        }
+      }
+      return false;
+    },
+
+    previewShip(startIndex) {
+      if (this.selectedShipIndex === null) return (this.hoverCells = []);
+      const ship = this.fleet[this.selectedShipIndex];
+      const indices = [];
+      const row = Math.floor(startIndex / 10);
+      let valid = true;
+
+      for (let i = 0; i < ship.size; i++) {
+        const idx = this.orientation === "horizontal" ? startIndex + i : startIndex + i * 10;
+        if (idx >= 100) return (this.hoverCells = []);
+        if (this.orientation === "horizontal" && Math.floor(idx / 10) !== row)
+          return (this.hoverCells = []);
+        if (this.grid[idx].hasShip || this.isAdjacent(idx)) valid = false;
+        indices.push(idx);
+      }
+
+      this.hoverCells = indices;
+      this.invalidPreview = !valid;
+    },
+
+    placeOrRemoveShip(index) {
+      const cell = this.grid[index];
+      if (cell.hasShip) {
+        const shipId = cell.shipId;
+        this.grid.forEach((c) => {
+          if (c.shipId === shipId) {
+            c.hasShip = false;
+            c.shipId = null;
+          }
+        });
+        this.fleet[shipId].placed = false;
+        return;
+      }
+
+      if (this.selectedShipIndex === null) return alert("⚓ Sélectionnez un navire !");
+      const ship = this.fleet[this.selectedShipIndex];
+      const indices = [];
+      const row = Math.floor(index / 10);
+
+      for (let i = 0; i < ship.size; i++) {
+        const idx = this.orientation === "horizontal" ? index + i : index + i * 10;
+        if (idx >= 100) return alert("⚠️ Hors grille !");
+        if (this.orientation === "horizontal" && Math.floor(idx / 10) !== row)
+          return alert("⚠️ Placement invalide !");
+        if (this.grid[idx].hasShip) return alert("⚠️ Collision !");
+        if (this.isAdjacent(idx)) return alert("⚠️ Trop proche d'un autre navire !");
+        indices.push(idx);
+      }
+
+      indices.forEach((i) => {
+        this.grid[i] = { ...this.grid[i], hasShip: true, shipId: this.selectedShipIndex };
+      });
+      this.fleet[this.selectedShipIndex].placed = true;
+      this.selectedShipIndex = null;
+      this.hoverCells = [];
+    },
+
+    getCellClass(index) {
+      const cell = this.grid[index];
+      if (cell.hasShip) return "ship";
+      if (this.hoverCells.includes(index))
+        return this.invalidPreview ? "preview invalid" : "preview";
+      return "";
+    },
+
     async validatePlacement() {
+      if (!this.canValidate) return alert("⛵ Placez tous vos bateaux avant de valider !");
+
       try {
         const res = await fetch(`http://localhost:3000/api/games/place-ships`, {
           method: "POST",
@@ -84,19 +223,70 @@ export default {
           body: JSON.stringify({
             gameId: this.game.ID_Game,
             playerId: this.userId,
-            ships: this.grid.map(c => c.hasShip ? 1 : 0)
-          })
+            ships: this.grid.map((c) => (c.hasShip ? 1 : 0)),
+            mode: this.game.mode,
+          }),
         });
         const data = await res.json();
-        if (data.success) alert("Placement validé ! En attente des autres joueurs.");
-        await this.fetchGame();
-      } catch (err) { console.error(err); }
-    }
-  }
+        if (data.success) {
+          alert("✅ Placement validé !");
+          // 🔹 Vérifier si tous les joueurs sont prêts
+          const allReady = await this.checkAllPlayersReady();
+          if (allReady) {
+            this.$router.push({ name: "GameBoard", params: { gameId: this.game.ID_Game } });
+          } else {
+            console.log("⏳ On attend les autres joueurs...");
+          }
+        } else {
+          alert("Erreur : " + data.message);
+        }
+      } catch (err) {
+        console.error("[VALIDATE PLACEMENT]", err);
+      }
+    },
+    async checkAllPlayersReady() {
+      try {
+        const res = await fetch(`http://localhost:3000/api/games/${this.game.ID_Game}`);
+        const data = await res.json();
+        if (data.success) {
+          this.readyPlayers = data.players.filter((p) => p.validated); // les joueurs qui ont validé
+          // On compare avec le nombre total de joueurs
+          return this.readyPlayers.length === this.game.TotalPlayers;
+        }
+      } catch (err) {
+        console.error("[CHECK ALL READY]", err);
+      }
+      return false;
+    },
+  },
 };
 </script>
 
 <style scoped>
+.place-ships-container {
+  text-align: center;
+  background: linear-gradient(to bottom, #002f4b, #005f8e);
+  color: white;
+  min-height: 100vh;
+  padding: 15px;
+}
+
+.top-info {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  font-size: 1.1em;
+}
+
+.main-layout {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 40px;
+  margin-top: 20px;
+}
+
+/* 🎯 Grille */
 .grid {
   display: grid;
   grid-template-columns: repeat(10, 30px);
@@ -106,13 +296,87 @@ export default {
 .cell {
   width: 30px;
   height: 30px;
-  border: 1px solid #444;
+  border: 1px solid #333;
   background-color: #87ceeb;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.cell.preview {
+  background-color: #4caf50 !important;
 }
 .cell.ship {
-  background-color: #444;
+  background-color: #2c3e50;
 }
-.enemy-grid, .player-grid {
-  margin-bottom: 20px;
+
+/* ⚓ Panneau latéral */
+.side-panel {
+  width: 25%;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 15px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.fleet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.ship-card {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.ship-card:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+.ship-card.selected {
+  background: #f1c40f;
+  color: black;
+  font-weight: bold;
+}
+.ship-card.placed {
+  opacity: 0.6;
+}
+
+.ship-header {
+  display: flex;
+  justify-content: space-between;
+}
+.ship-size {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  justify-content: center;
+}
+.size-block {
+  width: 15px;
+  height: 10px;
+  background: #3498db;
+  border-radius: 2px;
+}
+
+.orientation-toggle {
+  margin-top: 15px;
+}
+
+.validate-btn {
+  margin-top: 15px;
+  background: #16a085;
+  color: white;
+  font-weight: bold;
+}
+
+.cell.preview.invalid {
+  background-color: #e74c3c !important; /* rouge si placement interdit */
+}
+.cell.preview {
+  background-color: #4caf50 !important; /* vert si placement valide */
 }
 </style>

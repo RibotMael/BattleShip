@@ -1,8 +1,8 @@
-<!--FriendsPopup.vue-->
+<!-- FriendsPopup.vue -->
 <template>
   <div class="popup-overlay">
     <div class="popup-content">
-      <h2>Mes amis</h2>
+      <h2>👥 Mes amis</h2>
 
       <!-- Liste d'amis -->
       <ul>
@@ -18,42 +18,37 @@
       </ul>
 
       <!-- Invitations reçues -->
-      <div class="invites-column">
-        <h3>Invitations reçues :</h3>
+      <div class="invites-column" v-if="invitations.length">
+        <h3>🎮 Invitations de partie reçues :</h3>
         <ul>
           <li v-for="inv in invitations" :key="inv.ID">
-            Partie #{{ inv.id_game }} de {{ inv.sender_id }}
+            Partie #{{ inv.id_game }} envoyée par joueur #{{ inv.sender_id }}
             <div class="friend-right">
-              <div class="friend-right">
-                <button class="accept-button" @click="acceptInvitation(inv)">✓</button>
-                <button class="remove-button" @click="refuseInvitation(inv)">✕</button>
-              </div>
+              <button class="accept-button" @click="acceptInvitation(inv)">✓</button>
+              <button class="remove-button" @click="refuseInvitation(inv)">✕</button>
             </div>
           </li>
         </ul>
       </div>
 
-
-
       <!-- Ajouter un ami -->
-      <h3>Ajouter un ami</h3>
-      <input v-model="identifier" placeholder="Mettre le pseudo" />
+      <h3>➕ Ajouter un ami</h3>
+      <input v-model="identifier" placeholder="Pseudo de l'ami" />
       <button @click="addFriend">Ajouter</button>
 
-      <!-- Demandes reçues -->
-      <h3>Demandes d'amis reçues</h3>
-      <ul>
-        <li v-for="req in requests" :key="req.ID_Users">
-          <div class="friend-left">
-            <img v-if="req.avatar" :src="req.avatar" class="friend-avatar" />
-            <span class="friend-pseudo">{{ req.Pseudo }}</span>
-          </div>
-          <div class="friend-right">
-            <button class="accept-button" @click="acceptRequest(req.ID_Users)">✓</button>
-            <button class="remove-button" @click="removeFriend(req.ID_Users)">✕</button>
-          </div>
-        </li>
-      </ul>
+      <!-- Demandes d'amis reçues -->
+      <div v-if="requests.length">
+        <h3>📩 Demandes d'amis reçues</h3>
+        <ul>
+          <li v-for="r in requests" :key="r.ID_Users">
+            {{ r.Pseudo }}
+            <div class="friend-right">
+              <button class="accept-button" @click="acceptRequest(r.ID_Users)">✓</button>
+              <button class="remove-button" @click="removeFriend(r.ID_Users)">✕</button>
+            </div>
+          </li>
+        </ul>
+      </div>
 
       <button @click="$emit('close')">Fermer</button>
     </div>
@@ -61,7 +56,8 @@
 </template>
 
 <script>
-import { invitationStore, removeInvitation, sendInvite } from '@/eventBus';
+import { invitationStore, removeInvitation } from "@/eventBus";
+
 export default {
   props: ["userId"],
   data() {
@@ -71,34 +67,33 @@ export default {
       identifier: "",
     };
   },
-  mounted() {
-    this.fetchFriends();
-    this.fetchInvitations();
-    this.fetchRequests(); 
-    this.refreshInterval = setInterval(this.fetchInvitations, 3000)
-  },
-  beforeUnmount() {
-    clearInterval(this.refreshInterval);
-  },
   computed: {
     invitations() {
       return invitationStore.invitations;
-    }
+    },
+  },
+  mounted() {
+    this.fetchFriends();
+    this.fetchRequests();
+    this.fetchInvitations();
+    this.refreshInterval = setInterval(this.fetchInvitations, 3000);
+  },
+  beforeUnmount() {
+    clearInterval(this.refreshInterval);
   },
   methods: {
     async fetchFriends() {
       try {
         const res = await fetch(`http://localhost:3000/api/friends/list/${this.userId}`);
-        const friendsData = await res.json();
-        // Normalisation uniforme avec WaitingRoom.vue
-        this.friends = friendsData.map(f => ({
+        const data = await res.json();
+        this.friends = (data || []).map((f) => ({
           ID_Users: f.id ?? f.ID_Users,
           Pseudo: f.pseudo ?? f.Pseudo,
-          avatar: f.avatar || null,
+          avatar: f.avatar ?? null,
           isOnline: f.isOnline ?? false,
         }));
       } catch (err) {
-        console.error("Erreur récupération amis :", err);
+        console.error("❌ Erreur récupération amis :", err);
       }
     },
 
@@ -106,81 +101,25 @@ export default {
       try {
         const res = await fetch(`http://localhost:3000/api/invitation/${this.userId}`);
         const data = await res.json();
-        invitationStore.invitations = data.invitations || [];
-      } catch (err) { console.error("Erreur récupération invitations :", err); }
-    },
-    async respondInvite(gameId, senderId, accept) {
-      try {
-        await fetch("http://localhost:3000/api/invitation/respond", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: this.userId, gameId, senderId, accept })
-        });
-        removeInvitation(gameId, this.userId);
-        if (accept) this.$router.push(`/waiting-room/${gameId}`);
-      } catch (err) { console.error(err); }
+        invitationStore.invitations = Array.isArray(data.invitations) ? data.invitations : [];
+      } catch (err) {
+        console.error("❌ Erreur récupération invitations :", err);
+        invitationStore.invitations = [];
+      }
     },
 
     async fetchRequests() {
       try {
         const res = await fetch(`http://localhost:3000/api/friends/requests/${this.userId}`);
         const data = await res.json();
-        this.requests = data.map(r => ({
+        this.requests = (data || []).map((r) => ({
           ID_Users: r.ID_Users,
           Pseudo: r.Pseudo,
-          avatar: r.avatar || null,
+          avatar: r.avatar ?? null,
           isOnline: r.isOnline ?? false,
-          requestId: r.requestId
         }));
       } catch (err) {
-        console.error("Erreur récupération demandes :", err);
-      }
-    },
-
-    async inviteFriend(friendId) {
-      if (!this.game.ID_Game || !this.userId) return;
-      const payload = { gameId: this.game.ID_Game, fromId: this.userId, toId: friendId };
-      try {
-        const res = await fetch("http://localhost:3000/api/games/invite", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (!data.success) return alert("Erreur invitation : " + data.message);
-        // ✅ Ne pas ajouter le joueur directement
-        alert("Invitation envoyée !");
-      } catch (err) {
-        console.error(err);
-        alert("Erreur serveur lors de l'invitation");
-      }
-    },
-
-    async respondInvite(gameId, senderId, accept) {
-      try {
-        const res = await fetch("http://localhost:3000/api/invitation/respond", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: this.userId, gameId, senderId, accept })
-        });
-        const data = await res.json();
-
-        removeInvitation(gameId, this.userId);
-
-        if (accept && data.success) {
-          await fetch("http://localhost:3000/api/games/join", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              gameId,
-              playerId: this.userId,
-              totalPlayers: data.game?.TotalPlayers || 2
-            })
-          });
-          this.$router.push(`/waiting-room/${gameId}`);
-        }
-      } catch (err) {
-        console.error("Erreur respondInvite :", err);
+        console.error("❌ Erreur récupération demandes :", err);
       }
     },
 
@@ -190,12 +129,63 @@ export default {
         await fetch("http://localhost:3000/api/friends/add", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: this.userId, identifier: this.identifier })
+          body: JSON.stringify({ userId: this.userId, identifier: this.identifier }),
         });
         this.identifier = "";
         this.fetchFriends();
       } catch (err) {
-        console.error("Erreur addFriend :", err);
+        console.error("❌ Erreur addFriend :", err);
+      }
+    },
+
+    async acceptInvitation(inv) {
+      try {
+        const res = await fetch("http://localhost:3000/api/invitation/respond", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: this.userId,
+            inviteId: inv.ID,
+            gameId: inv.id_game,
+            senderId: inv.sender_id,
+            accept: true,
+          }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          removeInvitation(inv.ID);
+          await fetch("http://localhost:3000/api/games/join", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              gameId: inv.id_game,
+              playerId: this.userId,
+            }),
+          });
+          this.$router.push(`/waiting-room/${inv.id_game}`);
+        }
+      } catch (err) {
+        console.error("❌ Erreur acceptInvitation :", err);
+      }
+    },
+
+    async refuseInvitation(inv) {
+      try {
+        await fetch("http://localhost:3000/api/invitation/respond", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: this.userId,
+            inviteId: inv.ID,
+            gameId: inv.id_game,
+            senderId: inv.sender_id,
+            accept: false,
+          }),
+        });
+        removeInvitation(inv.ID);
+      } catch (err) {
+        console.error("❌ Erreur refuseInvitation :", err);
       }
     },
 
@@ -204,12 +194,12 @@ export default {
         await fetch("http://localhost:3000/api/friends/accept", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: this.userId, friendId })
+          body: JSON.stringify({ userId: this.userId, friendId }),
         });
         this.fetchFriends();
-        this.fetchRequests(); // <== ajouter
+        this.fetchRequests();
       } catch (err) {
-        console.error("Erreur acceptRequest :", err);
+        console.error("❌ Erreur acceptRequest :", err);
       }
     },
 
@@ -219,53 +209,14 @@ export default {
         await fetch("http://localhost:3000/api/friends/remove", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: this.userId, friendId })
+          body: JSON.stringify({ userId: this.userId, friendId }),
         });
         this.fetchFriends();
       } catch (err) {
-        console.error("Erreur removeFriend :", err);
+        console.error("❌ Erreur removeFriend :", err);
       }
     },
-    async acceptInvitation(invitation) {
-      try {
-        const res = await fetch("http://localhost:3000/api/invitation/respond", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: this.userId, gameId: invitation.id_game, senderId: invitation.sender_id, accept: true })
-        });
-        const data = await res.json();
-        removeInvitation(invitation.id_game, this.userId);
-        if (data.success) {
-          await fetch("http://localhost:3000/api/games/join", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              gameId: invitation.id_game,
-              playerId: this.userId,
-              totalPlayers: data.game?.TotalPlayers || 2
-            })
-          });
-          this.$router.push(`/waiting-room/${invitation.id_game}`);
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    },
-
-    async refuseInvitation(invitation) {
-      try {
-        await fetch("http://localhost:3000/api/invitation/respond", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: this.userId, gameId: invitation.id_game, senderId: invitation.sender_id, accept: false })
-        });
-        removeInvitation(invitation.id_game, this.userId);
-      } catch (err) {
-        console.error(err);
-      }
-    },
-
-  }
+  },
 };
 </script>
 
@@ -280,13 +231,6 @@ export default {
 .friend-left {
   display: flex;
   align-items: center;
-}
-
-.friend-avatar {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  margin-right: 0.5rem;
 }
 
 .friend-pseudo {
@@ -312,13 +256,17 @@ export default {
   background-color: #28a745;
   color: white;
 }
-.accept-button:hover { background-color: #218838; }
+.accept-button:hover {
+  background-color: #218838;
+}
 
 .remove-button {
   background-color: #e74c3c;
   color: white;
 }
-.remove-button:hover { background-color: #c0392b; }
+.remove-button:hover {
+  background-color: #c0392b;
+}
 
 .status-dot {
   display: inline-block;
@@ -327,6 +275,18 @@ export default {
   border-radius: 50%;
   margin-right: 0.5rem;
 }
-.status-dot.online { background-color: #28a745; }
-.status-dot.offline { background-color: #e74c3c; }
+.status-dot.online {
+  background-color: #28a745;
+}
+.status-dot.offline {
+  background-color: #e74c3c;
+}
+
+.close-btn {
+  margin-top: 1rem;
+  background: #555;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+}
 </style>

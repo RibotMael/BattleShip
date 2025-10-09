@@ -35,7 +35,7 @@ router.get("/:id", async (req, res) => {
       "SELECT Name FROM Version WHERE ID_Version = ?",
       [game.id_version]
     );
-    const language = versionRows.length ? versionRows[0].Name : "fr";
+    const language = versionRows.length ? versionRows[0].name : "fr";
 
     // Calcul dynamique du nombre de joueurs attendu
     let totalPlayers = null;

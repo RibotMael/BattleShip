@@ -25,7 +25,7 @@ app.use("/api", authRoutes);
 app.use("/api/users", userProfileRoutes);
 app.use("/api", checkPseudoRoute);
 app.use("/api/friends", friendsRouter);
-app.use("/api/games/invite", invitationsRouter);
+app.use("/api/invitation", invitationsRouter);
 app.use("/api", avatarRouter);
 
 // Routes de jeux
