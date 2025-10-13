@@ -1,11 +1,11 @@
-//games.js
+//routes/games.js
 
 import express from "express";
 import db from "../db.js";
 import { fleetsByVersion } from "../utils/fleets.js";
 
-
 const router = express.Router();
+
 
 // 🔹 Créer une partie
 router.post("/create", async (req, res) => {
@@ -175,7 +175,7 @@ router.post("/start", async (req, res) => {
       return res.status(403).json({ success: false, message: "Non autorisé" });
 
     // On met à jour le statut
-    await db.execute("UPDATE games SET status = 'in_progress' WHERE id_Game = ?", [gameId]);
+    await db.execute("UPDATE games SET status = 'placement' WHERE id_Game = ?", [gameId]);
 
     console.log(`🚀 [START GAME] Partie ${gameId} démarrée par l'hôte ${userId}`);
     res.json({ success: true, message: "Partie démarrée !" });

@@ -15,7 +15,7 @@
           required
         />
         <span class="toggle-visibility" @click="showPassword = !showPassword">
-          {{ showPassword ? '🙈' : '👁️' }}
+          {{ showPassword ? "🙈" : "👁️" }}
         </span>
       </div>
 
@@ -28,7 +28,7 @@
             required
           />
           <span class="toggle-visibility" @click="showConfirmPassword = !showConfirmPassword">
-            {{ showConfirmPassword ? '🙈' : '👁️' }}
+            {{ showConfirmPassword ? "🙈" : "👁️" }}
           </span>
         </div>
 
@@ -38,25 +38,26 @@
         <h3>Avatar</h3>
 
         <div class="avatar-selection">
-          <div 
-            v-for="av in avatars" 
-            :key="av.ID_Avatar" 
-            class="avatar-option" 
+          <div
+            v-for="av in avatars"
+            :key="av.ID_Avatar"
+            class="avatar-option"
             :class="{ selected: avatar === av.ID_Avatar }"
             @click="selectAvatar(av.ID_Avatar)"
           >
-            <img :src="'data:' + av.mime_type + ';base64,' + av.Avatar" :alt="'Avatar ' + av.ID_Avatar" />
+            <img
+              :src="'data:' + av.mime_type + ';base64,' + av.Avatar"
+              :alt="'Avatar ' + av.ID_Avatar"
+            />
           </div>
         </div>
 
-
         <!-- Aperçu -->
-        <img 
-          v-if="avatar" 
-          :src="'data:' + selectedMime + ';base64,' + selectedBase64" 
-          class="avatar-preview" 
+        <img
+          v-if="avatar"
+          :src="'data:' + selectedMime + ';base64,' + selectedBase64"
+          class="avatar-preview"
         />
-
 
         <div class="legal-consent">
           <input id="legal" type="checkbox" v-model="legalAccepted" required />
@@ -72,11 +73,11 @@
         {{ isLogin ? "Se connecter" : "S'inscrire" }}
       </button>
 
-      <p @click="toggleForm" style="cursor: pointer; color: blue; text-decoration: underline;">
+      <p @click="toggleForm" style="cursor: pointer; color: blue; text-decoration: underline">
         {{ isLogin ? "Pas encore de compte ? Inscris-toi" : "Déjà inscrit ? Connecte-toi" }}
       </p>
 
-      <p v-if="errorMsg" style="color: red; font-size: 0.8rem;">{{ errorMsg }}</p>
+      <p v-if="errorMsg" style="color: red; font-size: 0.8rem">{{ errorMsg }}</p>
     </form>
   </div>
 </template>
@@ -93,20 +94,22 @@ export default {
       confirmPassword: "",
       pseudo: "",
       birthDay: "",
-      avatars: [],       // liste des avatars de la BDD
-      avatar: null,      // ID de l'avatar choisi
-      selectedBase64: '', 
-      selectedMime: '',
+      avatars: [], // liste des avatars de la BDD
+      avatar: null, // ID de l'avatar choisi
+      selectedBase64: "",
+      selectedMime: "",
       errorMsg: "",
       legalAccepted: false,
       showPassword: false,
-      showConfirmPassword: false
+      showConfirmPassword: false,
     };
   },
 
   methods: {
     showLegal() {
-      alert(`Conditions Générales d'Utilisation :\n\n- Aucun bot ni logiciel de triche n'est autorisé.\n- Le respect des autres joueurs est obligatoire.\n- Les comptes multiples sont interdits.\n- Vos statistiques (pseudo, victoires, avatar) sont publiques.`);
+      alert(
+        `Conditions Générales d'Utilisation :\n\n- Aucun bot ni logiciel de triche n'est autorisé.\n- Le respect des autres joueurs est obligatoire.\n- Les comptes multiples sont interdits.\n- Vos statistiques (pseudo, victoires, avatar) sont publiques.`
+      );
     },
 
     toggleForm() {
@@ -150,7 +153,7 @@ export default {
 
     selectAvatar(id) {
       this.avatar = id;
-      const sel = this.avatars.find(a => a.ID_Avatar === id);
+      const sel = this.avatars.find((a) => a.ID_Avatar === id);
       if (sel) {
         this.selectedBase64 = sel.Avatar;
         this.selectedMime = sel.mime_type;
@@ -160,7 +163,9 @@ export default {
     async checkPseudo() {
       if (!this.pseudo.trim()) return;
       try {
-        const res = await axios.post("http://localhost:3000/api/check-pseudo", { pseudo: this.pseudo });
+        const res = await axios.post("http://localhost:3000/api/check-pseudo", {
+          pseudo: this.pseudo,
+        });
         if (!res.data.available) {
           this.errorMsg = "Ce pseudo est déjà pris.";
         } else {
@@ -206,9 +211,8 @@ export default {
         password: this.password || null,
         pseudo: this.pseudo || null,
         birthDay: this.birthDay || null,
-        avatar: this.avatar || 1 // ID par défaut si aucun choisi
+        avatar: this.avatar || 1, // ID par défaut si aucun choisi
       };
-
 
       const url = this.isLogin
         ? "http://localhost:3000/api/login"
@@ -242,7 +246,6 @@ export default {
           this.errorMsg = "Erreur de communication avec le serveur.";
         }
       }
-
     },
 
     async getBase64FromUrl(url) {
@@ -254,12 +257,11 @@ export default {
         reader.onerror = reject;
         reader.readAsDataURL(blob);
       });
-    }
+    },
   },
   mounted() {
     this.fetchAvatars();
   },
-
 };
 </script>
 
@@ -349,7 +351,7 @@ button:hover {
   display: flex;
   flex-direction: column;
   align-items: center;
-  box-shadow: 0 0 20px rgba(0,0,0,0.3);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
 }
 
 .cropper-content img {
@@ -357,7 +359,6 @@ button:hover {
   max-height: 400px;
   display: block;
 }
-
 
 .cropper-buttons {
   display: flex;
@@ -401,7 +402,6 @@ button:hover {
   margin-left: auto;
   margin-right: auto;
 }
-
 
 .password-wrapper {
   position: relative;
@@ -451,6 +451,4 @@ button:hover {
   border-radius: 50%;
   object-fit: cover;
 }
-
-
 </style>

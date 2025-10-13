@@ -12,10 +12,10 @@
 
       <!-- Sélection des avatars depuis la BDD -->
       <div class="avatar-selection">
-        <div 
-          v-for="av in avatars" 
-          :key="av.ID_Avatar" 
-          class="avatar-option" 
+        <div
+          v-for="av in avatars"
+          :key="av.ID_Avatar"
+          class="avatar-option"
           :class="{ selected: avatar === av.ID_Avatar }"
           @click="selectAvatar(av.ID_Avatar)"
         >
@@ -34,25 +34,25 @@
 </template>
 
 <script>
-import { userBus } from '@/eventBus.js';
+import { userBus } from "@/eventBus.js";
 
 import axios from "axios";
-import defaultAvatar from '@/assets/images/ppHomme.png';
+import defaultAvatar from "@/assets/images/ppHomme.png";
 
 export default {
   data() {
     return {
-      pseudo: '',
+      pseudo: "",
       userId: null,
-      avatars: [],       // tous les avatars dispo
-      avatar: null,      // ID sélectionné
+      avatars: [], // tous les avatars dispo
+      avatar: null, // ID sélectionné
       avatarPreviewUrl: defaultAvatar,
-      selectedBase64: '',
-      selectedMime: ''
+      selectedBase64: "",
+      selectedMime: "",
     };
   },
   mounted() {
-    const user = JSON.parse(localStorage.getItem('user'));
+    const user = JSON.parse(localStorage.getItem("user"));
     if (user) {
       this.userId = user.id;
       this.pseudo = user.pseudo;
@@ -69,7 +69,7 @@ export default {
 
         // si l'user a déjà un avatar enregistré → mettre le preview à jour
         if (this.avatar) {
-          const sel = this.avatars.find(a => a.ID_Avatar === this.avatar);
+          const sel = this.avatars.find((a) => a.ID_Avatar === this.avatar);
           if (sel) {
             this.selectedBase64 = sel.Avatar;
             this.selectedMime = sel.mime_type;
@@ -83,7 +83,7 @@ export default {
 
     selectAvatar(id) {
       this.avatar = id;
-      const sel = this.avatars.find(a => a.ID_Avatar === id);
+      const sel = this.avatars.find((a) => a.ID_Avatar === id);
       if (sel) {
         this.selectedBase64 = sel.Avatar;
         this.selectedMime = sel.mime_type;
@@ -104,9 +104,9 @@ export default {
 
       try {
         const response = await fetch(`http://localhost:3000/api/users/${this.userId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
@@ -121,12 +121,15 @@ export default {
         const avatarUrl = updatedUser.avatar || defaultAvatar;
 
         // Mettre à jour localStorage
-        localStorage.setItem('user', JSON.stringify({
-          id: updatedUser.id,
-          pseudo: updatedUser.pseudo,
-          avatarId: updatedUser.avatarId, // ID pour garder la sélection
-          avatar: avatarUrl
-        }));
+        localStorage.setItem(
+          "user",
+          JSON.stringify({
+            id: updatedUser.id,
+            pseudo: updatedUser.pseudo,
+            avatarId: updatedUser.avatarId,
+            avatar: avatarUrl,
+          })
+        );
 
         // Mettre à jour le preview
         this.avatarPreviewUrl = avatarUrl;
@@ -143,14 +146,17 @@ export default {
     },
 
     async deleteAccount() {
-      const user = JSON.parse(localStorage.getItem('user'));
+      const user = JSON.parse(localStorage.getItem("user"));
       if (!user) return;
       if (!confirm("Êtes-vous sûr de vouloir supprimer votre compte ?")) return;
 
       try {
-        const response = await fetch(`http://localhost:3000/api/users/${user.id}`, {
-          method: 'DELETE'
-        });
+        const response = await fetch(
+          `http://localhost:3000/api/users/${user.ID_Users || user.id}`,
+          {
+            method: "DELETE",
+          }
+        );
 
         if (!response.ok) {
           const errText = await response.text();
@@ -158,17 +164,17 @@ export default {
           return alert("Erreur lors de la suppression du compte.");
         }
 
-        localStorage.removeItem('user');
-        eventBus.userUpdated = !eventBus.userUpdated;
+        localStorage.removeItem("user");
+        userBus.userUpdated = !userBus.userUpdated;
 
         alert("Votre compte a été supprimé.");
-        this.$router.push('/');
+        this.$router.push("/");
       } catch (error) {
         console.error("Erreur lors de la suppression :", error);
         alert("Erreur inattendue lors de la suppression.");
       }
-    }
-  }
+    },
+  },
 };
 </script>
 
@@ -190,7 +196,7 @@ export default {
   border-radius: 8px;
   max-width: 400px;
   width: 100%;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
 .profile-form label {
@@ -247,8 +253,14 @@ export default {
   cursor: pointer;
 }
 
-.profile-form button:hover { background-color: #216f9d; }
+.profile-form button:hover {
+  background-color: #216f9d;
+}
 
-.delete-button { background-color: #e74c3c; }
-.delete-button:hover { background-color: #c0392b; }
+.delete-button {
+  background-color: #e74c3c;
+}
+.delete-button:hover {
+  background-color: #c0392b;
+}
 </style>

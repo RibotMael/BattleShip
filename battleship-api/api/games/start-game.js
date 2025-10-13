@@ -1,3 +1,5 @@
+//games/start-games.js
+
 import express from "express";
 import db from '../../db.js';
 
@@ -35,7 +37,8 @@ router.post("/:gameId", async (req, res) => {
       });
     }
 
-    await db.execute("UPDATE games SET status = 'in_progress' WHERE id_Game = ?", [gameId]);
+    await db.execute("UPDATE games SET status = 'placement' WHERE id_Game = ?", [gameId]);
+
 
     res.json({ success: true, message: "Partie démarrée !" });
   } catch (err) {

@@ -1,6 +1,8 @@
 // battleship-api/routes/user.js
 import { Router } from 'express';
 import { query } from '../db.js';
+import db from "../db.js";
+
 
 const router = Router();
 
@@ -158,17 +160,36 @@ router.put('/:id', async (req, res) => {
 });
 
 // 🔹 Supprimer un utilisateur (+ son avatar lié)
-router.delete('/users/:id', async (req, res) => {
+router.delete('/:id', async (req, res) => {
   const userId = req.params.id;
 
   try {
-    // Supprime uniquement l'utilisateur
-    await query("DELETE FROM users WHERE ID_Users = ?", [userId]);
 
-    res.json({ success: true, message: "Utilisateur supprimé, avatar conservé." });
+    // Supprime le compte utilisateur
+    await db.query("DELETE FROM users WHERE ID_Users = ?", [userId]);
+
+    res.json({ success: true, message: "Utilisateur supprimé avec succès." });
   } catch (err) {
     console.error("Erreur suppression utilisateur:", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
+});
+
+
+// 🔹 Vérifie si un utilisateur existe encore
+router.get("/check-user/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [rows] = await query("SELECT ID_Users FROM users WHERE ID_Users = ?", [id]);
+
+    if (rows.length === 0) {
+      return res.status(401).json({ message: "Utilisateur supprimé ou inexistant" });
+    }
+
+    res.json({ success: true, message: "Utilisateur valide" });
+  } catch (err) {
+    console.error("Erreur check-user :", err);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 });
 

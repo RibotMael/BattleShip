@@ -112,19 +112,17 @@ export default {
     },
   },
   watch: {
-    "game.status": {
-      handler(newStatus) {
-        if (newStatus === "started") {
-          console.log("[WATCH] Game started, navigation vers PlaceShips");
-          this.$router.replace({
-            name: "PlaceShips",
-            params: { gameId: String(this.game?.ID_Game) },
-          });
-        }
-      },
-      immediate: true,
+    "game.status"(newStatus) {
+      if (newStatus === "placement" || newStatus === "in_progress") {
+        console.log("[WATCH] Game en placement, navigation vers PlaceShips");
+        this.$router.replace({
+          name: "PlaceShips",
+          params: { gameId: String(this.game?.ID_Game) },
+        });
+      }
     },
   },
+
   async created() {
     // Toujours avoir un userId
     this.userId = Number(this.user.id || 999);
@@ -176,39 +174,44 @@ export default {
       return true;
     },
     setupPolling() {
-      console.log("[POLLING] Démarrage polling invitations et game");
       if (this.polling) clearInterval(this.polling);
       this.polling = setInterval(async () => {
-        await this.fetchGame();
+        const prevStatus = this.game?.status;
+        await this.fetchGame(); // ⚡ ici on met à jour playersWithMe
         await this.fetchInvitations();
-        if (this.game?.status === "in_progress") this.game.status = "started";
-      }, 5000);
+        if (prevStatus !== this.game?.status && this.game.status === "placement") {
+          this.$router.replace({ name: "PlaceShips", params: { gameId: this.game.ID_Game } });
+        }
+      }, 2000);
     },
     async fetchGame() {
       try {
         const res = await fetch(`http://localhost:3000/api/games/${this.localGameId}`);
         const data = await res.json();
-        if (!data.success) {
-          console.warn("[FETCH] Game non trouvée :", this.localGameId);
-          clearInterval(this.polling);
-          localStorage.removeItem("currentGame");
-          this.$router.push("/gamemode");
-          return false;
-        }
+        if (!data.success) return false;
+
+        const oldStatus = this.game?.status;
+
         this.game = {
           ID_Game: data.game.id_Game,
           id_creator: data.game.id_creator,
           TotalPlayers: data.game.TotalPlayers || this.totalPlayers,
           status: data.game.status || "waiting",
         };
+
         this.players = Array.isArray(data.players) ? data.players : [];
         this.onlinePlayers = Array.isArray(data.onlinePlayers) ? data.onlinePlayers : [];
         this.isHost = Number(this.userId) === Number(this.game.id_creator);
         this.totalPlayers = this.game.TotalPlayers || this.totalPlayers;
+
+        // ⚠️ Forcer le watch si status change
+        if (oldStatus !== this.game.status) {
+          this.$forceUpdate();
+        }
+
         return true;
       } catch (err) {
         console.error("[FETCH] Erreur fetchGame :", err);
-        this.errorMsg = "Impossible de récupérer la partie. Réessayez plus tard.";
         return false;
       }
     },
@@ -265,6 +268,8 @@ export default {
         const data = await res.json();
         if (!data.success)
           return console.warn("[JOIN] Impossible de rejoindre la partie :", data.message);
+
+        // ⚡ Mettre à jour la liste des joueurs
         this.players = Array.isArray(data.players) ? data.players : this.players;
       } catch (err) {
         console.error("[JOIN] Erreur joinGame :", err);
@@ -348,7 +353,7 @@ export default {
         }
 
         // Mettre à jour localement pour l'hôte également
-        this.game.status = "started";
+        this.game.status = "placement";
       } catch (err) {
         console.error("[START GAME] Erreur:", err);
       }

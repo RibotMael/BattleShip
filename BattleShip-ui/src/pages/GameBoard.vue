@@ -1,34 +1,40 @@
-<!--GameBoard.vue-->
+<!-- GameBoard.vue -->
 <template>
   <div class="battle-container">
-    <!-- Grille adversaire -->
-    <h2>Adversaire</h2>
-    <div class="grid opponent-grid">
-      <div
-        v-for="(cell, index) in opponentGrid"
-        :key="index"
-        class="cell"
-        :class="{
-          hit: cell === 'hit',
-          miss: cell === 'miss',
-        }"
-        @click="shoot(index)"
-      ></div>
-    </div>
+    <div class="grids-wrapper">
+      <!-- ✅ Grille Joueur à gauche -->
+      <div class="grid-section">
+        <h2>Notre flotte</h2>
+        <div class="grid player-grid">
+          <div
+            v-for="(cell, index) in playerGrid"
+            :key="index"
+            class="cell"
+            :class="{
+              ship: cell === 1,
+              hit: cell === 'hit',
+              miss: cell === 'miss',
+            }"
+          ></div>
+        </div>
+      </div>
 
-    <!-- Notre grille -->
-    <h2>Notre flotte</h2>
-    <div class="grid player-grid">
-      <div
-        v-for="(cell, index) in playerGrid"
-        :key="index"
-        class="cell"
-        :class="{
-          ship: cell === 1,
-          hit: cell === 'hit',
-          miss: cell === 'miss',
-        }"
-      ></div>
+      <!-- ✅ Grille Adversaire à droite -->
+      <div class="grid-section">
+        <h2>Adversaire</h2>
+        <div class="grid opponent-grid">
+          <div
+            v-for="(cell, index) in opponentGrid"
+            :key="index"
+            class="cell"
+            :class="{
+              hit: cell === 'hit',
+              miss: cell === 'miss',
+            }"
+            @click="shoot(index)"
+          ></div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -42,19 +48,13 @@ export default {
   },
   data() {
     return {
-      playerGrid: Array(100).fill(0), // notre flotte
-      opponentGrid: Array(100).fill(0), // état des tirs sur l'adversaire
-      placedShips: [], // navires placés
-      readyCount: 0,
-      total: 0,
-      polling: null,
+      playerGrid: Array(100).fill(0),
+      opponentGrid: Array(100).fill(0),
     };
   },
   methods: {
     async shoot(index) {
-      // Empêche de tirer sur la même case
       if (this.opponentGrid[index]) return;
-
       try {
         const res = await fetch("http://localhost:3000/api/games/shoot", {
           method: "POST",
@@ -73,88 +73,70 @@ export default {
         console.error("Erreur shoot :", err);
       }
     },
-
-    async fetchFullGame() {
-      try {
-        if (!this.game || !this.game.ID_Game) {
-          console.warn("⏳ Game non défini, on attend...");
-          return;
-        }
-
-        const res = await fetch(`http://localhost:3000/api/games/${this.game.ID_Game}`);
-        const data = await res.json();
-        if (data.success) {
-          this.fullGame = data.game;
-        } else {
-          console.error("Erreur chargement partie :", data.message);
-        }
-      } catch (err) {
-        console.error("Erreur fetchFullGame :", err);
-      }
-    },
-
-    startPolling() {
-      this.pollInterval = setInterval(() => {
-        this.fetchFullGame();
-      }, 1000);
-    },
-    beforeUnmount() {
-      clearInterval(this.pollInterval);
-    },
-  },
-  mounted() {
-    this.gameId = Number(this.$route.params.gameId);
-
-    if (!this.gameId) {
-      console.error("❌ Aucun gameId trouvé dans les params !");
-      return;
-    }
-
-    this.game = { ID_Game: this.gameId };
-
-    // ✅ Démarrer le polling seulement après avoir défini this.game
-    this.startPolling();
-  },
-  beforeUnmount() {
-    if (this.polling) clearInterval(this.polling);
   },
 };
 </script>
 
 <style scoped>
+/* ✅ Prend tout l’écran */
 .battle-container {
-  text-align: center;
-  padding: 20px;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   background: linear-gradient(to bottom, #002f4b, #005f8e);
+  overflow: hidden;
 }
 
+.grids-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 100px; /* Plus grand espace pour grand écran */
+}
+
+.grid-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+h2 {
+  color: white;
+  margin-bottom: 15px;
+  font-size: 1.8rem;
+}
+
+/* ✅ Taille adaptée pour grand écran */
 .grid {
   display: grid;
-  grid-template-columns: repeat(10, 30px);
-  gap: 2px;
-  justify-content: center;
-  margin: 10px auto;
+  grid-template-columns: repeat(10, 50px); /* agrandi les cellules */
+  gap: 3px;
 }
 
 .cell {
-  width: 30px;
-  height: 30px;
+  width: 50px;
+  height: 50px;
   background: #eee;
   border: 1px solid #ccc;
   cursor: pointer;
+  transition: transform 0.2s;
 }
+
+.cell:hover {
+  transform: scale(1.1);
+}
+
 .cell.ship {
   background: #2196f3;
 }
+
 .cell.hit {
   background: #e74c3c;
 }
+
 .cell.miss {
   background: #95a5a6;
-}
-
-.status {
-  font-weight: bold;
-  margin-top: 15px;
 }
 </style>

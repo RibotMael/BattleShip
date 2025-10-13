@@ -1,4 +1,22 @@
+import axios from "axios";
+import router from "@/router";
 
-fetch('http://localhost:3000/api/ping')
-  .then(res => res.json())
-  .then(data => console.log(data));
+const api = axios.create({
+  baseURL: "http://localhost:3000/api",
+});
+
+// Intercepteur global
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      console.warn("Utilisateur non autorisé — redirection.");
+      localStorage.removeItem("user");
+      router.push("/login");
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default api;
+

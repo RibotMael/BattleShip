@@ -2,8 +2,6 @@
 import { Router } from 'express';
 import { query } from '../db.js';
 import bcrypt from 'bcrypt';
-import crypto from 'crypto';
-
 const router = Router();
 
 // -------------------- INSCRIPTION --------------------
@@ -126,5 +124,22 @@ router.get('/users/:id', async (req, res) => {
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
+
+// -------------------- CHECK USER (éviter les zombies) --------------------
+router.get('/check-user/:id', async (req, res) => {
+  const userId = req.params.id;
+
+  try {
+    const [rows] = await query("SELECT ID_Users FROM users WHERE ID_Users = ?", [userId]);
+    if (rows.length === 0) {
+      return res.status(401).json({ success: false, message: "Compte supprimé" });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Erreur check-user:", err);
+    res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
+});
+
 
 export default router;

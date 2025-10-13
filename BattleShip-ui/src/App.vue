@@ -11,32 +11,32 @@
 <script>
 export default {
   mounted() {
-    const audio = document.getElementById('background-music');
+    const audio = document.getElementById("background-music");
     audio.volume = 0.5;
-    
+
     const playMusic = () => {
-      audio.play().catch(err => {
-        console.warn('Autoplay bloqué :', err);
+      audio.play().catch((err) => {
+        console.warn("Autoplay bloqué :", err);
       });
-      document.removeEventListener('click', playMusic);
+      document.removeEventListener("click", playMusic);
     };
 
-    document.addEventListener('click', playMusic);
-  }
+    document.addEventListener("click", playMusic);
+  },
 };
 </script>
 
-
 <style>
-html, body, #app {
+html,
+body,
+#app {
   margin: 0;
   padding: 0;
   height: 100%;
 }
 
-
 .background {
-  background-image: url('@/assets/images/BackGroundAccueil.png');
+  background-image: url("@/assets/images/BackGroundAccueil.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -98,7 +98,6 @@ html, body, #app {
   background: #07486e;
 }
 
-
 .menu-buttons {
   display: flex;
   flex-direction: column;
@@ -142,7 +141,4 @@ html, body, #app {
 .rules-button:hover {
   background-color: #216f9d;
 }
-
-
-
 </style>
