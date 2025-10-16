@@ -7,6 +7,7 @@
         <!-- Formulaire de connexion -->
         <AuthForm @login-success="handleLoginSuccess" />
       </div>
+
       <div v-else>
         <header class="top-bar">
           <div class="add-friend">
@@ -32,8 +33,19 @@
 
         <div class="menu-buttons">
           <img :src="logo" alt="Logo" class="menu-logo" />
-          <button class="play-button" @click="startGame">Jouer</button>
-          <button class="rules-button" @click="showRules">Règles du jeu</button>
+
+          <!-- ✅ Si on n'a pas encore cliqué sur jouer -->
+          <div v-if="!showPlayOptions">
+            <button class="play-button" @click="showPlayOptions = true">Jouer</button>
+            <button class="rules-button" @click="showRules">Règles du jeu</button>
+          </div>
+
+          <!-- ✅ Après avoir cliqué sur jouer -->
+          <div v-else class="play-options">
+            <button class="create-button" @click="goToCreate">Créer une partie</button>
+            <button class="join-button" @click="goToJoin">Rejoindre une partie</button>
+            <button class="back-button" @click="showPlayOptions = false">Retour</button>
+          </div>
         </div>
 
         <!-- Popups -->
@@ -47,9 +59,9 @@
 import AuthForm from "../components/AuthForm.vue";
 import FriendsPopup from "../components/FriendsPopup.vue";
 import logo from "@/assets/images/BATTLESHIPLOGO.png";
-import { watch } from "vue";
 import defaultAvatar from "@/assets/images/ppHomme.png";
 import { invitationStore, userBus } from "@/eventBus.js";
+import { watch } from "vue";
 
 export default {
   components: { AuthForm, FriendsPopup },
@@ -59,6 +71,10 @@ export default {
       logo,
       showUserMenu: false,
       showFriendsPopup: false,
+      showPlayOptions: false,
+      publicGames: [],
+      loadingPublicGames: false,
+      joiningMode: false,
     };
   },
   computed: {
@@ -83,42 +99,32 @@ export default {
       const savedUser = localStorage.getItem("user");
       this.user = savedUser ? JSON.parse(savedUser) : null;
     },
-
     handleLoginSuccess(userData) {
-      if (!userData.avatar) {
-        userData.avatar = defaultAvatar;
-      }
+      if (!userData.avatar) userData.avatar = defaultAvatar;
       localStorage.setItem("user", JSON.stringify(userData));
       this.user = userData;
     },
-
     logout() {
       localStorage.removeItem("user");
       this.user = null;
       userBus.userUpdated = !userBus.userUpdated;
       this.$router.push("/");
     },
-
     toggleUserMenu() {
       this.showUserMenu = !this.showUserMenu;
     },
-
     viewProfile() {
       this.$router.push("/profile");
     },
-
     goToSettings() {
       alert("Redirection vers les paramètres (à développer)");
     },
-
-    startGame() {
+    goToCreate() {
       this.$router.push("/gamemode");
     },
-
     showRules() {
       this.$router.push("/rules");
     },
-
     openFriendsPopup() {
       this.showFriendsPopup = true;
     },
@@ -418,5 +424,56 @@ export default {
   border-radius: 50%;
   margin-left: 5px;
   font-size: 0.8rem;
+}
+
+.play-button {
+  margin-right: 5px;
+}
+
+.rules-button {
+  margin-left: 5px;
+}
+
+.play-options {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.play-options button {
+  width: 220px;
+  padding: 0.9rem;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  color: white;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.create-button {
+  background: #1abc9c;
+}
+.create-button:hover {
+  background: #16a085;
+  transform: scale(1.05);
+}
+
+.join-button {
+  background: #3498db;
+}
+.join-button:hover {
+  background: #2980b9;
+  transform: scale(1.05);
+}
+
+.back-button {
+  background: #e74c3c;
+}
+.back-button:hover {
+  background: #c0392b;
+  transform: scale(1.05);
 }
 </style>

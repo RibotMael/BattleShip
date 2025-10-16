@@ -311,5 +311,58 @@ router.post("/place-ships", async (req, res) => {
   }
 });
 
+router.post("/shoot", async (req, res) => {
+  const { gameId, playerId, cell } = req.body; // cell = 1 à 100
+  if (!gameId || !playerId || cell == null) {
+    return res.status(400).json({ success: false, message: "Paramètres manquants" });
+  }
+
+  try {
+    // 🔹 1. Récupérer la grille du joueur ciblé
+    const [rows] = await db.query(
+      "SELECT * FROM player_boards WHERE game_id = ? AND player_id != ?",
+      [gameId, playerId]
+    );
+
+    if (rows.length === 0) return res.status(404).json({ success: false, message: "Grille introuvable" });
+
+    const boardRow = rows[0];
+    const board = JSON.parse(boardRow.board_json); // tableau 10x10
+
+    // 🔹 2. Convertir cell 1-100 en coordonnées 2D
+    const index = cell - 1;
+    const row = Math.floor(index / 10);
+    const col = index % 10;
+
+    // 🔹 3. Vérifier si la case a déjà été touchée
+    if (board[row][col] === "hit" || board[row][col] === "miss") {
+      return res.status(400).json({ success: false, message: "Case déjà touchée" });
+    }
+
+    // 🔹 4. Appliquer le tir
+    let hit = false;
+    if (board[row][col] === 1) {
+      board[row][col] = "hit";
+      hit = true;
+    } else {
+      board[row][col] = "miss";
+    }
+
+    // 🔹 5. Vérifier fin de partie (plus aucun 1)
+    const gameOver = !board.flat().includes(1);
+
+    // 🔹 6. Mettre à jour la grille dans la DB
+    await db.query(
+      "UPDATE player_boards SET board_json = ? WHERE id = ?",
+      [JSON.stringify(board), boardRow.id]
+    );
+
+    // 🔹 7. Retourner résultat
+    res.json({ success: true, hit, gameOver });
+  } catch (err) {
+    console.error("Erreur /shoot :", err);
+    res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
+});
 
 export default router;

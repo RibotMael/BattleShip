@@ -5,24 +5,32 @@
       <h2>👥 Mes amis</h2>
 
       <!-- Liste d'amis -->
-      <ul>
-        <li v-for="f in friends" :key="f.ID_Users">
-          <div class="friend-left">
-            <span class="status-dot" :class="f.isOnline ? 'online' : 'offline'"></span>
-            <span class="friend-pseudo">{{ f.Pseudo }}</span>
-          </div>
-          <div class="friend-right">
-            <button class="remove-button" @click="removeFriend(f.ID_Users)">✕</button>
-          </div>
-        </li>
-      </ul>
+      <div class="section">
+        <h3>Liste d'amis</h3>
+        <ul>
+          <li v-for="f in friends" :key="f.ID_Users" class="friend-card">
+            <div class="friend-left">
+              <div
+                class="avatar"
+                v-if="f.avatar"
+                :style="{ backgroundImage: 'url(' + f.avatar + ')' }"
+              ></div>
+              <span class="status-dot" :class="f.isOnline ? 'online' : 'offline'"></span>
+              <span class="friend-pseudo">{{ f.Pseudo }}</span>
+            </div>
+            <div class="friend-right">
+              <button class="remove-button" @click="removeFriend(f.ID_Users)">✕</button>
+            </div>
+          </li>
+        </ul>
+      </div>
 
       <!-- Invitations reçues -->
-      <div class="invites-column" v-if="invitations.length">
-        <h3>🎮 Invitations de partie reçues :</h3>
+      <div class="section" v-if="invitations.length">
+        <h3>🎮 Invitations de partie reçues</h3>
         <ul>
-          <li v-for="inv in invitations" :key="inv.ID">
-            Partie #{{ inv.id_game }} envoyée par joueur #{{ inv.sender_id }}
+          <li v-for="inv in invitations" :key="inv.ID" class="friend-card">
+            <span>Partie #{{ inv.id_game }} envoyée par joueur #{{ inv.sender_id }}</span>
             <div class="friend-right">
               <button class="accept-button" @click="acceptInvitation(inv)">✓</button>
               <button class="remove-button" @click="refuseInvitation(inv)">✕</button>
@@ -32,16 +40,20 @@
       </div>
 
       <!-- Ajouter un ami -->
-      <h3>➕ Ajouter un ami</h3>
-      <input v-model="identifier" placeholder="Pseudo de l'ami" />
-      <button @click="addFriend">Ajouter</button>
+      <div class="section">
+        <h3>➕ Ajouter un ami</h3>
+        <div class="add-friend">
+          <input v-model="identifier" placeholder="Pseudo de l'ami" />
+          <button @click="addFriend" class="add-button">Ajouter</button>
+        </div>
+      </div>
 
       <!-- Demandes d'amis reçues -->
-      <div v-if="requests.length">
+      <div class="section" v-if="requests.length">
         <h3>📩 Demandes d'amis reçues</h3>
         <ul>
-          <li v-for="r in requests" :key="r.ID_Users">
-            {{ r.Pseudo }}
+          <li v-for="r in requests" :key="r.ID_Users" class="friend-card">
+            <span>{{ r.Pseudo }}</span>
             <div class="friend-right">
               <button class="accept-button" @click="acceptRequest(r.ID_Users)">✓</button>
               <button class="remove-button" @click="removeFriend(r.ID_Users)">✕</button>
@@ -50,7 +62,7 @@
         </ul>
       </div>
 
-      <button @click="$emit('close')">Fermer</button>
+      <button class="close-btn" @click="$emit('close')">Fermer</button>
     </div>
   </div>
 </template>
@@ -221,16 +233,85 @@ export default {
 </script>
 
 <style scoped>
-.popup-content ul li {
+.popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+  padding: 1rem;
+}
+
+.popup-content {
+  background: linear-gradient(145deg, #0f2a3d, #1b3b57);
+  padding: 2rem;
+  border-radius: 15px;
+  width: 100%;
+  max-width: 500px;
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  overflow-y: auto;
+  max-height: 90vh;
+}
+
+.popup-content h2 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  text-shadow: 1px 1px 4px #000;
+}
+
+.section {
+  margin-bottom: 1.8rem;
+}
+
+.section h3 {
+  font-size: 1.3rem;
+  margin-bottom: 0.5rem;
+  color: #ffd700;
+  text-shadow: 1px 1px 2px #000;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.friend-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.3rem 0;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  margin-bottom: 0.5rem;
+  transition: transform 0.2s, background 0.2s;
+}
+.friend-card:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .friend-left {
   display: flex;
   align-items: center;
+  gap: 0.5rem;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
+  border: 2px solid #fff;
 }
 
 .friend-pseudo {
@@ -239,22 +320,22 @@ export default {
 
 .friend-right {
   display: flex;
-  gap: 0.3rem;
+  gap: 0.4rem;
 }
 
-.friend-right button {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+button {
   border: none;
-  font-weight: bold;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  font-weight: bold;
+  transition: all 0.2s;
 }
 
 .accept-button {
   background-color: #28a745;
   color: white;
+  width: 32px;
+  height: 32px;
 }
 .accept-button:hover {
   background-color: #218838;
@@ -263,17 +344,40 @@ export default {
 .remove-button {
   background-color: #e74c3c;
   color: white;
+  width: 32px;
+  height: 32px;
 }
 .remove-button:hover {
   background-color: #c0392b;
 }
 
+.add-friend {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.add-friend input {
+  flex: 1;
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: none;
+  outline: none;
+}
+.add-button {
+  background-color: #1f78b4;
+  color: white;
+  padding: 0.5rem 1rem;
+}
+.add-button:hover {
+  background-color: #145d89;
+}
+
 .status-dot {
-  display: inline-block;
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  margin-right: 0.5rem;
+  display: inline-block;
+  border: 1px solid #fff;
 }
 .status-dot.online {
   background-color: #28a745;
@@ -284,9 +388,14 @@ export default {
 
 .close-btn {
   margin-top: 1rem;
-  background: #555;
+  width: 100%;
+  padding: 0.6rem;
+  font-weight: bold;
+  background-color: #555;
   color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
+  border-radius: 10px;
+}
+.close-btn:hover {
+  background-color: #333;
 }
 </style>

@@ -1,8 +1,5 @@
-<!-- Profile.vue -->
 <template>
   <div class="profile-container">
-    <h1>👤 Mon Profil</h1>
-
     <div class="profile-form">
       <!-- Aperçu -->
       <label>Avatar</label>
@@ -24,18 +21,19 @@
       </div>
 
       <label>Pseudo</label>
-      <input v-model="pseudo" type="text" />
+      <input v-model="pseudo" type="text" placeholder="Votre pseudo" />
 
-      <button @click="saveProfile">💾 Enregistrer</button>
-      <button @click="deleteAccount" class="delete-button">🗑️ Supprimer le compte</button>
-      <button @click="$router.push('/')" class="back-button">Retour au menu</button>
+      <div class="buttons">
+        <button @click="saveProfile" class="save-button">💾 Enregistrer</button>
+        <button @click="deleteAccount" class="delete-button">🗑️ Supprimer le compte</button>
+        <button @click="$router.push('/')" class="back-button">⬅ Retour au menu</button>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
 import { userBus } from "@/eventBus.js";
-
 import axios from "axios";
 import defaultAvatar from "@/assets/images/ppHomme.png";
 
@@ -44,11 +42,9 @@ export default {
     return {
       pseudo: "",
       userId: null,
-      avatars: [], // tous les avatars dispo
-      avatar: null, // ID sélectionné
+      avatars: [],
+      avatar: null,
       avatarPreviewUrl: defaultAvatar,
-      selectedBase64: "",
-      selectedMime: "",
     };
   },
   mounted() {
@@ -56,7 +52,7 @@ export default {
     if (user) {
       this.userId = user.id;
       this.pseudo = user.pseudo;
-      this.avatar = user.avatarId || null; // on garde l'ID en mémoire
+      this.avatar = user.avatarId || null;
       this.avatarPreviewUrl = user.avatar || defaultAvatar;
     }
     this.fetchAvatars();
@@ -66,41 +62,23 @@ export default {
       try {
         const res = await axios.get("http://localhost:3000/api/avatars");
         this.avatars = res.data.avatars;
-
-        // si l'user a déjà un avatar enregistré → mettre le preview à jour
         if (this.avatar) {
           const sel = this.avatars.find((a) => a.ID_Avatar === this.avatar);
-          if (sel) {
-            this.selectedBase64 = sel.Avatar;
-            this.selectedMime = sel.mime_type;
-            this.avatarPreviewUrl = `data:${sel.mime_type};base64,${sel.Avatar}`;
-          }
+          if (sel) this.avatarPreviewUrl = `data:${sel.mime_type};base64,${sel.Avatar}`;
         }
       } catch (e) {
         console.error("Erreur récupération avatars :", e);
       }
     },
-
     selectAvatar(id) {
       this.avatar = id;
       const sel = this.avatars.find((a) => a.ID_Avatar === id);
-      if (sel) {
-        this.selectedBase64 = sel.Avatar;
-        this.selectedMime = sel.mime_type;
-        this.avatarPreviewUrl = `data:${sel.mime_type};base64,${sel.Avatar}`;
-      }
+      if (sel) this.avatarPreviewUrl = `data:${sel.mime_type};base64,${sel.Avatar}`;
     },
-
     async saveProfile() {
       if (!this.userId) return;
-
-      // Préparer le payload
-      let payload = { pseudo: this.pseudo };
-
-      // Si un avatar est sélectionné
-      if (this.avatar) {
-        payload.avatar = this.avatar; // ID de l'avatar
-      }
+      const payload = { pseudo: this.pseudo };
+      if (this.avatar) payload.avatar = this.avatar;
 
       try {
         const response = await fetch(`http://localhost:3000/api/users/${this.userId}`, {
@@ -108,70 +86,40 @@ export default {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-
-        if (!response.ok) {
-          const errText = await response.text();
-          console.error("Erreur API :", errText);
-          return alert("Erreur lors de la mise à jour du profil.");
-        }
-
+        if (!response.ok) throw new Error(await response.text());
         const updatedUser = await response.json();
-
-        // 🔹 Utiliser directement l'avatar envoyé par le back (base64 ou URL)
-        const avatarUrl = updatedUser.avatar || defaultAvatar;
-
-        // Mettre à jour localStorage
+        this.avatarPreviewUrl = updatedUser.avatar || defaultAvatar;
+        this.pseudo = updatedUser.pseudo;
         localStorage.setItem(
           "user",
           JSON.stringify({
             id: updatedUser.id,
             pseudo: updatedUser.pseudo,
             avatarId: updatedUser.avatarId,
-            avatar: avatarUrl,
+            avatar: updatedUser.avatar,
           })
         );
-
-        // Mettre à jour le preview
-        this.avatarPreviewUrl = avatarUrl;
-        this.pseudo = updatedUser.pseudo;
-
-        // 🔹 Notifier les autres composants (Home.vue)
         userBus.userUpdated = !userBus.userUpdated;
-
         alert("Profil mis à jour !");
-      } catch (error) {
-        console.error("Erreur API :", error);
-        alert("Erreur inattendue lors de la mise à jour du profil.");
+      } catch (err) {
+        console.error(err);
+        alert("Erreur lors de la mise à jour du profil.");
       }
     },
-
     async deleteAccount() {
-      const user = JSON.parse(localStorage.getItem("user"));
-      if (!user) return;
       if (!confirm("Êtes-vous sûr de vouloir supprimer votre compte ?")) return;
-
       try {
-        const response = await fetch(
-          `http://localhost:3000/api/users/${user.ID_Users || user.id}`,
-          {
-            method: "DELETE",
-          }
-        );
-
-        if (!response.ok) {
-          const errText = await response.text();
-          console.error("Erreur serveur :", errText);
-          return alert("Erreur lors de la suppression du compte.");
-        }
-
+        const response = await fetch(`http://localhost:3000/api/users/${this.userId}`, {
+          method: "DELETE",
+        });
+        if (!response.ok) throw new Error(await response.text());
         localStorage.removeItem("user");
         userBus.userUpdated = !userBus.userUpdated;
-
-        alert("Votre compte a été supprimé.");
+        alert("Compte supprimé !");
         this.$router.push("/");
-      } catch (error) {
-        console.error("Erreur lors de la suppression :", error);
-        alert("Erreur inattendue lors de la suppression.");
+      } catch (err) {
+        console.error(err);
+        alert("Erreur lors de la suppression du compte.");
       }
     },
   },
@@ -183,34 +131,42 @@ export default {
   background: linear-gradient(to bottom, #002f4b, #005f8e);
   color: white;
   min-height: 100vh;
-  padding: 1rem;
+  padding: 2rem;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-.profile-form {
-  background: white;
-  color: black;
-  padding: 1rem;
-  border-radius: 8px;
-  max-width: 400px;
-  width: 100%;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+.profile-container h1 {
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  text-shadow: 1px 1px 4px #000;
 }
 
-.profile-form label {
-  font-weight: bold;
-  margin-top: 0.5rem;
-  display: block;
+.profile-form {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(6px);
+  padding: 2rem;
+  border-radius: 20px;
+  max-width: 450px;
+  width: 100%;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .avatar-preview img {
-  width: 80px;
-  height: 80px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
+  border: 3px solid #3498db;
   object-fit: cover;
-  margin-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  transition: transform 0.2s;
+}
+.avatar-preview img:hover {
+  transform: scale(1.05);
 }
 
 .avatar-selection {
@@ -222,18 +178,17 @@ export default {
 }
 
 .avatar-option {
-  border: 2px solid transparent;
-  border-radius: 50%;
-  padding: 2px;
-  cursor: pointer;
   width: 60px;
   height: 60px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
-
 .avatar-option.selected {
-  border-color: #3498db;
+  border-color: #ffd700;
+  transform: scale(1.1);
 }
-
 .avatar-option img {
   width: 100%;
   height: 100%;
@@ -241,26 +196,53 @@ export default {
   object-fit: cover;
 }
 
-.profile-form button {
-  margin-bottom: 0.5rem;
-  background-color: #2980b9;
-  color: white;
-  padding: 0.5rem 0.8rem;
+input[type="text"] {
+  width: 100%;
+  padding: 0.6rem;
+  border-radius: 10px;
   border: none;
-  border-radius: 6px;
-  font-weight: bold;
-  font-size: 0.9rem;
-  cursor: pointer;
+  margin-bottom: 1rem;
+  outline: none;
+  font-size: 1rem;
 }
 
-.profile-form button:hover {
-  background-color: #216f9d;
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+button {
+  padding: 0.6rem;
+  font-weight: bold;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.save-button {
+  background: linear-gradient(to right, #1abc9c, #16a085);
+  color: white;
+}
+.save-button:hover {
+  background: linear-gradient(to right, #16a085, #138d75);
 }
 
 .delete-button {
-  background-color: #e74c3c;
+  background: linear-gradient(to right, #e74c3c, #c0392b);
+  color: white;
 }
 .delete-button:hover {
-  background-color: #c0392b;
+  background: linear-gradient(to right, #c0392b, #992d22);
+}
+
+.back-button {
+  background: linear-gradient(to right, #3498db, #2980b9);
+  color: white;
+}
+.back-button:hover {
+  background: linear-gradient(to right, #2980b9, #21618c);
 }
 </style>
