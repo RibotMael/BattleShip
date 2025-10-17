@@ -72,6 +72,7 @@ router.post("/create", async (req, res) => {
         status: "preparation",
         language: rawLang,
       },
+      mode: langKey,
     });
   } catch (err) {
     console.error("❌ Erreur création partie :", err);
@@ -86,6 +87,14 @@ router.post("/join", async (req, res) => {
 
   try {
     const [games] = await db.execute("SELECT * FROM games WHERE id_Game = ?", [gameId]);
+    // 🔍 Récupérer la langue à partir de la version
+    const [versionRows] = await db.execute("SELECT name FROM version WHERE id_Version = ?", [games[0].id_version]);
+    const rawLang = versionRows.length ? versionRows[0].name.toLowerCase() : "french";
+    let langKey;
+    if (rawLang.startsWith("fr")) langKey = "fr";
+    else if (rawLang.startsWith("bel") || rawLang === "be" || rawLang === "belgium") langKey = "be";
+    else langKey = "fr";
+
     if (!games.length) return res.status(404).json({ success: false, message: "Partie introuvable" });
 
     const [existing] = await db.execute("SELECT * FROM game_players WHERE id_game = ? AND id_player = ?", [gameId, playerId]);
@@ -96,7 +105,8 @@ router.post("/join", async (req, res) => {
     const [players] = await db.execute("SELECT COUNT(*) AS count FROM game_players WHERE id_game = ?", [gameId]);
     console.log(`👥 [JOIN GAME] Joueur ${playerId} rejoint la partie ${gameId} (${players[0].count} joueurs présents)`);
 
-    res.json({ success: true, message: "Joueur ajouté à la partie" });
+    res.json({ success: true, message: "Joueur ajouté à la partie", mode: langKey });
+
   } catch (err) {
     console.error("❌ Erreur join-game:", err);
     res.status(500).json({ success: false, message: "Erreur serveur lors de la jointure." });
@@ -154,6 +164,7 @@ router.get("/:id", async (req, res) => {
       game: { ...game, TotalPlayers: totalPlayers, language },
       players,
       fleet,
+      mode: langKey,
     });
   } catch (err) {
     console.error("❌ Erreur get-game:", err);
@@ -318,51 +329,79 @@ router.post("/shoot", async (req, res) => {
   }
 
   try {
-    // 🔹 1. Récupérer la grille du joueur ciblé
-    const [rows] = await db.query(
+    // 1️⃣ Récupérer la grille de l’adversaire
+    const [enemyRows] = await db.query(
       "SELECT * FROM player_boards WHERE game_id = ? AND player_id != ?",
       [gameId, playerId]
     );
 
-    if (rows.length === 0) return res.status(404).json({ success: false, message: "Grille introuvable" });
+    if (enemyRows.length === 0)
+      return res.status(404).json({ success: false, message: "Grille introuvable" });
 
-    const boardRow = rows[0];
-    const board = JSON.parse(boardRow.board_json); // tableau 10x10
+    const enemyBoard = JSON.parse(enemyRows[0].board_json); // tableau 10x10 de 0/1
+    const enemyId = enemyRows[0].player_id;
 
-    // 🔹 2. Convertir cell 1-100 en coordonnées 2D
+    // 2️⃣ Convertir cell (1–100) → coordonnées (x, y)
     const index = cell - 1;
-    const row = Math.floor(index / 10);
-    const col = index % 10;
+    const x = Math.floor(index / 10);
+    const y = index % 10;
 
-    // 🔹 3. Vérifier si la case a déjà été touchée
-    if (board[row][col] === "hit" || board[row][col] === "miss") {
-      return res.status(400).json({ success: false, message: "Case déjà touchée" });
+    // 3️⃣ Vérifier si le joueur a déjà tiré ici
+    const [existingShots] = await db.query(
+      "SELECT * FROM shots WHERE id_game = ? AND id_player = ? AND target_x = ? AND target_y = ?",
+      [gameId, playerId, x, y]
+    );
+    if (existingShots.length > 0) {
+      return res.status(400).json({ success: false, message: "Case déjà tirée" });
     }
 
-    // 🔹 4. Appliquer le tir
-    let hit = false;
-    if (board[row][col] === 1) {
-      board[row][col] = "hit";
-      hit = true;
-    } else {
-      board[row][col] = "miss";
-    }
+    // 4️⃣ Déterminer si c’est un hit ou miss
+    const result = enemyBoard[x][y] === 1 ? "hit" : "miss";
 
-    // 🔹 5. Vérifier fin de partie (plus aucun 1)
-    const gameOver = !board.flat().includes(1);
-
-    // 🔹 6. Mettre à jour la grille dans la DB
+    // 5️⃣ Enregistrer le tir
     await db.query(
-      "UPDATE player_boards SET board_json = ? WHERE id = ?",
-      [JSON.stringify(board), boardRow.id]
+      "INSERT INTO shots (id_game, id_player, target_x, target_y, result) VALUES (?, ?, ?, ?, ?)",
+      [gameId, playerId, x, y, result]
     );
 
-    // 🔹 7. Retourner résultat
-    res.json({ success: true, hit, gameOver });
+    // 6️⃣ Vérifier si la partie est terminée
+    const [allHits] = await db.query(
+      "SELECT target_x, target_y FROM shots WHERE id_game = ? AND id_player != ? AND result = 'hit'",
+      [gameId, playerId]
+    );
+
+    // Créer une copie de la grille de l’adversaire et marquer les hits
+    const tempBoard = enemyBoard.map(row => [...row]);
+    for (const s of allHits) tempBoard[s.target_x][s.target_y] = 0;
+
+    const gameOver = !tempBoard.flat().includes(1);
+
+    res.json({ success: true, result, x, y, gameOver });
   } catch (err) {
     console.error("Erreur /shoot :", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
+
+// GET /api/games/:id/shots?playerId=123
+router.get("/:id/shots", async (req, res) => {
+  const gameId = req.params.id;
+  const playerId = Number(req.query.playerId);
+
+  if (!gameId || !playerId) return res.status(400).json({ success: false, message: "Paramètres manquants" });
+
+  try {
+    const [shots] = await db.query(
+      "SELECT target_x AS x, target_y AS y, result FROM shots WHERE id_game = ? AND id_player != ?",
+      [gameId, playerId]
+    );
+
+    res.json({ success: true, shots });
+  } catch (err) {
+    console.error("Erreur /shots :", err);
+    res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
+});
+
 
 export default router;

@@ -76,6 +76,7 @@ export default {
       orientation: "horizontal",
       hoverCells: [],
       invalidPreview: false,
+      selectedCell: null,
     };
   },
   computed: {
@@ -85,13 +86,17 @@ export default {
     canValidate() {
       return this.remainingShips === 0;
     },
+    isFrenchMode() {
+      return this.game.mode === "fr"; // 🇫🇷 pour interdire les bateaux qui se touchent
+    },
   },
+
   mounted() {
     this.userId = Number(this.user?.id);
     this.game.ID_Game = Number(this.gameId);
-    this.game.mode = localStorage.getItem("currentLanguage") || "fr";
 
     this.fetchGame().then((data) => {
+      if (data.mode) this.game.mode = data.mode; // ✅ récupération du mode depuis le backend
       this.fleet = (data.fleet || []).map((ship) => ({ ...ship, placed: false }));
     });
 
@@ -102,7 +107,7 @@ export default {
         clearInterval(this.readyInterval);
         this.$router.push({ name: "GameBoard", params: { gameId: this.game.ID_Game } });
       }
-    }, 1000); // toutes les secondes
+    }, 1000);
   },
   beforeUnmount() {
     clearInterval(this.readyInterval);
@@ -115,8 +120,7 @@ export default {
         if (data.success) {
           this.game = { ...this.game, ...data.game };
           this.readyPlayers = data.players || [];
-          // Retourner la flotte pour le mounted()
-          return { fleet: data.fleet };
+          return { fleet: data.fleet, mode: data.mode }; // ✅ retourne aussi le mode
         }
       } catch (err) {
         console.error("[FETCH GAME]", err);
@@ -131,7 +135,6 @@ export default {
       this.orientation = this.orientation === "horizontal" ? "vertical" : "horizontal";
     },
 
-    /** Vérifie si une case touche un navire (même en diagonale) */
     isAdjacent(index) {
       const x = index % 10;
       const y = Math.floor(index / 10);
@@ -160,7 +163,7 @@ export default {
         if (idx >= 100) return (this.hoverCells = []);
         if (this.orientation === "horizontal" && Math.floor(idx / 10) !== row)
           return (this.hoverCells = []);
-        if (this.grid[idx].hasShip || this.isAdjacent(idx)) valid = false;
+        if (this.grid[idx].hasShip || (this.isFrenchMode && this.isAdjacent(idx))) valid = false;
         indices.push(idx);
       }
 
@@ -179,10 +182,13 @@ export default {
           }
         });
         this.fleet[shipId].placed = false;
+        this.selectedCell = null;
         return;
       }
 
       if (this.selectedShipIndex === null) return alert("⚓ Sélectionnez un navire !");
+      // Définir la cellule sélectionnée pour le visuel
+      this.selectedCell = index;
       const ship = this.fleet[this.selectedShipIndex];
       const indices = [];
       const row = Math.floor(index / 10);
@@ -193,7 +199,8 @@ export default {
         if (this.orientation === "horizontal" && Math.floor(idx / 10) !== row)
           return alert("⚠️ Placement invalide !");
         if (this.grid[idx].hasShip) return alert("⚠️ Collision !");
-        if (this.isAdjacent(idx)) return alert("⚠️ Trop proche d'un autre navire !");
+        if (this.isFrenchMode && this.isAdjacent(idx))
+          return alert("⚠️ Trop proche d'un autre navire !");
         indices.push(idx);
       }
 
@@ -210,6 +217,7 @@ export default {
       if (cell.hasShip) return "ship";
       if (this.hoverCells.includes(index))
         return this.invalidPreview ? "preview invalid" : "preview";
+      if (this.selectedCell === index) return "selected"; // ✅ nouvelle classe
       return "";
     },
 
@@ -230,7 +238,6 @@ export default {
         const data = await res.json();
         if (data.success) {
           alert("✅ Placement validé !");
-          // 🔹 Vérifier si tous les joueurs sont prêts
           const allReady = await this.checkAllPlayersReady();
           if (allReady) {
             this.$router.push({ name: "GameBoard", params: { gameId: this.game.ID_Game } });
@@ -244,13 +251,13 @@ export default {
         console.error("[VALIDATE PLACEMENT]", err);
       }
     },
+
     async checkAllPlayersReady() {
       try {
         const res = await fetch(`http://localhost:3000/api/games/${this.game.ID_Game}`);
         const data = await res.json();
         if (data.success) {
-          this.readyPlayers = data.players.filter((p) => p.validated); // les joueurs qui ont validé
-          // On compare avec le nombre total de joueurs
+          this.readyPlayers = data.players.filter((p) => p.validated);
           return this.readyPlayers.length === this.game.TotalPlayers;
         }
       } catch (err) {
@@ -283,7 +290,6 @@ export default {
   justify-content: center;
   align-items: flex-start;
   gap: 40px;
-  margin-top: 20px;
 }
 
 /* 🎯 Grille */
@@ -374,9 +380,9 @@ export default {
 }
 
 .cell.preview.invalid {
-  background-color: #e74c3c !important; /* rouge si placement interdit */
+  background-color: #e74c3c !important;
 }
 .cell.preview {
-  background-color: #4caf50 !important; /* vert si placement valide */
+  background-color: #4caf50 !important;
 }
 </style>

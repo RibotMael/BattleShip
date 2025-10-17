@@ -12,7 +12,11 @@
             v-for="(cell, index) in playerGrid"
             :key="index"
             class="cell"
-            :class="{ ship: cell === 1, hit: cell === 'hit', miss: cell === 'miss' }"
+            :class="{
+              ship: cell === 1,
+              hit: cell === 'hit',
+              miss: cell === 'miss',
+            }"
           ></div>
         </div>
       </div>
@@ -60,54 +64,50 @@ export default {
     return {
       playerGrid: Array(100).fill(0),
       opponentGrid: Array(100).fill(0),
-      turnTimer: 15,
+      turnTimer: 8,
       gameOver: false,
       turnInterval: null,
       replayInterval: null,
       replayVotes: {},
       user: JSON.parse(localStorage.getItem("user")),
-      canShoot: true,
+      selectedCell: null, // ✅ case actuellement ciblée
     };
   },
   mounted() {
     this.startChrono();
-    // ---------------- Bloquer rafraîchissement ----------------
+    this.enemyShotsInterval = setInterval(this.fetchEnemyShots, 2000);
     window.addEventListener("keydown", this.preventRefresh);
-
-    // ---------------- Bloquer bouton retour ----------------
     window.history.pushState(null, document.title, window.location.href);
     window.addEventListener("popstate", this.preventBack);
-
-    // Bloquer bouton refresh / fermeture
     window.addEventListener("beforeunload", this.preventUnload);
   },
   beforeUnmount() {
     if (this.turnInterval) clearInterval(this.turnInterval);
     if (this.replayInterval) clearInterval(this.replayInterval);
+    if (this.enemyShotsInterval) clearInterval(this.enemyShotsInterval);
     window.removeEventListener("keydown", this.preventRefresh);
     window.removeEventListener("popstate", this.preventBack);
     window.removeEventListener("beforeunload", this.preventUnload);
   },
   methods: {
-    // Empêche F5 / Ctrl+R
     preventRefresh(e) {
       if (e.key === "F5" || (e.ctrlKey && e.key === "r")) e.preventDefault();
     },
-    // Empêche bouton retour
     preventBack() {
       window.history.pushState(null, document.title, window.location.href);
     },
     preventUnload(e) {
       e.preventDefault();
-      e.returnValue = ""; // Chrome nécessite cette propriété
+      e.returnValue = "";
     },
-    // ---------------- Timer ----------------
+
+    // ---------------- TIMER ----------------
     startChrono() {
-      this.turnTimer = 15;
+      this.turnTimer = 8;
       if (this.turnInterval) clearInterval(this.turnInterval);
       this.updateCircle();
 
-      this.turnInterval = setInterval(() => {
+      this.turnInterval = setInterval(async () => {
         if (this.gameOver) {
           clearInterval(this.turnInterval);
           return;
@@ -117,10 +117,13 @@ export default {
         this.updateCircle();
 
         if (this.turnTimer <= 0) {
-          if (this.canShoot) this.autoShoot(); // tir auto si pas encore tiré
-          this.turnTimer = 15;
+          // ✅ Envoie le tir choisi ou auto
+          await this.validateShot();
+          // ✅ Récupère les tirs adverses et les applique à notre grille
+          await this.fetchEnemyShots();
+          this.turnTimer = 8;
           this.updateCircle();
-          this.canShoot = true; // réautorise le tir pour le tour suivant
+          this.selectedCell = null;
         }
       }, 1000);
     },
@@ -129,41 +132,48 @@ export default {
       const circle = this.$el.querySelector(".progress-ring__circle");
       const radius = 54;
       const circumference = 2 * Math.PI * radius;
-      const offset = circumference - (this.turnTimer / 15) * circumference;
+      const offset = circumference - (this.turnTimer / 8) * circumference;
       circle.style.strokeDashoffset = offset;
     },
 
-    // ---------------- Abandon ----------------
     abandonGame() {
       if (!confirm("Voulez-vous vraiment abandonner la partie ?")) return;
       alert("Vous avez abandonné la partie.");
       this.$router.push("/");
     },
 
-    // ---------------- Tir manuel ----------------
-    async shoot(index) {
-      if (this.gameOver || !this.canShoot) return;
-      if (this.opponentGrid[index]) return; // déjà tiré
+    // ---------------- CLIC SUR UNE CASE ----------------
+    shoot(index) {
+      if (this.gameOver) return;
+      if (this.opponentGrid[index] === "hit" || this.opponentGrid[index] === "miss") return;
 
-      this.canShoot = false; // bloque le tir jusqu'au prochain tour
-      await this.sendShoot(index);
+      // ✅ Permet de changer le tir pendant les 8s
+      this.selectedCell = index;
+
+      // ✅ Mise à jour visuelle : surligner la sélection
+      this.opponentGrid = this.opponentGrid.map((cell, i) =>
+        i === index ? "selected" : cell === "selected" ? 0 : cell
+      );
     },
 
-    // ---------------- Tir auto ----------------
-    async autoShoot() {
+    // ---------------- VALIDER LE TIR ----------------
+    async validateShot() {
       if (this.gameOver) return;
 
-      const available = this.opponentGrid.map((v, i) => (v ? null : i)).filter((i) => i !== null);
-      if (available.length === 0) return;
+      // ✅ Si aucune case sélectionnée, tir aléatoire
+      let targetIndex = this.selectedCell;
+      if (targetIndex === null) {
+        const available = this.opponentGrid
+          .map((v, i) => (v === 0 ? i : null))
+          .filter((i) => i !== null);
+        if (available.length === 0) return;
+        targetIndex = available[Math.floor(Math.random() * available.length)];
+      }
 
-      const randomIndex = available[Math.floor(Math.random() * available.length)];
-      await this.sendShoot(randomIndex);
-
-      // réautorise le tir pour le prochain tour
-      this.canShoot = true;
+      await this.sendShoot(targetIndex);
     },
 
-    // ---------------- Envoi tir ----------------
+    // ---------------- ENVOI DU TIR ----------------
     async sendShoot(index) {
       try {
         const user = JSON.parse(localStorage.getItem("user"));
@@ -180,16 +190,14 @@ export default {
         });
 
         const data = await res.json();
-
         if (!data.success) {
           console.warn("Tir échoué :", data.message);
           return;
         }
 
-        // Mise à jour de la grille adverse
-        this.opponentGrid[index] = data.hit ? "hit" : "miss";
+        this.opponentGrid[index] = data.result; // hit / miss / sunk
+        this.selectedCell = null;
 
-        // Fin de partie
         if (data.gameOver) {
           this.gameOver = true;
           clearInterval(this.turnInterval);
@@ -199,67 +207,29 @@ export default {
         console.error("Erreur shoot :", err);
       }
     },
-    // ------------------- Demander si le joueur veut rejouer -------------------
-    async askReplay() {
-      const vote = confirm("Fin de partie ! Voulez-vous rejouer ?");
-      const userId = this.user.id;
-
-      // Envoie le vote au serveur
+    async fetchEnemyShots() {
       try {
-        await fetch(`http://localhost:3000/api/games/replay-vote`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            gameId: this.gameId,
-            playerId: userId,
-            vote,
-          }),
-        });
-      } catch (err) {
-        console.error("[REPLAY VOTE]", err);
-      }
+        const res = await fetch(
+          `http://localhost:3000/api/games/${this.gameId}/shots?playerId=${this.user.id}`
+        );
+        const data = await res.json();
+        if (!data.success) return;
 
-      // démarre le polling pour vérifier si les deux joueurs ont voté
-      this.startReplayPolling();
-    },
+        let updated = false;
 
-    // ------------------- Polling pour récupérer les votes -------------------
-    startReplayPolling() {
-      if (this.replayInterval) clearInterval(this.replayInterval);
-
-      this.replayInterval = setInterval(async () => {
-        try {
-          const res = await fetch(`http://localhost:3000/api/games/${this.gameId}/replay-votes`);
-          const data = await res.json();
-          if (!data.success) return;
-
-          this.replayVotes = data.votes; // { playerId: true/false }
-
-          // on attend que tous les joueurs aient voté
-          if (Object.keys(this.replayVotes).length === 2) {
-            clearInterval(this.replayInterval);
-
-            if (Object.values(this.replayVotes).every((v) => v === true)) {
-              this.replayGame();
-            } else {
-              alert("Au moins un joueur a refusé de rejouer. Retour à l'accueil.");
-              this.$router.push("/");
-            }
+        data.shots.forEach((s) => {
+          const index = s.x * 10 + s.y;
+          if (this.playerGrid[index] === 0 || this.playerGrid[index] === 1) {
+            this.playerGrid[index] = s.result.toLowerCase();
+            updated = true;
           }
-        } catch (err) {
-          console.error("[REPLAY POLLING]", err);
-        }
-      }, 1000);
-    },
+        });
 
-    // ------------------- Relancer la partie -------------------
-    replayGame() {
-      this.playerGrid = Array(100).fill(0);
-      this.opponentGrid = Array(100).fill(0);
-      this.turnTimer = 15;
-      this.gameOver = false;
-      this.replayVotes = {};
-      this.startChrono();
+        // Forcer la réactivité
+        if (updated) this.playerGrid = [...this.playerGrid];
+      } catch (err) {
+        console.error("Erreur fetchEnemyShots :", err);
+      }
     },
   },
 };
@@ -316,11 +286,16 @@ h2 {
 }
 
 .cell.hit {
-  background: #e74c3c;
+  background: red;
 }
 
 .cell.miss {
-  background: #95a5a6;
+  background-color: cyan;
+}
+
+.cell.selected {
+  background-color: rgba(255, 255, 0, 0.6);
+  border: 2px solid yellow;
 }
 
 .opponent-grid .cell:hover {
@@ -333,7 +308,7 @@ h2 {
   top: 20px;
   right: 20px;
   padding: 10px 15px;
-  background-color: #e74c3c;
+  background-color: red;
   color: white;
   font-weight: bold;
   border: none;
@@ -373,5 +348,34 @@ h2 {
   font-size: 1.5rem;
   font-weight: bold;
   color: white;
+}
+
+.player-grid .cell.ship {
+  background-color: grey;
+}
+
+.player-grid .cell.hit {
+  background-color: red;
+  transition: background 0.3s;
+}
+
+.player-grid .cell.miss {
+  background-color: cyan;
+  transition: background 0.3s;
+}
+
+.player-grid .cell.hit {
+  background-color: red;
+  animation: pulse 0.5s ease-in-out;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
 }
 </style>
