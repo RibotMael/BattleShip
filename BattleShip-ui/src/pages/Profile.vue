@@ -130,11 +130,14 @@ export default {
 .profile-container {
   background: linear-gradient(to bottom, #002f4b, #005f8e);
   color: white;
-  min-height: 100vh;
-  padding: 2rem;
+  height: 100vh;
+  width: 100vw;
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
+  position: fixed;
+  top: 0;
+  left: 0;
 }
 
 .profile-container h1 {

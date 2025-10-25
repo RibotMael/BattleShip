@@ -30,7 +30,13 @@ const routes = [
     name: 'GameBoard',
     component: GameBoard,
     props: true
-  }
+  },
+  {
+  path: "/join",
+  name: "JoinGame",
+  component: () => import("../pages/JoinGame.vue")
+}
+
 ];
 
 const router = createRouter({

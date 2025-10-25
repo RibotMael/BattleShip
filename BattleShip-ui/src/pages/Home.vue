@@ -131,6 +131,9 @@ export default {
     closeFriendsPopup() {
       this.showFriendsPopup = false;
     },
+    goToJoin() {
+      this.$router.push("/join");
+    },
   },
 };
 </script>

@@ -76,6 +76,7 @@ export default {
   mounted() {
     this.startChrono();
     this.enemyShotsInterval = setInterval(this.fetchEnemyShots, 2000);
+    this.statusInterval = setInterval(this.checkGameStatus, 2000);
     window.addEventListener("keydown", this.preventRefresh);
     window.history.pushState(null, document.title, window.location.href);
     window.addEventListener("popstate", this.preventBack);
@@ -85,6 +86,7 @@ export default {
     if (this.turnInterval) clearInterval(this.turnInterval);
     if (this.replayInterval) clearInterval(this.replayInterval);
     if (this.enemyShotsInterval) clearInterval(this.enemyShotsInterval);
+    if (this.statusInterval) clearInterval(this.statusInterval);
     window.removeEventListener("keydown", this.preventRefresh);
     window.removeEventListener("popstate", this.preventBack);
     window.removeEventListener("beforeunload", this.preventUnload);
@@ -136,10 +138,27 @@ export default {
       circle.style.strokeDashoffset = offset;
     },
 
-    abandonGame() {
+    async abandonGame() {
       if (!confirm("Voulez-vous vraiment abandonner la partie ?")) return;
-      alert("Vous avez abandonné la partie.");
-      this.$router.push("/");
+
+      try {
+        await fetch("http://localhost:3000/api/games/abandon", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            gameId: this.gameId,
+            playerId: this.user.id,
+          }),
+        });
+
+        this.gameOver = true;
+        clearInterval(this.turnInterval);
+        clearInterval(this.enemyShotsInterval);
+        alert("Vous avez abandonné la partie.");
+        this.$router.push("/");
+      } catch (err) {
+        console.error("Erreur abandon :", err);
+      }
     },
 
     // ---------------- CLIC SUR UNE CASE ----------------
@@ -231,6 +250,26 @@ export default {
         console.error("Erreur fetchEnemyShots :", err);
       }
     },
+    async checkGameStatus() {
+      try {
+        const res = await fetch(
+          `http://localhost:3000/api/games/${this.gameId}/status?playerId=${this.user.id}`
+        );
+        const data = await res.json();
+
+        if (res.data.gameOver) {
+          if (res.data.winner === "draw") {
+            alert("⚔ Égalité !");
+          } else if (res.data.winner === userId) {
+            alert("🏆 Victoire !");
+          } else {
+            alert("💥 Défaite !");
+          }
+        }
+      } catch (err) {
+        console.error("Erreur checkGameStatus :", err);
+      }
+    },
   },
 };
 </script>
@@ -286,6 +325,9 @@ h2 {
 }
 
 .cell.hit {
+  background: orange;
+}
+.cell.sunk {
   background: red;
 }
 

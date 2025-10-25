@@ -68,8 +68,10 @@
           secrète. Pas d’adjacence entre navires.
         </li>
         <li>
-          <strong>Tour par tour</strong> : Annonce d’une case (ex : B6). Le jeu détecte
-          automatiquement si le tir touche.
+          <strong
+            >Chaque joueur à 8 secondes pour tirer sur une case, sinon le tir est aléatoire</strong
+          >
+          : Le jeu détecte automatiquement si le tir touche.
           <ul>
             <li><strong>Tir raté</strong> : "À l'eau".</li>
             <li><strong>Tir touché</strong> : "Touché".</li>

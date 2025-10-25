@@ -30,7 +30,7 @@
         <h3>🎮 Invitations de partie reçues</h3>
         <ul>
           <li v-for="inv in invitations" :key="inv.ID" class="friend-card">
-            <span>Partie #{{ inv.id_game }} envoyée par joueur #{{ inv.sender_id }}</span>
+            <span>Partie envoyée par joueur #{{ inv.sender_id }}</span>
             <div class="friend-right">
               <button class="accept-button" @click="acceptInvitation(inv)">✓</button>
               <button class="remove-button" @click="refuseInvitation(inv)">✕</button>
