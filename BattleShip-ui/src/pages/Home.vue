@@ -1,5 +1,3 @@
-<!--Home.vue-->
-
 <template>
   <div class="background">
     <div class="game-menu">

@@ -157,19 +157,25 @@ export default {
     },
 
     async joinGame(gameId) {
-      // 🔹 Récupère ou génère un playerId
-      let playerId = localStorage.getItem("playerId");
+      // 🔹 Récupérer l'utilisateur depuis localStorage
+      const user = JSON.parse(localStorage.getItem("user"));
+      if (!user) {
+        alert("Vous devez être connecté pour rejoindre une partie.");
+        return;
+      }
+
+      // 🔹 Trouver l'ID du joueur dans l'objet user
+      const playerId = Number(user.ID_Users || user.id || user.userId); // adapte selon ton backend
       if (!playerId) {
-        playerId = Math.floor(Math.random() * 1000000); // ID aléatoire entre 0 et 999999
-        localStorage.setItem("playerId", playerId);
-        console.log(`🎲 Nouveau playerId généré : ${playerId}`);
+        alert("Impossible de récupérer votre ID. Veuillez vous reconnecter.");
+        return;
       }
 
       try {
         const res = await fetch(`http://localhost:3000/api/games/join/${gameId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ playerId: Number(playerId) }),
+          body: JSON.stringify({ playerId }), // correspond à ce que ton backend attend
         });
 
         const data = await res.json();
@@ -178,10 +184,12 @@ export default {
           return;
         }
 
+        // 🔹 Stocker la partie en cours
         localStorage.setItem("currentGame", JSON.stringify({ gameId, playerId }));
         this.$router.push({ name: "WaitingRoom", params: { gameId } });
       } catch (err) {
         console.error("❌ Erreur lors de la tentative :", err);
+        alert("Erreur réseau ou serveur. Veuillez réessayer plus tard.");
       }
     },
   },

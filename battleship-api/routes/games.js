@@ -83,7 +83,6 @@ router.get("/public", async (req, res) => {
 });
 
 
-
 // 🔹 Créer une partie
 router.post("/create", async (req, res) => {
   const { hostId, id_game_mode, id_game_type, id_team_mode, id_version, totalPlayers } = req.body;
@@ -679,15 +678,14 @@ router.get("/:id/status", async (req, res) => {
 
 // POST /api/games/join/:id
 router.post("/join/:id", async (req, res) => {
-  const gameId = req.params.id;
-  const { playerId } = req.body; // 🔹 On prend playerId depuis le body
+  const gameId = parseInt(req.params.id, 10);   // 🔹 Force INT
+  const playerId = parseInt(req.body.playerId, 10); // 🔹 Force INT
 
-  if (!playerId) {
-    return res.status(400).json({ success: false, message: "Paramètre playerId manquant" });
+  if (!playerId || !gameId) {
+    return res.status(400).json({ success: false, message: "Paramètres manquants" });
   }
 
   try {
-    // 1️⃣ Vérifier si la partie existe et est en préparation
     const [gameRows] = await db.query(
       `SELECT * FROM games WHERE id_Game = ? AND status = 'preparation'`,
       [gameId]
@@ -698,7 +696,6 @@ router.post("/join/:id", async (req, res) => {
       return res.status(404).json({ success: false, message: "Partie introuvable ou déjà commencée." });
     }
 
-    // 2️⃣ Vérifier si le joueur est déjà dans cette partie
     const [existingRows] = await db.query(
       `SELECT * FROM game_players WHERE id_player = ? AND id_game = ?`,
       [playerId, gameId]
@@ -708,16 +705,13 @@ router.post("/join/:id", async (req, res) => {
       return res.status(400).json({ success: false, message: "Vous êtes déjà dans cette partie." });
     }
 
-    // 3️⃣ Ajouter le joueur à la partie
     await db.query(
       `INSERT INTO game_players (id_game, id_player, player_status) VALUES (?, ?, 'in_game')`,
       [gameId, playerId]
     );
 
     console.log(`👥 [JOIN GAME] Joueur ${playerId} rejoint la partie ${gameId}`);
-
     res.json({ success: true, message: "Vous avez rejoint la partie avec succès !" });
-
   } catch (err) {
     console.error("❌ Erreur rejoindre partie :", err);
     res.status(500).json({ success: false, message: "Erreur lors de la tentative de rejoindre la partie." });

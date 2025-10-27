@@ -32,10 +32,10 @@ const routes = [
     props: true
   },
   {
-  path: "/join",
-  name: "JoinGame",
-  component: () => import("../pages/JoinGame.vue")
-}
+    path: "/join",
+    name: "JoinGame",
+    component: () => import("../pages/JoinGame.vue")
+  }
 
 ];
 

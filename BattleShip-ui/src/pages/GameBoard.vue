@@ -274,7 +274,7 @@ export default {
 };
 </script>
 
-<style scoped>
+<style>
 .battle-container {
   width: 100vw;
   height: 100vh;
