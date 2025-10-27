@@ -1,25 +1,28 @@
-<!-- GameMode.vue -->
 <template>
   <div class="game-mode-container">
     <div class="game-mode-card">
-      <h1>🎮 Paramètres de la partie</h1>
+      <h1>⚓ Paramètres de la partie</h1>
 
       <!-- Choix de la langue -->
-      <label for="language">Langue :</label>
-      <select id="language" v-model="language">
-        <option value="fr">Français</option>
-        <option value="be">Belge</option>
-      </select>
+      <div class="form-group">
+        <label for="language">🌍 Langue :</label>
+        <select id="language" v-model="language">
+          <option value="fr">Français</option>
+          <option value="be">Belge</option>
+        </select>
+      </div>
 
       <!-- Partie privée -->
-      <label class="checkbox-label">
-        <input type="checkbox" v-model="isPrivate" />
-        Partie privée 🔒
-      </label>
+      <div class="form-group checkbox-group">
+        <label>
+          <input type="checkbox" v-model="isPrivate" />
+          Partie privée <span class="lock">🔒</span>
+        </label>
+      </div>
 
       <!-- Modes publics -->
-      <div v-if="!isPrivate">
-        <label for="mode">Mode de bataille :</label>
+      <div v-if="!isPrivate" class="form-group">
+        <label for="mode">⚔️ Mode de bataille :</label>
         <select id="mode" v-model="mode">
           <option value="1v1">1 vs 1</option>
           <option value="2v2">2 vs 2</option>
@@ -29,27 +32,25 @@
       </div>
 
       <!-- Modes privés -->
-      <div v-else class="private-settings">
-        <label>Nombre total de participants (pair) :</label>
+      <div v-else class="private-settings form-group">
+        <label>👥 Nombre total de participants (pair) :</label>
         <input
           type="number"
           v-model.number="totalPlayers"
           min="2"
           max="20"
           step="2"
+          placeholder="Ex: 4"
         />
         <p v-if="totalPlayers % 2 !== 0" class="error-text">⚠️ Le nombre doit être pair !</p>
-        <p v-else>{{ totalPlayers / 2 }} vs {{ totalPlayers / 2 }}</p>
+        <p v-else class="info-text">{{ totalPlayers / 2 }} vs {{ totalPlayers / 2 }}</p>
       </div>
 
-      <button
-        class="start-button"
-        @click="startGame"
-        :disabled="!canStart || loading"
-      >
+      <button class="start-button neon-btn" @click="startGame" :disabled="!canStart || loading">
         {{ loading ? "⏳ Création en cours..." : "🚀 Lancer la partie" }}
       </button>
-      <button class="cancel-button" @click="$router.push('/')">Retour</button>
+
+      <button class="cancel-button" @click="$router.push('/')">🏠 Retour</button>
     </div>
   </div>
 </template>
@@ -63,28 +64,32 @@ export default {
       isPrivate: false,
       totalPlayers: 2,
       loading: false,
-      user: null
+      user: null,
     };
   },
   computed: {
     canStart() {
       return (
-        this.user &&
-        (!this.isPrivate || (this.totalPlayers >= 2 && this.totalPlayers % 2 === 0))
+        this.user && (!this.isPrivate || (this.totalPlayers >= 2 && this.totalPlayers % 2 === 0))
       );
-    }
+    },
   },
   mounted() {
     this.user = JSON.parse(localStorage.getItem("user"));
   },
   methods: {
     getTeamModeFromSelection(mode) {
-      switch(mode) {
-        case '1v1': return 1;
-        case '2v2': return 2;
-        case '4v4': return 3;
-        case 'battle-royale': return 4;
-        default: return 1;
+      switch (mode) {
+        case "1v1":
+          return 1;
+        case "2v2":
+          return 2;
+        case "4v4":
+          return 3;
+        case "battle-royale":
+          return 4;
+        default:
+          return 1;
       }
     },
     async startGame() {
@@ -96,38 +101,41 @@ export default {
       this.loading = true;
 
       try {
-        // 🔹 ID du mode d'équipe
-        const teamModeId = this.isPrivate ? 2 : this.getTeamModeFromSelection(this.mode);
+        const teamModeId = this.isPrivate
+          ? Math.floor(this.totalPlayers / 2)
+          : this.getTeamModeFromSelection(this.mode);
 
-        // 🔹 Calcul du nombre total de joueurs
         let totalPlayers;
-        if (this.isPrivate) {
-          totalPlayers = this.totalPlayers;
-        } else {
-          switch(teamModeId) {
-            case 1: totalPlayers = 2; break;
-            case 2: totalPlayers = 4; break;
-            case 3: totalPlayers = 8; break;
-            case 4: totalPlayers = 20; break;
-            default: totalPlayers = 2;
-          }
+        switch (teamModeId) {
+          case 1:
+            totalPlayers = 2;
+            break;
+          case 2:
+            totalPlayers = 4;
+            break;
+          case 3:
+            totalPlayers = 8;
+            break;
+          case 4:
+            totalPlayers = 20;
+            break;
+          default:
+            totalPlayers = 2;
         }
 
         const payload = {
           hostId: Number(this.user.id),
-          id_game_mode: 1,
-          id_game_type: 2, // Team
+          id_game_mode: this.isPrivate ? 2 : 1,
+          id_game_type: 2,
           id_team_mode: teamModeId,
           id_version: this.language === "fr" ? 1 : 2,
-          totalPlayers
+          totalPlayers,
         };
-
-        console.log("🎮 Création partie payload:", payload);
 
         const res = await fetch("http://localhost:3000/api/games/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         });
 
         const data = await res.json();
@@ -140,146 +148,166 @@ export default {
           ID_Game: data.game.ID_Game || data.game.id_game || data.game.id,
           ID_Creator: data.game.ID_Creator || data.game.id_creator || data.game.creatorId,
           TotalPlayers: data.game.TotalPlayers || data.game.totalPlayers || totalPlayers,
-          Status: data.game.Status || data.game.status || "preparation"
+          Status: data.game.Status || data.game.status || "preparation",
         };
 
         localStorage.setItem("currentGame", JSON.stringify(normalizedGame));
         localStorage.setItem("currentLanguage", this.language);
         localStorage.setItem("user", JSON.stringify(this.user));
 
-        // 🔹 Passage à la salle d'attente
-        this.$router.push({ 
-          name: "WaitingRoom", 
-          params: { gameId: normalizedGame.ID_Game } 
+        this.$router.push({
+          name: "WaitingRoom",
+          params: { gameId: normalizedGame.ID_Game },
         });
-
       } catch (err) {
         console.error("❌ Erreur dans startGame:", err);
         alert("Impossible de contacter le serveur.");
       } finally {
         this.loading = false;
       }
-    }
-  },
-  watch: {
-    mode(newMode) {
-      if (!this.isPrivate) {
-        const teamModeId = this.getTeamModeFromSelection(newMode);
-        switch (teamModeId) {
-          case 1: this.totalPlayers = 2; break;
-          case 2: this.totalPlayers = 4; break;
-          case 3: this.totalPlayers = 8; break;
-          case 4: this.totalPlayers = 20; break;
-          default: this.totalPlayers = 2;
-        }
-        console.log(`[WATCH] Mode changé : ${newMode}, totalPlayers = ${this.totalPlayers}`);
-      }
     },
-    isPrivate(isPrivate) {
-      if (!isPrivate) {
-        // Recalculer totalPlayers selon le mode public
-        const teamModeId = this.getTeamModeFromSelection(this.mode);
-        switch (teamModeId) {
-          case 1: this.totalPlayers = 2; break;
-          case 2: this.totalPlayers = 4; break;
-          case 3: this.totalPlayers = 8; break;
-          case 4: this.totalPlayers = 20; break;
-          default: this.totalPlayers = 2;
-        }
-      }
-    }
-  }
-
+  },
 };
 </script>
 
 <style scoped>
-/* Ton style existant */
 .game-mode-container {
-  background: linear-gradient(to bottom, #002f4b, #005f8e);
+  background: radial-gradient(circle at center, #00334d, #001a26 90%);
   min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
   padding: 2rem;
+  font-family: "Orbitron", sans-serif;
+  color: #fff;
 }
 
 .game-mode-card {
-  background-color: white;
-  color: black;
-  padding: 2rem;
-  border-radius: 16px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-  max-width: 420px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(0, 180, 255, 0.5);
+  border-radius: 20px;
+  padding: 2rem 2.5rem;
   width: 100%;
+  max-width: 450px;
+  text-align: center;
+  box-shadow: 0 0 20px rgba(0, 150, 255, 0.4);
+  animation: fadeIn 0.6s ease-out;
 }
 
 h1 {
-  text-align: center;
+  font-size: 1.8rem;
+  color: #00bfff;
   margin-bottom: 1.5rem;
-  color: #005f8e;
+  text-shadow: 0 0 8px #00bfff;
+}
+
+.form-group {
+  margin-bottom: 1.2rem;
+  text-align: left;
 }
 
 label {
-  font-weight: bold;
-  margin-top: 1rem;
   display: block;
+  font-weight: bold;
+  margin-bottom: 0.3rem;
 }
 
-input[type="number"],
-select {
+/* 🔹 Correction du fond et du texte des selects et inputs */
+select,
+input[type="number"] {
   width: 100%;
-  padding: 0.5rem;
-  margin-top: 0.3rem;
-  margin-bottom: 1rem;
-  border: 1px solid #ccc;
+  padding: 0.6rem;
+  background-color: rgba(0, 51, 77, 0.8); /* bleu foncé transparent */
+  color: #fff;
+  border: 1px solid rgba(0, 180, 255, 0.5);
   border-radius: 8px;
+  outline: none;
+  transition: all 0.2s ease;
+  appearance: none; /* Supprime le style natif */
 }
 
-.checkbox-label {
+select:focus,
+input[type="number"]:focus {
+  border-color: #00bfff;
+  box-shadow: 0 0 10px rgba(0, 180, 255, 0.6);
+}
+
+/* Option lisible dans le menu déroulant */
+select option {
+  background-color: #00263d;
+  color: #fff;
+}
+
+.checkbox-group {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  font-weight: bold;
+  justify-content: space-between;
+}
+
+.lock {
+  margin-left: 5px;
 }
 
 .error-text {
-  color: #e74c3c;
+  color: #ff6b6b;
+  font-size: 0.9rem;
+  margin-top: -0.3rem;
+}
+
+.info-text {
+  color: #00ffaa;
   font-weight: bold;
 }
 
 button {
   width: 100%;
-  padding: 0.8rem;
-  border: none;
+  padding: 0.9rem;
   border-radius: 10px;
   font-weight: bold;
   cursor: pointer;
+  font-size: 1.05rem;
+  transition: all 0.3s ease;
   margin-top: 1rem;
-  font-size: 1rem;
+  border: none;
 }
 
-.start-button {
-  background-color: #2980b9;
-  color: white;
+.neon-btn {
+  background: linear-gradient(90deg, #009dff, #00eaff);
+  color: #fff;
+  box-shadow: 0 0 15px rgba(0, 200, 255, 0.6);
 }
 
-.start-button:disabled {
-  background-color: #a5b1c2;
+.neon-btn:hover:not(:disabled) {
+  box-shadow: 0 0 25px rgba(0, 255, 255, 0.9);
+  transform: scale(1.03);
+}
+
+.neon-btn:disabled {
+  background: #444;
+  color: #ccc;
   cursor: not-allowed;
-}
-
-.start-button:hover:not(:disabled) {
-  background-color: #216f9d;
+  box-shadow: none;
 }
 
 .cancel-button {
-  background-color: #e0e0e0;
-  color: black;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ccc;
 }
 
 .cancel-button:hover {
-  background-color: #c0c0c0;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 </style>

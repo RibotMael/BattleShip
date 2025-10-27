@@ -35,7 +35,6 @@
 <script>
 import { userBus } from "@/eventBus.js";
 import axios from "axios";
-import defaultAvatar from "@/assets/images/ppHomme.png";
 
 export default {
   data() {

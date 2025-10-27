@@ -73,12 +73,14 @@ export default {
   },
   computed: {
     filteredGames() {
-      return this.publicGames.filter((game) => {
-        const matchLang = !this.selectedLanguage || game.Language === this.selectedLanguage;
-        const matchMode = !this.selectedMode || game.TeamMode === this.selectedMode;
-        const notFull = game.CurrentPlayers < game.TotalPlayers;
-        return matchLang && matchMode && notFull;
-      });
+      // 🔹 Filtrer uniquement les parties en préparation et non-pleines
+      const filtered = this.publicGames
+        .filter((game) => game.Status === "preparation" && game.CurrentPlayers < game.TotalPlayers)
+        .filter((game) => !this.selectedLanguage || game.Language === this.selectedLanguage)
+        .filter((game) => !this.selectedMode || game.TeamMode === this.selectedMode);
+
+      console.log("⚔️ filteredGames :", filtered);
+      return filtered;
     },
   },
   mounted() {
@@ -99,7 +101,7 @@ export default {
       try {
         const res = await fetch("http://localhost:3000/api/games/public");
         const data = await res.json();
-        if (data.success) this.publicGames = data.games; // plus besoin de normalizeGame
+        if (data.success) this.publicGames = data.games;
       } catch (err) {
         console.error("❌ Erreur réseau :", err);
       } finally {
@@ -121,24 +123,8 @@ export default {
     },
 
     applyFilters() {
-      // Rien à faire ici, car `filteredGames` est calculé dynamiquement
+      // Rien à faire ici, le computed `filteredGames` s'occupe du filtrage
       console.log("Filtres appliqués :", this.selectedLanguage, this.selectedMode);
-    },
-
-    normalizeGame(game) {
-      // Format un champ "TeamMode" lisible (ex: 1v1, 2v2...)
-      switch (game.id_team_mode || game.TeamModeId) {
-        case 1:
-          return { ...game, TeamMode: "1v1", Language: game.Language || "fr" };
-        case 2:
-          return { ...game, TeamMode: "2v2", Language: game.Language || "fr" };
-        case 3:
-          return { ...game, TeamMode: "4v4", Language: game.Language || "fr" };
-        case 4:
-          return { ...game, TeamMode: "battle-royale", Language: game.Language || "fr" };
-        default:
-          return { ...game, TeamMode: "1v1", Language: game.Language || "fr" };
-      }
     },
 
     formatMode(mode) {
@@ -157,15 +143,13 @@ export default {
     },
 
     async joinGame(gameId) {
-      // 🔹 Récupérer l'utilisateur depuis localStorage
       const user = JSON.parse(localStorage.getItem("user"));
       if (!user) {
         alert("Vous devez être connecté pour rejoindre une partie.");
         return;
       }
 
-      // 🔹 Trouver l'ID du joueur dans l'objet user
-      const playerId = Number(user.ID_Users || user.id || user.userId); // adapte selon ton backend
+      const playerId = Number(user.ID_Users || user.id || user.userId);
       if (!playerId) {
         alert("Impossible de récupérer votre ID. Veuillez vous reconnecter.");
         return;
@@ -175,7 +159,7 @@ export default {
         const res = await fetch(`http://localhost:3000/api/games/join/${gameId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ playerId }), // correspond à ce que ton backend attend
+          body: JSON.stringify({ playerId }),
         });
 
         const data = await res.json();
@@ -184,7 +168,6 @@ export default {
           return;
         }
 
-        // 🔹 Stocker la partie en cours
         localStorage.setItem("currentGame", JSON.stringify({ gameId, playerId }));
         this.$router.push({ name: "WaitingRoom", params: { gameId } });
       } catch (err) {

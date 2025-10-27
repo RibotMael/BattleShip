@@ -1,4 +1,3 @@
-<!-- FriendsPopup.vue -->
 <template>
   <div class="popup-overlay">
     <div class="popup-content">
@@ -10,11 +9,9 @@
         <ul>
           <li v-for="f in friends" :key="f.ID_Users" class="friend-card">
             <div class="friend-left">
-              <div
-                class="avatar"
-                v-if="f.avatar"
-                :style="{ backgroundImage: 'url(' + f.avatar + ')' }"
-              ></div>
+              <div class="avatar">
+                <img :src="f.avatarUrl || defaultAvatar" alt="Avatar" />
+              </div>
               <span class="status-dot" :class="f.isOnline ? 'online' : 'offline'"></span>
               <span class="friend-pseudo">{{ f.Pseudo }}</span>
             </div>
@@ -30,7 +27,14 @@
         <h3>🎮 Invitations de partie reçues</h3>
         <ul>
           <li v-for="inv in invitations" :key="inv.ID" class="friend-card">
-            <span>Partie envoyée par joueur #{{ inv.sender_id }}</span>
+            <div class="friend-left">
+              <div class="avatar">
+                <img :src="inv.avatarUrl || defaultAvatar" alt="Avatar" />
+              </div>
+              <span class="friend-pseudo">
+                Partie envoyée par {{ inv.Pseudo || "joueur #" + inv.sender_id }}
+              </span>
+            </div>
             <div class="friend-right">
               <button class="accept-button" @click="acceptInvitation(inv)">✓</button>
               <button class="remove-button" @click="refuseInvitation(inv)">✕</button>
@@ -53,7 +57,12 @@
         <h3>📩 Demandes d'amis reçues</h3>
         <ul>
           <li v-for="r in requests" :key="r.ID_Users" class="friend-card">
-            <span>{{ r.Pseudo }}</span>
+            <div class="friend-left">
+              <div class="avatar">
+                <img :src="r.avatarUrl || defaultAvatar" alt="Avatar" />
+              </div>
+              <span class="friend-pseudo">{{ r.Pseudo }}</span>
+            </div>
             <div class="friend-right">
               <button class="accept-button" @click="acceptRequest(r.ID_Users)">✓</button>
               <button class="remove-button" @click="removeFriend(r.ID_Users)">✕</button>
@@ -69,6 +78,7 @@
 
 <script>
 import { invitationStore, removeInvitation } from "@/eventBus";
+import defaultAvatar from "@/assets/images/ppHomme.png";
 
 export default {
   props: ["userId"],
@@ -77,11 +87,15 @@ export default {
       friends: [],
       requests: [],
       identifier: "",
+      defaultAvatar,
     };
   },
   computed: {
     invitations() {
-      return invitationStore.invitations;
+      return invitationStore.invitations.map((inv) => ({
+        ...inv,
+        avatarUrl: inv.Avatar ? `data:${inv.mime_type};base64,${inv.Avatar}` : null,
+      }));
     },
   },
   mounted() {
@@ -101,11 +115,26 @@ export default {
         this.friends = (data || []).map((f) => ({
           ID_Users: f.id ?? f.ID_Users,
           Pseudo: f.pseudo ?? f.Pseudo,
-          avatar: f.avatar ?? null,
           isOnline: f.isOnline ?? false,
+          avatarUrl: f.Avatar ? `data:${f.mime_type};base64,${f.Avatar}` : null,
         }));
       } catch (err) {
         console.error("❌ Erreur récupération amis :", err);
+      }
+    },
+
+    async fetchRequests() {
+      try {
+        const res = await fetch(`http://localhost:3000/api/friends/requests/${this.userId}`);
+        const data = await res.json();
+        this.requests = (data || []).map((r) => ({
+          ID_Users: r.ID_Users,
+          Pseudo: r.Pseudo,
+          isOnline: r.isOnline ?? false,
+          avatarUrl: r.Avatar ? `data:${r.mime_type};base64,${r.Avatar}` : null,
+        }));
+      } catch (err) {
+        console.error("❌ Erreur récupération demandes :", err);
       }
     },
 
@@ -117,21 +146,6 @@ export default {
       } catch (err) {
         console.error("❌ Erreur récupération invitations :", err);
         invitationStore.invitations = [];
-      }
-    },
-
-    async fetchRequests() {
-      try {
-        const res = await fetch(`http://localhost:3000/api/friends/requests/${this.userId}`);
-        const data = await res.json();
-        this.requests = (data || []).map((r) => ({
-          ID_Users: r.ID_Users,
-          Pseudo: r.Pseudo,
-          avatar: r.avatar ?? null,
-          isOnline: r.isOnline ?? false,
-        }));
-      } catch (err) {
-        console.error("❌ Erreur récupération demandes :", err);
       }
     },
 
@@ -164,16 +178,12 @@ export default {
           }),
         });
         const data = await res.json();
-
         if (data.success) {
           removeInvitation(inv.ID);
           await fetch("http://localhost:3000/api/games/join", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              gameId: inv.id_game,
-              playerId: this.userId,
-            }),
+            body: JSON.stringify({ gameId: inv.id_game, playerId: this.userId }),
           });
           this.$router.push(`/waiting-room/${inv.id_game}`);
         }
@@ -224,6 +234,7 @@ export default {
           body: JSON.stringify({ userId: this.userId, friendId }),
         });
         this.fetchFriends();
+        this.fetchRequests();
       } catch (err) {
         console.error("❌ Erreur removeFriend :", err);
       }
@@ -305,13 +316,24 @@ ul {
   gap: 0.5rem;
 }
 
+/* Avatars petits et ronds */
 .avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background-size: cover;
-  background-position: center;
+  overflow: hidden;
   border: 2px solid #fff;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .friend-pseudo {

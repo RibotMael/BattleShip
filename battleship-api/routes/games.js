@@ -20,45 +20,38 @@ router.get("/public", async (req, res) => {
         COUNT(p.id_player) AS CurrentPlayers,
         v.name AS VersionName
       FROM games g
-      LEFT JOIN game_players p ON g.id_Game = p.id_game
+      JOIN mode m ON g.id_game_mode = m.id_Mode
+      LEFT JOIN game_players p ON g.id_Game = p.id_game AND p.player_status != 'left'
       LEFT JOIN users u ON g.id_creator = u.ID_Users
       LEFT JOIN version v ON g.id_version = v.id_Version
-      WHERE g.status = 'preparation'
+      WHERE 
+        g.status = 'preparation'
+        AND m.name = 'Public'
       GROUP BY g.id_Game
+      HAVING CurrentPlayers < 
+        CASE g.id_team_mode 
+          WHEN 1 THEN 2 
+          WHEN 2 THEN 4 
+          WHEN 3 THEN 8 
+          WHEN 4 THEN 20 
+          ELSE 2 
+        END
       ORDER BY g.id_Game DESC
     `);
 
     const normalizedGames = games.map((g) => {
-      // 🔹 Déterminer la langue
       let langKey = "fr";
       const rawLang = (g.VersionName || "fr").toLowerCase();
       if (rawLang.startsWith("fr")) langKey = "fr";
       else if (rawLang.startsWith("bel") || rawLang === "be" || rawLang === "belgium") langKey = "be";
 
-      // 🔹 Déterminer le mode et le nombre total de joueurs
       let teamMode = "1v1";
       let totalPlayers = 2;
 
       switch (g.id_team_mode) {
-        case 1:
-          teamMode = "1v1";
-          totalPlayers = 2;
-          break;
-        case 2:
-          teamMode = "2v2";
-          totalPlayers = 4;
-          break;
-        case 3:
-          teamMode = "4v4";
-          totalPlayers = 8;
-          break;
-        case 4:
-          teamMode = "battle-royale";
-          totalPlayers = 20; // exemple pour Battle Royale
-          break;
-        default:
-          teamMode = "1v1";
-          totalPlayers = 2;
+        case 2: teamMode = "2v2"; totalPlayers = 4; break;
+        case 3: teamMode = "4v4"; totalPlayers = 8; break;
+        case 4: teamMode = "battle-royale"; totalPlayers = 20; break;
       }
 
       return {
@@ -72,10 +65,7 @@ router.get("/public", async (req, res) => {
       };
     });
 
-    // 🔹 Filtrer les parties non complètes
-    const availableGames = normalizedGames.filter(g => g.CurrentPlayers < g.TotalPlayers);
-
-    res.json({ success: true, games: availableGames });
+    res.json({ success: true, games: normalizedGames });
   } catch (err) {
     console.error("❌ Erreur /public :", err);
     res.status(500).json({ success: false, message: "Erreur lors de la récupération des parties publiques." });
@@ -394,6 +384,29 @@ router.post("/place-ships", async (req, res) => {
   } catch (err) {
     console.error("❌ [PLACE SHIPS ERROR]", err);
     res.status(500).json({ success: false, message: "Erreur serveur lors de l'enregistrement." });
+  }
+});
+
+// Récupération du plateau du joueur
+router.get("/:gameId/board", async (req, res) => {
+  const { gameId } = req.params;
+  const { playerId } = req.query;
+
+  try {
+    const [rows] = await db.query(
+      "SELECT board_json FROM player_boards WHERE game_id = ? AND player_id = ? LIMIT 1",
+      [gameId, playerId]
+    );
+
+    if (rows.length === 0) {
+      return res.json({ success: false, message: "Aucun plateau trouvé pour ce joueur." });
+    }
+
+    const board = JSON.parse(rows[0].board_json);
+    res.json({ success: true, board });
+  } catch (err) {
+    console.error("❌ Erreur récupération du plateau :", err);
+    res.status(500).json({ success: false, message: "Erreur serveur lors du chargement du plateau." });
   }
 });
 

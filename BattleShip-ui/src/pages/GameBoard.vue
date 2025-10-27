@@ -13,7 +13,7 @@
             :key="index"
             class="cell"
             :class="{
-              ship: cell === 1,
+              ship: cell === 'ship',
               hit: cell === 'hit',
               miss: cell === 'miss',
             }"
@@ -74,6 +74,7 @@ export default {
     };
   },
   mounted() {
+    this.fetchPlayerBoard();
     this.startChrono();
     this.enemyShotsInterval = setInterval(this.fetchEnemyShots, 2000);
     this.statusInterval = setInterval(this.checkGameStatus, 2000);
@@ -101,6 +102,24 @@ export default {
     preventUnload(e) {
       e.preventDefault();
       e.returnValue = "";
+    },
+    async fetchPlayerBoard() {
+      try {
+        const res = await fetch(
+          `http://localhost:3000/api/games/${this.gameId}/board?playerId=${this.user.id}`
+        );
+        const data = await res.json();
+
+        if (!data.success) return console.warn(data.message);
+
+        // le board est un tableau 10x10
+        const flatBoard = data.board.flat();
+
+        // ⚓ place les bateaux dans la grille du joueur
+        this.playerGrid = flatBoard.map((cell) => (cell === 1 ? "ship" : 0));
+      } catch (err) {
+        console.error("Erreur fetchPlayerBoard :", err);
+      }
     },
 
     // ---------------- TIMER ----------------
@@ -238,11 +257,15 @@ export default {
 
         data.shots.forEach((s) => {
           const index = s.x * 10 + s.y;
-          if (this.playerGrid[index] === 0 || this.playerGrid[index] === 1) {
-            this.playerGrid[index] = s.result.toLowerCase();
-            updated = true;
+          const result = s.result.toLowerCase();
+
+          if (result === "hit") {
+            this.playerGrid[index] = "hit"; // 🔥 touche un bateau
+          } else if (result === "miss") {
+            this.playerGrid[index] = "miss"; // 💧 tir raté
           }
         });
+        this.playerGrid = [...this.playerGrid];
 
         // Forcer la réactivité
         if (updated) this.playerGrid = [...this.playerGrid];
@@ -393,22 +416,15 @@ h2 {
 }
 
 .player-grid .cell.ship {
-  background-color: grey;
+  background-color: #555; /* gris foncé */
 }
 
 .player-grid .cell.hit {
-  background-color: red;
-  transition: background 0.3s;
+  background-color: #ff4444; /* rouge vif */
 }
 
 .player-grid .cell.miss {
-  background-color: cyan;
-  transition: background 0.3s;
-}
-
-.player-grid .cell.hit {
-  background-color: red;
-  animation: pulse 0.5s ease-in-out;
+  background-color: #00bcd4; /* bleu clair */
 }
 
 @keyframes pulse {
@@ -417,7 +433,7 @@ h2 {
     transform: scale(1);
   }
   50% {
-    transform: scale(1.2);
+    transform: scale(1.3);
   }
 }
 </style>

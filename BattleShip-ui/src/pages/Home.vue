@@ -57,7 +57,6 @@
 import AuthForm from "../components/AuthForm.vue";
 import FriendsPopup from "../components/FriendsPopup.vue";
 import logo from "@/assets/images/BATTLESHIPLOGO.png";
-import defaultAvatar from "@/assets/images/ppHomme.png";
 import { invitationStore, userBus } from "@/eventBus.js";
 import { watch } from "vue";
 
