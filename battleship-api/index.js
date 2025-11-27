@@ -1,6 +1,7 @@
-// bataillenavale-api/index.js
 import express from "express";
 import cors from "cors";
+import dotenv from "dotenv";
+dotenv.config();
 
 // Routes
 import authRoutes from "./routes/auth.js"; 
@@ -9,14 +10,12 @@ import checkPseudoRoute from "./api/check-pseudo.js";
 import avatarRouter from "./api/avatar.js";
 import friendsRouter from './routes/friends.js';
 import invitationsRouter from './routes/invitations.js';
-
-// Routes de jeux
-import gamesRouter from './routes/games.js'; // regrouper create, get, start, leave
+import gamesRouter from './routes/games.js';
 
 const app = express();
 
 // Middleware
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
@@ -41,6 +40,8 @@ app.use((req, res) => {
   res.status(404).json({ success: false, message: "Route introuvable" });
 });
 
-const PORT = 3000;
-app.listen(PORT, () => console.log(`✅ API démarrée sur http://localhost:${PORT}`));
-
+// Lancement du serveur
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`🚀 Backend Battleship en ligne sur http://localhost:8080`);
+});

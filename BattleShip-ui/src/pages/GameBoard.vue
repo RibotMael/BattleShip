@@ -13,11 +13,14 @@
             :key="index"
             class="cell"
             :class="{
-              ship: cell === 'ship',
-              hit: cell === 'hit',
-              miss: cell === 'miss',
+              ship: cell.shipNumber && cell.shipNumber !== 0,
+              hit: cell.status === 'hit',
+              miss: cell.status === 'miss',
+              sunk: cell.status === 'sunk',
             }"
-          ></div>
+          >
+            <span v-if="cell.shipNumber">{{ cell.shipNumber }}</span>
+          </div>
         </div>
       </div>
 
@@ -45,10 +48,23 @@
             v-for="(cell, index) in opponentGrid"
             :key="index"
             class="cell"
-            :class="{ hit: cell === 'hit', miss: cell === 'miss' }"
+            :class="{
+              hit: cell === 'hit',
+              miss: cell === 'miss',
+              sunk: cell === 'sunk',
+              selected: cell === 'selected',
+            }"
             @click="shoot(index)"
           ></div>
         </div>
+      </div>
+    </div>
+
+    <!-- Popup fin de partie -->
+    <div v-if="endPopup" class="end-popup">
+      <div class="popup-content">
+        <h1>{{ popupMessage }}</h1>
+        <button @click="goHome">Retour à l'accueil</button>
       </div>
     </div>
   </div>
@@ -57,42 +73,48 @@
 <script>
 export default {
   name: "GameBoard",
-  props: {
-    gameId: { type: String, required: true },
-  },
+  props: { gameId: { type: String, required: true } },
   data() {
     return {
-      playerGrid: Array(100).fill(0),
-      opponentGrid: Array(100).fill(0),
+      playerGrid: Array(100).fill({ shipNumber: 0, status: "" }),
+      opponentGrid: Array(100).fill(""),
       turnTimer: 8,
       gameOver: false,
-      turnInterval: null,
-      replayInterval: null,
-      replayVotes: {},
+      timerInterval: null,
+      fetchInterval: null,
       user: JSON.parse(localStorage.getItem("user")),
-      selectedCell: null, // ✅ case actuellement ciblée
+      selectedCell: null,
+      opponentId: null,
+      endPopup: false,
+      popupMessage: "",
     };
   },
   mounted() {
-    this.fetchPlayerBoard();
-    this.startChrono();
-    this.enemyShotsInterval = setInterval(this.fetchEnemyShots, 2000);
-    this.statusInterval = setInterval(this.checkGameStatus, 2000);
+    this.initGame();
     window.addEventListener("keydown", this.preventRefresh);
-    window.history.pushState(null, document.title, window.location.href);
     window.addEventListener("popstate", this.preventBack);
     window.addEventListener("beforeunload", this.preventUnload);
   },
   beforeUnmount() {
-    if (this.turnInterval) clearInterval(this.turnInterval);
-    if (this.replayInterval) clearInterval(this.replayInterval);
-    if (this.enemyShotsInterval) clearInterval(this.enemyShotsInterval);
-    if (this.statusInterval) clearInterval(this.statusInterval);
+    clearInterval(this.timerInterval);
+    clearInterval(this.fetchInterval);
     window.removeEventListener("keydown", this.preventRefresh);
     window.removeEventListener("popstate", this.preventBack);
     window.removeEventListener("beforeunload", this.preventUnload);
   },
   methods: {
+    async initGame() {
+      await this.fetchOpponent();
+      await this.fetchPlayerBoard();
+      this.startChrono();
+
+      // Combine enemy shots + status update toutes les 2s
+      this.fetchInterval = setInterval(async () => {
+        await this.fetchEnemyShots();
+        await this.checkGameStatus();
+      }, 2000);
+    },
+
     preventRefresh(e) {
       if (e.key === "F5" || (e.ctrlKey && e.key === "r")) e.preventDefault();
     },
@@ -103,45 +125,52 @@ export default {
       e.preventDefault();
       e.returnValue = "";
     },
+
     async fetchPlayerBoard() {
       try {
         const res = await fetch(
-          `http://localhost:3000/api/games/${this.gameId}/board?playerId=${this.user.id}`
+          `http://localhost:8080/api/games/${this.gameId}/board?playerId=${this.user.id}`
         );
         const data = await res.json();
-
         if (!data.success) return console.warn(data.message);
 
-        // le board est un tableau 10x10
         const flatBoard = data.board.flat();
-
-        // ⚓ place les bateaux dans la grille du joueur
-        this.playerGrid = flatBoard.map((cell) => (cell === 1 ? "ship" : 0));
+        this.playerGrid = flatBoard.map((cell) => ({
+          shipNumber: typeof cell === "number" && cell > 0 ? cell : 0,
+          status: "",
+        }));
       } catch (err) {
         console.error("Erreur fetchPlayerBoard :", err);
       }
     },
 
-    // ---------------- TIMER ----------------
+    async fetchOpponent() {
+      try {
+        const res = await fetch(
+          `http://localhost:8080/api/games/${this.gameId}/opponent?playerId=${this.user.id}`
+        );
+        const data = await res.json();
+        if (!data.success) return console.warn(data.message);
+
+        this.opponentId = data.opponentId;
+        this.opponentGrid = Array.from({ length: 100 }, () => "");
+      } catch (err) {
+        console.error("Erreur fetchOpponent :", err);
+      }
+    },
+
     startChrono() {
       this.turnTimer = 8;
-      if (this.turnInterval) clearInterval(this.turnInterval);
       this.updateCircle();
 
-      this.turnInterval = setInterval(async () => {
-        if (this.gameOver) {
-          clearInterval(this.turnInterval);
-          return;
-        }
+      this.timerInterval = setInterval(async () => {
+        if (this.gameOver) return clearInterval(this.timerInterval);
 
         this.turnTimer--;
         this.updateCircle();
 
         if (this.turnTimer <= 0) {
-          // ✅ Envoie le tir choisi ou auto
           await this.validateShot();
-          // ✅ Récupère les tirs adverses et les applique à notre grille
-          await this.fetchEnemyShots();
           this.turnTimer = 8;
           this.updateCircle();
           this.selectedCell = null;
@@ -159,139 +188,165 @@ export default {
 
     async abandonGame() {
       if (!confirm("Voulez-vous vraiment abandonner la partie ?")) return;
-
       try {
-        await fetch("http://localhost:3000/api/games/abandon", {
+        const res = await fetch("http://localhost:8080/api/games/abandon", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             gameId: this.gameId,
             playerId: this.user.id,
+            targetId: this.opponentId,
           }),
         });
+        const data = await res.json();
+        if (!data.success) return console.warn("Abandon échoué:", data.message);
 
         this.gameOver = true;
-        clearInterval(this.turnInterval);
-        clearInterval(this.enemyShotsInterval);
-        alert("Vous avez abandonné la partie.");
-        this.$router.push("/");
+        clearInterval(this.timerInterval);
+        clearInterval(this.fetchInterval);
+
+        this.showEndPopup("💥 Défaite par abandon !");
       } catch (err) {
-        console.error("Erreur abandon :", err);
+        console.error("Erreur abandonGame:", err);
       }
     },
 
-    // ---------------- CLIC SUR UNE CASE ----------------
     shoot(index) {
       if (this.gameOver) return;
-      if (this.opponentGrid[index] === "hit" || this.opponentGrid[index] === "miss") return;
+      if (["hit", "miss", "sunk"].includes(this.opponentGrid[index])) return;
 
-      // ✅ Permet de changer le tir pendant les 8s
       this.selectedCell = index;
-
-      // ✅ Mise à jour visuelle : surligner la sélection
-      this.opponentGrid = this.opponentGrid.map((cell, i) =>
-        i === index ? "selected" : cell === "selected" ? 0 : cell
+      this.opponentGrid = this.opponentGrid.map((v, i) =>
+        i === index ? "selected" : v === "selected" ? "" : v
       );
     },
 
-    // ---------------- VALIDER LE TIR ----------------
     async validateShot() {
       if (this.gameOver) return;
 
-      // ✅ Si aucune case sélectionnée, tir aléatoire
       let targetIndex = this.selectedCell;
+
       if (targetIndex === null) {
         const available = this.opponentGrid
-          .map((v, i) => (v === 0 ? i : null))
+          .map((v, i) => (v === "" ? i : null))
           .filter((i) => i !== null);
-        if (available.length === 0) return;
         targetIndex = available[Math.floor(Math.random() * available.length)];
       }
 
       await this.sendShoot(targetIndex);
     },
 
-    // ---------------- ENVOI DU TIR ----------------
     async sendShoot(index) {
-      try {
-        const user = JSON.parse(localStorage.getItem("user"));
-        if (!user || !user.id) throw new Error("Utilisateur introuvable dans localStorage");
+      if (this.gameOver) return;
 
-        const res = await fetch("http://localhost:3000/api/games/shoot", {
+      try {
+        const x = index % 10;
+        const y = Math.floor(index / 10);
+
+        const res = await fetch("http://localhost:8080/api/games/shoot", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             gameId: this.gameId,
-            playerId: user.id,
-            cell: index + 1,
+            playerId: this.user.id,
+            targetId: this.opponentId,
+            x,
+            y,
           }),
         });
 
         const data = await res.json();
-        if (!data.success) {
-          console.warn("Tir échoué :", data.message);
-          return;
-        }
+        if (!data.success) return console.warn("Tir échoué:", data.message);
 
-        this.opponentGrid[index] = data.result; // hit / miss / sunk
-        this.selectedCell = null;
+        // ⚡ Met à jour la case tirée
+        this.opponentGrid[index] = data.result;
 
-        if (data.gameOver) {
-          this.gameOver = true;
-          clearInterval(this.turnInterval);
-          alert("Fin de partie !");
+        // Met à jour toutes les cases coulées si sunk
+        if (data.result === "sunk") {
+          await this.fetchEnemyShots();
         }
       } catch (err) {
-        console.error("Erreur shoot :", err);
+        console.error(err);
       }
     },
+
     async fetchEnemyShots() {
       try {
         const res = await fetch(
-          `http://localhost:3000/api/games/${this.gameId}/shots?playerId=${this.user.id}`
+          `http://localhost:8080/api/games/${this.gameId}/shots?playerId=${this.user.id}`
         );
         const data = await res.json();
         if (!data.success) return;
 
-        let updated = false;
+        const newPlayerGrid = [...this.playerGrid];
+        const newOpponentGrid = [...this.opponentGrid];
 
         data.shots.forEach((s) => {
-          const index = s.x * 10 + s.y;
-          const result = s.result.toLowerCase();
+          const idx = s.y * 10 + s.x;
 
-          if (result === "hit") {
-            this.playerGrid[index] = "hit"; // 🔥 touche un bateau
-          } else if (result === "miss") {
-            this.playerGrid[index] = "miss"; // 💧 tir raté
+          if (s.id_player !== this.user.id) {
+            // Tir adverse → mettre à jour status seulement
+            if (newPlayerGrid[idx]) {
+              newPlayerGrid[idx] = {
+                ...newPlayerGrid[idx],
+                status: s.result,
+              };
+            }
+          } else {
+            // Tir joueur sur l'adversaire
+            newOpponentGrid[idx] = s.result;
+
+            // Propager sunk sur toutes les positions du bateau
+            if (s.result === "sunk" && s.positions) {
+              s.positions.forEach((pos) => {
+                const posIdx = pos.y * 10 + pos.x;
+                newOpponentGrid[posIdx] = "sunk";
+              });
+            }
           }
         });
-        this.playerGrid = [...this.playerGrid];
 
-        // Forcer la réactivité
-        if (updated) this.playerGrid = [...this.playerGrid];
+        this.playerGrid = newPlayerGrid;
+        this.opponentGrid = newOpponentGrid;
       } catch (err) {
         console.error("Erreur fetchEnemyShots :", err);
       }
     },
+
     async checkGameStatus() {
       try {
         const res = await fetch(
-          `http://localhost:3000/api/games/${this.gameId}/status?playerId=${this.user.id}`
+          `http://localhost:8080/api/games/${this.gameId}/status?playerId=${this.user.id}`
         );
         const data = await res.json();
+        if (!data.success) return;
 
-        if (res.data.gameOver) {
-          if (res.data.winner === "draw") {
-            alert("⚔ Égalité !");
-          } else if (res.data.winner === userId) {
-            alert("🏆 Victoire !");
-          } else {
-            alert("💥 Défaite !");
-          }
+        if (data.finished && !this.gameOver) {
+          this.gameOver = true;
+          clearInterval(this.timerInterval);
+          clearInterval(this.fetchInterval);
+
+          let msg = "";
+          if (data.result === "win") msg = "🏆 Victoire !";
+          else if (data.result === "lose") msg = "💥 Défaite !";
+          else msg = "⚔ Égalité !";
+
+          this.showEndPopup(msg);
+
+          await this.fetchEnemyShots();
         }
       } catch (err) {
         console.error("Erreur checkGameStatus :", err);
       }
+    },
+
+    showEndPopup(msg) {
+      this.popupMessage = msg;
+      this.endPopup = true;
+    },
+
+    goHome() {
+      this.$router.push("/");
     },
   },
 };
@@ -323,7 +378,6 @@ export default {
 }
 
 h2 {
-  color: white;
   margin-bottom: 15px;
   font-size: 1.8rem;
 }
@@ -365,7 +419,6 @@ h2 {
 
 .opponent-grid .cell:hover {
   transform: scale(1.15) rotate(-2deg);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
 .btn-abandon {
@@ -415,25 +468,67 @@ h2 {
   color: white;
 }
 
+/* --- Styles inchangés, avec amélioration pour visibilité des bateaux --- */
 .player-grid .cell.ship {
-  background-color: #555; /* gris foncé */
+  background-color: #1976d2;
+  border: 2px solid #90caf9;
+  box-shadow: inset 0 0 5px #2196f3;
 }
-
 .player-grid .cell.hit {
-  background-color: #ff4444; /* rouge vif */
+  background-color: #ff4444;
 }
-
 .player-grid .cell.miss {
-  background-color: #00bcd4; /* bleu clair */
+  background-color: #00bcd4;
+}
+.player-grid .cell.sunk {
+  background-color: #d32f2f;
+}
+.opponent-grid .cell.selected {
+  background-color: rgba(255, 255, 0, 0.6);
+  border: 2px solid yellow;
 }
 
-@keyframes pulse {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.3);
-  }
+.end-popup {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 999;
+}
+
+.end-popup .popup-content {
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.end-popup h1 {
+  margin-bottom: 20px;
+  font-size: 2rem;
+  text-align: center;
+}
+.end-popup button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  background: #1976d2;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.end-popup .popup-content h1 {
+  margin-bottom: 20px;
+  font-size: 2rem;
+  text-align: center;
+  color: #222; /* texte sombre sur fond blanc */
 }
 </style>

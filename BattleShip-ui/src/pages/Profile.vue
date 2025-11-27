@@ -36,6 +36,9 @@
 import { userBus } from "@/eventBus.js";
 import axios from "axios";
 
+const defaultAvatar =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAHklEQVR42u3PAQ0AAAwCoNm/9HI4gAAAAAAAAAAAOBwG4cAAfNmS7sAAAAASUVORK5CYII=";
+
 export default {
   data() {
     return {
@@ -59,7 +62,7 @@ export default {
   methods: {
     async fetchAvatars() {
       try {
-        const res = await axios.get("http://localhost:3000/api/avatars");
+        const res = await axios.get("http://localhost:8080/api/avatars");
         this.avatars = res.data.avatars;
         if (this.avatar) {
           const sel = this.avatars.find((a) => a.ID_Avatar === this.avatar);
@@ -80,7 +83,7 @@ export default {
       if (this.avatar) payload.avatar = this.avatar;
 
       try {
-        const response = await fetch(`http://localhost:3000/api/users/${this.userId}`, {
+        const response = await fetch(`http://localhost:8080/api/users/${this.userId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -108,7 +111,7 @@ export default {
     async deleteAccount() {
       if (!confirm("Êtes-vous sûr de vouloir supprimer votre compte ?")) return;
       try {
-        const response = await fetch(`http://localhost:3000/api/users/${this.userId}`, {
+        const response = await fetch(`http://localhost:8080/api/users/${this.userId}`, {
           method: "DELETE",
         });
         if (!response.ok) throw new Error(await response.text());

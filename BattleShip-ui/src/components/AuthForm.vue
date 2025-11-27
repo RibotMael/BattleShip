@@ -142,7 +142,7 @@ export default {
 
     async fetchAvatars() {
       try {
-        const res = await axios.get("http://localhost:3000/api/avatars");
+        const res = await axios.get("http://localhost:8080/api/avatars");
         console.log("Avatars reçus :", res.data);
         // la BDD doit renvoyer [{ID_Avatar, Avatar, mime_type, Name}, ...]
         this.avatars = res.data.avatars;
@@ -163,7 +163,7 @@ export default {
     async checkPseudo() {
       if (!this.pseudo.trim()) return;
       try {
-        const res = await axios.post("http://localhost:3000/api/check-pseudo", {
+        const res = await axios.post("http://localhost:8080/api/check-pseudo", {
           pseudo: this.pseudo,
         });
         if (!res.data.available) {
@@ -215,8 +215,8 @@ export default {
       };
 
       const url = this.isLogin
-        ? "http://localhost:3000/api/login"
-        : "http://localhost:3000/api/register";
+        ? "http://localhost:8080/api/login"
+        : "http://localhost:8080/api/register";
 
       try {
         const response = await axios.post(url, formData);

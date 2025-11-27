@@ -92,31 +92,34 @@ export default {
   },
   computed: {
     invitations() {
+      // Conversion base64 + fallback
       return invitationStore.invitations.map((inv) => ({
         ...inv,
-        avatarUrl: inv.Avatar ? `data:${inv.mime_type};base64,${inv.Avatar}` : null,
+        avatarUrl: inv.Avatar ? `data:${inv.mime_type};base64,${inv.Avatar}` : defaultAvatar,
       }));
     },
   },
   mounted() {
-    this.fetchFriends();
-    this.fetchRequests();
-    this.fetchInvitations();
-    this.refreshInterval = setInterval(this.fetchInvitations, 3000);
+    this.fetchAll();
+    this.refreshInterval = setInterval(this.fetchAll, 3000);
   },
   beforeUnmount() {
     clearInterval(this.refreshInterval);
   },
   methods: {
+    async fetchAll() {
+      await Promise.all([this.fetchFriends(), this.fetchRequests(), this.fetchInvitations()]);
+    },
+
     async fetchFriends() {
       try {
-        const res = await fetch(`http://localhost:3000/api/friends/list/${this.userId}`);
+        const res = await fetch(`http://localhost:8080/api/friends/list/${this.userId}`);
         const data = await res.json();
         this.friends = (data || []).map((f) => ({
-          ID_Users: f.id ?? f.ID_Users,
-          Pseudo: f.pseudo ?? f.Pseudo,
+          ID_Users: f.ID_Users ?? f.id,
+          Pseudo: f.Pseudo ?? f.pseudo,
           isOnline: f.isOnline ?? false,
-          avatarUrl: f.Avatar ? `data:${f.mime_type};base64,${f.Avatar}` : null,
+          avatarUrl: f.Avatar ? `data:${f.mime_type};base64,${f.Avatar}` : defaultAvatar,
         }));
       } catch (err) {
         console.error("❌ Erreur récupération amis :", err);
@@ -125,13 +128,13 @@ export default {
 
     async fetchRequests() {
       try {
-        const res = await fetch(`http://localhost:3000/api/friends/requests/${this.userId}`);
+        const res = await fetch(`http://localhost:8080/api/friends/requests/${this.userId}`);
         const data = await res.json();
         this.requests = (data || []).map((r) => ({
           ID_Users: r.ID_Users,
           Pseudo: r.Pseudo,
           isOnline: r.isOnline ?? false,
-          avatarUrl: r.Avatar ? `data:${r.mime_type};base64,${r.Avatar}` : null,
+          avatarUrl: r.Avatar ? `data:${r.mime_type};base64,${r.Avatar}` : defaultAvatar,
         }));
       } catch (err) {
         console.error("❌ Erreur récupération demandes :", err);
@@ -140,7 +143,7 @@ export default {
 
     async fetchInvitations() {
       try {
-        const res = await fetch(`http://localhost:3000/api/invitation/${this.userId}`);
+        const res = await fetch(`http://localhost:8080/api/invitation/${this.userId}`);
         const data = await res.json();
         invitationStore.invitations = Array.isArray(data.invitations) ? data.invitations : [];
       } catch (err) {
@@ -152,7 +155,7 @@ export default {
     async addFriend() {
       if (!this.identifier.trim()) return alert("Pseudo requis");
       try {
-        await fetch("http://localhost:3000/api/friends/add", {
+        await fetch("http://localhost:8080/api/friends/add", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: this.userId, identifier: this.identifier }),
@@ -166,7 +169,7 @@ export default {
 
     async acceptInvitation(inv) {
       try {
-        const res = await fetch("http://localhost:3000/api/invitation/respond", {
+        const res = await fetch("http://localhost:8080/api/invitation/respond", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -180,7 +183,7 @@ export default {
         const data = await res.json();
         if (data.success) {
           removeInvitation(inv.ID);
-          await fetch("http://localhost:3000/api/games/join", {
+          await fetch("http://localhost:8080/api/games/join", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ gameId: inv.id_game, playerId: this.userId }),
@@ -194,7 +197,7 @@ export default {
 
     async refuseInvitation(inv) {
       try {
-        await fetch("http://localhost:3000/api/invitation/respond", {
+        await fetch("http://localhost:8080/api/invitation/respond", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -213,7 +216,7 @@ export default {
 
     async acceptRequest(friendId) {
       try {
-        await fetch("http://localhost:3000/api/friends/accept", {
+        await fetch("http://localhost:8080/api/friends/accept", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: this.userId, friendId }),
@@ -228,7 +231,7 @@ export default {
     async removeFriend(friendId) {
       if (!confirm("Voulez-vous vraiment supprimer cet ami ?")) return;
       try {
-        await fetch("http://localhost:3000/api/friends/remove", {
+        await fetch("http://localhost:8080/api/friends/remove", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: this.userId, friendId }),

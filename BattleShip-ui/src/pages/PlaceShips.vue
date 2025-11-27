@@ -115,7 +115,7 @@ export default {
   methods: {
     async fetchGame() {
       try {
-        const res = await fetch(`http://localhost:3000/api/games/${this.game.ID_Game}`);
+        const res = await fetch(`http://localhost:8080/api/games/${this.game.ID_Game}`);
         const data = await res.json();
         if (data.success) {
           this.game = { ...this.game, ...data.game };
@@ -173,6 +173,7 @@ export default {
 
     placeOrRemoveShip(index) {
       const cell = this.grid[index];
+      // Si la case contient déjà un bateau, on le supprime
       if (cell.hasShip) {
         const shipId = cell.shipId;
         this.grid.forEach((c) => {
@@ -186,13 +187,14 @@ export default {
         return;
       }
 
+      // Vérifie qu'un bateau est sélectionné
       if (this.selectedShipIndex === null) return alert("⚓ Sélectionnez un navire !");
-      // Définir la cellule sélectionnée pour le visuel
-      this.selectedCell = index;
+
       const ship = this.fleet[this.selectedShipIndex];
       const indices = [];
       const row = Math.floor(index / 10);
 
+      // Vérifie la validité du placement
       for (let i = 0; i < ship.size; i++) {
         const idx = this.orientation === "horizontal" ? index + i : index + i * 10;
         if (idx >= 100) return alert("⚠️ Hors grille !");
@@ -204,12 +206,14 @@ export default {
         indices.push(idx);
       }
 
+      // Place le bateau avec son numéro (shipId + 1)
       indices.forEach((i) => {
         this.grid[i] = { ...this.grid[i], hasShip: true, shipId: this.selectedShipIndex };
       });
       this.fleet[this.selectedShipIndex].placed = true;
       this.selectedShipIndex = null;
       this.hoverCells = [];
+      this.selectedCell = index;
     },
 
     getCellClass(index) {
@@ -224,14 +228,17 @@ export default {
     async validatePlacement() {
       if (!this.canValidate) return alert("⛵ Placez tous vos bateaux avant de valider !");
 
+      // Convertit chaque bateau en chiffre
+      const shipsNumbers = this.grid.map((c) => (c.hasShip ? c.shipId + 1 : 0));
+
       try {
-        const res = await fetch(`http://localhost:3000/api/games/place-ships`, {
+        const res = await fetch(`http://localhost:8080/api/games/place-ships`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             gameId: this.game.ID_Game,
             playerId: this.userId,
-            ships: this.grid.map((c) => (c.hasShip ? 1 : 0)),
+            ships: shipsNumbers, // ⚡ tableau avec chiffres représentant chaque bateau
             mode: this.game.mode,
           }),
         });
@@ -254,7 +261,7 @@ export default {
 
     async checkAllPlayersReady() {
       try {
-        const res = await fetch(`http://localhost:3000/api/games/${this.game.ID_Game}`);
+        const res = await fetch(`http://localhost:8080/api/games/${this.game.ID_Game}`);
         const data = await res.json();
         if (data.success) {
           this.readyPlayers = data.players.filter((p) => p.validated);

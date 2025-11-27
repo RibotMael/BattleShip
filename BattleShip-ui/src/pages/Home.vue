@@ -60,6 +60,9 @@ import logo from "@/assets/images/BATTLESHIPLOGO.png";
 import { invitationStore, userBus } from "@/eventBus.js";
 import { watch } from "vue";
 
+const defaultAvatar =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAHklEQVR42u3PAQ0AAAwCoNm/9HI4gAAAAAAAAAAAOBwG4cAAfNmS7sAAAAASUVORK5CYII=";
+
 export default {
   components: { AuthForm, FriendsPopup },
   data() {
@@ -72,6 +75,7 @@ export default {
       publicGames: [],
       loadingPublicGames: false,
       joiningMode: false,
+      avatarPreviewUrl: defaultAvatar,
     };
   },
   computed: {

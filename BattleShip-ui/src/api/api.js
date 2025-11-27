@@ -2,7 +2,7 @@ import axios from "axios";
 import router from "@/router";
 
 const api = axios.create({
-  baseURL: "http://localhost:3000/api",
+  baseURL: "http://localhost:8080/api",
 });
 
 // Intercepteur global

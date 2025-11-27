@@ -1,14 +1,16 @@
-// battleship-api/db.js
-
-import mysql from 'mysql2/promise'; 
+import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const pool = mysql.createPool({
-  host: '5.178.107.184', 
-  user: 'group2',
-  password: 'grp2pass',
-  database: 'bataillenavale',
-  port: 3306,
+  host: process.env.DB_HOST,       
+  user: process.env.DB_USER,    
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT,
 });
+
+console.log("→ Base utilisée :", process.env.DB_NAME);
 
 pool.getConnection()
   .then(conn => {
@@ -25,4 +27,3 @@ async function query(sql, params) {
 
 export { query };
 export default pool;
-

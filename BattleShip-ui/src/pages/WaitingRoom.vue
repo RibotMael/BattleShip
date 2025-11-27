@@ -186,7 +186,7 @@ export default {
     },
     async fetchGame() {
       try {
-        const res = await fetch(`http://localhost:3000/api/games/${this.localGameId}`);
+        const res = await fetch(`http://localhost:8080/api/games/${this.localGameId}`);
         const data = await res.json();
         if (!data.success) return false;
 
@@ -218,7 +218,7 @@ export default {
     async fetchFriends() {
       try {
         console.log("[FETCH] Récupération amis pour userId:", this.userId);
-        const res = await fetch(`http://localhost:3000/api/friends/list/${this.userId}`);
+        const res = await fetch(`http://localhost:8080/api/friends/list/${this.userId}`);
         const data = await res.json();
         this.friends = Array.isArray(data) ? data : [];
         console.log("[FETCH] Friends list :", this.friends);
@@ -229,7 +229,7 @@ export default {
     },
     async fetchInvitations() {
       try {
-        const res = await fetch(`http://localhost:3000/api/invitation/${this.userId}`);
+        const res = await fetch(`http://localhost:8080/api/invitation/${this.userId}`);
         const data = await res.json();
         this.invitationsList =
           data.success && Array.isArray(data.invitations) ? data.invitations : [];
@@ -240,7 +240,7 @@ export default {
     },
     async respondInvite(inviteId, accept) {
       try {
-        const res = await fetch("http://localhost:3000/api/games/invite/respond", {
+        const res = await fetch("http://localhost:8080/api/games/invite/respond", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ inviteId, accept }),
@@ -260,7 +260,7 @@ export default {
     },
     async joinGame() {
       try {
-        const res = await fetch("http://localhost:3000/api/games/join", {
+        const res = await fetch("http://localhost:8080/api/games/join", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ gameId: this.localGameId, playerId: this.userId }),
@@ -278,7 +278,7 @@ export default {
     async inviteFriend(friendId) {
       if (!this.game?.ID_Game || !friendId) return;
       try {
-        const res = await fetch("http://localhost:3000/api/invitation", {
+        const res = await fetch("http://localhost:8080/api/invitation", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -314,7 +314,7 @@ export default {
       if (!this.game?.ID_Game) return;
 
       try {
-        const res = await fetch("http://localhost:3000/api/games/leave", {
+        const res = await fetch("http://localhost:8080/api/games/leave", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ gameId: this.game.ID_Game, playerId: this.userId }),
@@ -341,7 +341,7 @@ export default {
       try {
         console.log("[START GAME] Partie démarrée par host");
 
-        const res = await fetch("http://localhost:3000/api/games/start", {
+        const res = await fetch("http://localhost:8080/api/games/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ gameId: this.game.ID_Game, userId: this.userId }),

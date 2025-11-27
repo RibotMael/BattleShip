@@ -42,4 +42,4 @@ app.post("/api/games/shoot", async (req, res) => {
   }
 });
 
-server.listen(3000, () => console.log("Serveur lancé sur http://localhost:3000"));
+server.listen(8080, () => console.log("Serveur lancé sur http://localhost:8080"));
