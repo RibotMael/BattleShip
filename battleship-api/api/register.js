@@ -1,4 +1,7 @@
 // battleship-api/api/register.js
+// FICHIER OBSOLÈTE — remplacé par /routes/auth.js
+
+/*
 import { Router } from 'express';
 import { query } from '../db.js';
 import bcrypt from 'bcrypt';
@@ -58,3 +61,4 @@ router.post('/register', async (req, res) => {
 });
 
 export default router;
+*/

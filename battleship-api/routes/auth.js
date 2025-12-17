@@ -21,7 +21,7 @@ router.post('/register', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 🔹 On garde juste l'ID de l'avatar
+    //On garde juste l'ID de l'avatar
     const avatarId = avatar;
 
     const insertUserSql = `
@@ -57,7 +57,6 @@ router.post('/login', async (req, res) => {
     const isPasswordValid = await bcrypt.compare(password, user.Password);
     if (!isPasswordValid) return res.status(401).json({ success: false, message: "Mot de passe incorrect" });
 
-    // Mettre Online = 1
     await query("UPDATE users SET Online = 1 WHERE ID_Users = ?", [user.ID_Users]);
 
     const avatarBase64 = user.Avatar ? `data:${user.mime_type};base64,${user.Avatar.toString("base64")}` : null;

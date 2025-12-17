@@ -54,7 +54,7 @@
               sunk: cell === 'sunk',
               selected: cell === 'selected',
             }"
-            @click="shoot(index)"
+            @click="selectCell(index)"
           ></div>
         </div>
       </div>
@@ -71,6 +71,8 @@
 </template>
 
 <script>
+import socket from "../services/socket.js";
+
 export default {
   name: "GameBoard",
   props: { gameId: { type: String, required: true } },
@@ -80,7 +82,6 @@ export default {
       opponentGrid: Array(100).fill(""),
       turnTimer: 8,
       gameOver: false,
-      timerInterval: null,
       fetchInterval: null,
       user: JSON.parse(localStorage.getItem("user")),
       selectedCell: null,
@@ -94,25 +95,68 @@ export default {
     window.addEventListener("keydown", this.preventRefresh);
     window.addEventListener("popstate", this.preventBack);
     window.addEventListener("beforeunload", this.preventUnload);
+
+    socket.on("connect", () => {
+      console.log("⚡ Socket connecté côté client avec l'id", socket.id);
+    });
+
+    socket.on("connect_error", (err) => {
+      console.error("❌ Erreur connexion socket:", err.message);
+    });
+
+    socket.on("turn-timer", ({ timeLeft }) => {
+      console.log("⏰ Timer reçu côté client:", timeLeft);
+      this.turnTimer = timeLeft;
+      this.updateCircle();
+    });
+
+    socket.on("turn-ended", ({ reason }) => {
+      console.log("⏳ Tour terminé, raison:", reason);
+      this.validateShot();
+    });
+
+    socket.on("game-over", ({ winnerId }) => {
+      console.log("🏁 Partie terminée, gagnant:", winnerId);
+      this.gameOver = true;
+      clearInterval(this.fetchInterval);
+      this.showEndPopup(winnerId === this.user.id ? "🏆 Victoire !" : "💥 Défaite !");
+    });
   },
+
   beforeUnmount() {
-    clearInterval(this.timerInterval);
     clearInterval(this.fetchInterval);
     window.removeEventListener("keydown", this.preventRefresh);
     window.removeEventListener("popstate", this.preventBack);
     window.removeEventListener("beforeunload", this.preventUnload);
+
+    socket.off("turn-timer");
+    socket.off("turn-ended");
   },
   methods: {
     async initGame() {
       await this.fetchOpponent();
       await this.fetchPlayerBoard();
-      this.startChrono();
 
-      // Combine enemy shots + status update toutes les 2s
+      console.log("📡 emit join-game", this.gameId);
+      // 🔌 Rejoindre la room socket **uniquement ici**
+      socket.emit("join-game", {
+        gameId: this.gameId.toString(),
+        playerId: this.user.id,
+      });
+
+      // 🔁 polling REST inchangé
       this.fetchInterval = setInterval(async () => {
         await this.fetchEnemyShots();
         await this.checkGameStatus();
       }, 2000);
+    },
+
+    updateCircle() {
+      const circle = this.$el.querySelector(".progress-ring__circle");
+      const radius = 54;
+      const circumference = 2 * Math.PI * radius;
+      const offset = circumference - (this.turnTimer / 8) * circumference;
+      circle.style.strokeDashoffset = offset;
     },
 
     preventRefresh(e) {
@@ -159,33 +203,6 @@ export default {
       }
     },
 
-    startChrono() {
-      this.turnTimer = 8;
-      this.updateCircle();
-
-      this.timerInterval = setInterval(async () => {
-        if (this.gameOver) return clearInterval(this.timerInterval);
-
-        this.turnTimer--;
-        this.updateCircle();
-
-        if (this.turnTimer <= 0) {
-          await this.validateShot();
-          this.turnTimer = 8;
-          this.updateCircle();
-          this.selectedCell = null;
-        }
-      }, 1000);
-    },
-
-    updateCircle() {
-      const circle = this.$el.querySelector(".progress-ring__circle");
-      const radius = 54;
-      const circumference = 2 * Math.PI * radius;
-      const offset = circumference - (this.turnTimer / 8) * circumference;
-      circle.style.strokeDashoffset = offset;
-    },
-
     async abandonGame() {
       if (!confirm("Voulez-vous vraiment abandonner la partie ?")) return;
       try {
@@ -211,29 +228,36 @@ export default {
       }
     },
 
-    shoot(index) {
+    async selectCell(index) {
       if (this.gameOver) return;
+      if (this.selectedCell !== null) return;
+
       if (["hit", "miss", "sunk"].includes(this.opponentGrid[index])) return;
 
       this.selectedCell = index;
-      this.opponentGrid = this.opponentGrid.map((v, i) =>
-        i === index ? "selected" : v === "selected" ? "" : v
-      );
+      this.opponentGrid[index] = "selected";
     },
 
     async validateShot() {
       if (this.gameOver) return;
 
-      let targetIndex = this.selectedCell;
+      let index = this.selectedCell;
 
-      if (targetIndex === null) {
+      // tir aléatoire si rien choisi
+      if (index === null) {
         const available = this.opponentGrid
           .map((v, i) => (v === "" ? i : null))
           .filter((i) => i !== null);
-        targetIndex = available[Math.floor(Math.random() * available.length)];
+
+        index = available[Math.floor(Math.random() * available.length)];
       }
 
-      await this.sendShoot(targetIndex);
+      // Nettoyage visuel
+      this.opponentGrid = this.opponentGrid.map((c) => (c === "selected" ? "" : c));
+
+      await this.sendShoot(index);
+
+      this.selectedCell = null;
     },
 
     async sendShoot(index) {

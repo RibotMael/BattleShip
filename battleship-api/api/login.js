@@ -1,5 +1,7 @@
 // battleship-api/api/login.js
+// FICHIER OBSOLÈTE — remplacé par /routes/auth.js
 
+/*
 import { Router } from 'express';
 import { query } from '../db';
 import bcrypt from 'bcrypt';
@@ -54,3 +56,4 @@ router.post('/login', async (req, res) => {
 });
 
 export default router;
+*/

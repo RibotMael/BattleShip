@@ -140,14 +140,6 @@ export default {
 </script>
 
 <style>
-.top-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.8rem 1rem;
-  position: relative;
-}
-
 .add-friend button {
   background: #0077cc;
   color: white;
@@ -322,35 +314,6 @@ export default {
   gap: 0.5rem;
   cursor: pointer;
   position: relative;
-}
-
-.user-dropdown {
-  position: absolute;
-  top: 100px;
-  right: 1rem;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  z-index: 10;
-}
-
-.user-dropdown button {
-  padding: 0.7rem 1.5rem;
-  width: 200px;
-  background: none;
-  border: none;
-  text-align: left;
-  font-weight: bold;
-  color: #333;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.user-dropdown button:hover {
-  background: #f0f0f0;
 }
 
 .fade-slide-enter-active,

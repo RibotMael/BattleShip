@@ -205,13 +205,12 @@ export default {
         }
       }
 
-      // 🔹 On envoie simplement l'ID de l'avatar choisi
       const formData = {
         email: this.email || null,
         password: this.password || null,
         pseudo: this.pseudo || null,
         birthDay: this.birthDay || null,
-        avatar: this.avatar || 1, // ID par défaut si aucun choisi
+        avatar: this.avatar || 1,
       };
 
       const url = this.isLogin

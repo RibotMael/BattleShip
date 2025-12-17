@@ -505,7 +505,7 @@ router.get("/:gameId/shots", async (req, res) => {
   try {
     // Récupérer tous les tirs pour ce joueur
     const [shots] = await db.query(
-      "SELECT id_player, target_x AS x, target_y AS y, result, ship_number FROM shots WHERE id_game = ?",
+      "SELECT id_player, target_x AS x, target_y AS y, result FROM shots WHERE id_game = ?",
       [gameId]
     );
 
