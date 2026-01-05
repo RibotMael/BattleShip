@@ -107,13 +107,21 @@ export default {
     socket.on("turn-timer", ({ timeLeft }) => {
       console.log("⏰ Timer reçu côté client:", timeLeft);
       this.turnTimer = timeLeft;
-      this.updateCircle();
+      const update = () => {
+        this.updateCircle();
+        if (this.turnTimer > 0) {
+          requestAnimationFrame(update);
+        }
+      };
+      requestAnimationFrame(update);
     });
 
     socket.on("turn-ended", ({ reason }) => {
       console.log("⏳ Tour terminé, raison:", reason);
       this.validateShot();
     });
+
+    socket.on("shot-fired", this.onShotFired);
 
     socket.on("game-over", ({ winnerId }) => {
       console.log("🏁 Partie terminée, gagnant:", winnerId);
@@ -131,6 +139,8 @@ export default {
 
     socket.off("turn-timer");
     socket.off("turn-ended");
+    socket.off("shot-fired");
+    socket.off("game-over");
   },
   methods: {
     async initGame() {
@@ -203,6 +213,25 @@ export default {
       }
     },
 
+    onShotFired(shot) {
+      const idx = shot.y * 10 + shot.x;
+
+      if (shot.shooterId === this.user.id) {
+        this.opponentGrid[idx] = shot.result;
+
+        if (shot.result === "sunk" && shot.positions) {
+          shot.positions.forEach((p) => {
+            this.opponentGrid[p.y * 10 + p.x] = "sunk";
+          });
+        }
+      } else {
+        this.playerGrid[idx] = {
+          ...this.playerGrid[idx],
+          status: shot.result,
+        };
+      }
+    },
+
     async abandonGame() {
       if (!confirm("Voulez-vous vraiment abandonner la partie ?")) return;
       try {
@@ -230,10 +259,14 @@ export default {
 
     async selectCell(index) {
       if (this.gameOver) return;
-      if (this.selectedCell !== null) return;
-
       if (["hit", "miss", "sunk"].includes(this.opponentGrid[index])) return;
 
+      // Efface l'ancienne sélection visuelle
+      if (this.selectedCell !== null) {
+        this.opponentGrid[this.selectedCell] = "";
+      }
+
+      // Définit la nouvelle sélection
       this.selectedCell = index;
       this.opponentGrid[index] = "selected";
     },
@@ -243,7 +276,7 @@ export default {
 
       let index = this.selectedCell;
 
-      // tir aléatoire si rien choisi
+      // Tir aléatoire si aucune case choisie
       if (index === null) {
         const available = this.opponentGrid
           .map((v, i) => (v === "" ? i : null))
@@ -252,12 +285,13 @@ export default {
         index = available[Math.floor(Math.random() * available.length)];
       }
 
-      // Nettoyage visuel
+      // Nettoyage visuel de la sélection
       this.opponentGrid = this.opponentGrid.map((c) => (c === "selected" ? "" : c));
 
-      await this.sendShoot(index);
-
+      // Reset sélection pour permettre un nouveau choix après le tir
       this.selectedCell = null;
+
+      await this.sendShoot(index);
     },
 
     async sendShoot(index) {
@@ -367,6 +401,7 @@ export default {
     showEndPopup(msg) {
       this.popupMessage = msg;
       this.endPopup = true;
+      this.gameOver = true;
     },
 
     goHome() {

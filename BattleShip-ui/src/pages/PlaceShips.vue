@@ -25,6 +25,7 @@
         <button class="validate-btn" :disabled="!canValidate" @click="validatePlacement">
           ✅ Valider mes bateaux
         </button>
+        <button class="random-btn" @click="placeShipsRandomly">🎲 Placer aléatoirement</button>
       </div>
 
       <!-- ⚓ Flotte -->
@@ -272,6 +273,57 @@ export default {
       }
       return false;
     },
+
+    placeShipsRandomly() {
+      // Reset de la grille et des bateaux
+      this.grid = this.grid.map(() => ({ hasShip: false, shipId: null }));
+      this.fleet.forEach((ship) => (ship.placed = false));
+
+      const directions = ["horizontal", "vertical"];
+
+      for (let i = 0; i < this.fleet.length; i++) {
+        const ship = this.fleet[i];
+        let placed = false;
+        let attempts = 0;
+
+        while (!placed && attempts < 100) {
+          attempts++;
+          const orientation = directions[Math.floor(Math.random() * 2)];
+          const startIndex = Math.floor(Math.random() * 100);
+          const row = Math.floor(startIndex / 10);
+          const indices = [];
+
+          let valid = true;
+          for (let j = 0; j < ship.size; j++) {
+            const idx = orientation === "horizontal" ? startIndex + j : startIndex + j * 10;
+            const idxRow = Math.floor(idx / 10);
+
+            if (idx >= 100 || (orientation === "horizontal" && idxRow !== row)) {
+              valid = false;
+              break;
+            }
+            if (this.grid[idx].hasShip || (this.isFrenchMode && this.isAdjacent(idx))) {
+              valid = false;
+              break;
+            }
+            indices.push(idx);
+          }
+
+          if (valid) {
+            indices.forEach((idx) => {
+              this.grid[idx] = { hasShip: true, shipId: i };
+            });
+            ship.placed = true;
+            placed = true;
+          }
+        }
+
+        if (!placed) {
+          alert("Impossible de placer tous les bateaux aléatoirement, réessayez !");
+          break;
+        }
+      }
+    },
   },
 };
 </script>
@@ -391,5 +443,12 @@ export default {
 }
 .cell.preview {
   background-color: #4caf50 !important;
+}
+
+.random-btn {
+  margin-top: 10px;
+  background: #f39c12;
+  color: white;
+  font-weight: bold;
 }
 </style>

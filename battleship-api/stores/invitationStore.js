@@ -18,11 +18,32 @@ export async function sendInviteToDB({ gameId, senderId, receiverId }) {
 
 export async function getInvitationsForUserFromDB(userId) {
   const [rows] = await db.execute(
-    `SELECT * FROM game_invites WHERE receiver_id = ? AND status = 'Pending'`,
+    `SELECT 
+       gi.ID, 
+       gi.id_game AS gameId, 
+       gi.sender_id AS senderId,
+       u.Pseudo AS senderPseudo,
+       u.Avatar AS avatarId,
+       gi.status
+     FROM game_invites gi
+     LEFT JOIN users u ON gi.sender_id = u.ID_Users
+     WHERE gi.receiver_id = ? AND gi.status = 'Pending'`,
     [userId]
   );
-  return rows;
+
+  // Normalisation pour le front
+  const invitations = rows.map(inv => ({
+    ID: inv.ID,
+    gameId: inv.gameId,
+    senderId: inv.senderId,
+    senderPseudo: inv.senderPseudo ?? `Joueur #${inv.senderId}`,
+    avatarUrl: inv.avatarId ? `/avatars/${inv.avatarId}.png` : null, // exemple si tu stockes les avatars en fichiers
+    status: inv.status
+  }));
+
+  return invitations;
 }
+
 
 // Supprimer invitation
 export async function removeInvitationFromDB(inviteId) {

@@ -72,7 +72,6 @@ router.get("/public", async (req, res) => {
   }
 });
 
-
 // 🔹 Créer une partie
 router.post("/create", async (req, res) => {
   const { hostId, id_game_mode, id_game_type, id_team_mode, id_version, totalPlayers } = req.body;
