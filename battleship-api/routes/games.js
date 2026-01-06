@@ -3,6 +3,7 @@
 import express from "express";
 import db from "../db.js";
 import { fleetsByVersion } from "../utils/fleets.js";
+import { io } from "../index.js";
 
 const router = express.Router();
 
@@ -483,9 +484,18 @@ router.post("/shoot", async (req, res) => {
 
     if (gameOver) {
       await db.query("UPDATE games SET status='finished', winner_id=? WHERE id_Game=?", [playerId, gameId]);
+      // ⚡ Prévenir tous les joueurs
+      io.to(gameId).emit("game-over", { winnerId: playerId });
     }
 
-    res.json({ success: true, result, gameOver });
+    // Ne renvoie la réponse qu'une seule fois
+    res.json({ 
+      success: true, 
+      result, 
+      gameOver, 
+      ...(gameOver && { winner_id: playerId }) // ajouter winner_id seulement si gameOver
+    });
+
 
   } catch (err) {
     console.error("❌ Erreur /shoot :", err);
@@ -558,24 +568,33 @@ router.get("/:gameId/opponent", async (req, res) => {
   }
 });
 
-// POST /api/games/abandon
 router.post("/abandon", async (req, res) => {
   const { gameId, playerId, targetId } = req.body;
 
   try {
-    // Le joueur adverse gagne automatiquement
+    // 1️⃣ Mettre à jour le joueur qui abandonne
     await db.query(
-      "UPDATE games SET status = 'finished', winner_id = ? WHERE id_Game = ?",
+      `UPDATE game_players SET player_status = 'left' WHERE id_game = ? AND id_player = ?`,
+      [gameId, playerId]
+    );
+
+    // 2️⃣ Mettre à jour le jeu comme terminé + winner_id
+    await db.query(
+      `UPDATE games SET status = 'finished', winner_id = ? WHERE id_Game = ?`,
       [targetId, gameId]
     );
 
-    res.json({ success: true, message: "Partie abandonnée" });
+    // 3️⃣ ⚡ Prévenir tous les joueurs via Socket.IO
+    io.to(gameId).emit("game-over", { winnerId: targetId });
 
+    // 4️⃣ Retourner la bonne info au client qui abandonne
+    res.json({ success: true, winner_id: targetId, loser_id: playerId, finished: true });
   } catch (err) {
-    console.error("Erreur /abandon :", err);
-    res.status(500).json({ success: false, message: "Erreur serveur" });
+    console.error("Erreur abandonGame:", err);
+    res.json({ success: false, message: "Impossible d'abandonner la partie" });
   }
 });
+
 
 // 📍 Vérifie si la partie est terminée et qui a gagné
 router.get("/:id/status", async (req, res) => {
@@ -586,60 +605,21 @@ router.get("/:id/status", async (req, res) => {
     return res.status(400).json({ success: false, message: "Paramètres manquants" });
 
   try {
-    // Récupérer le statut du jeu
+    // Récupérer le jeu
     const [gameRows] = await db.query(
-      "SELECT status FROM games WHERE id_Game = ?",
+      "SELECT status, winner_id FROM games WHERE id_Game = ?",
       [gameId]
     );
     if (gameRows.length === 0) 
       return res.status(404).json({ success: false, message: "Partie introuvable" });
 
-    // Si la partie n'est pas finie
-    if (gameRows[0].status !== "finished") {
+    const game = gameRows[0];
+
+    if (game.status !== "finished") {
       return res.json({ success: true, finished: false });
     }
 
-    // Récupérer les joueurs
-    const [players] = await db.query(
-      "SELECT id_player FROM game_players WHERE id_game = ?",
-      [gameId]
-    );
-    if (players.length !== 2) 
-      return res.json({ success: true, finished: true, result: "draw", message: "Partie terminée — aucun gagnant défini" });
-
-    const [playerA, playerB] = [players[0].id_player, players[1].id_player];
-
-    // Récupérer le nombre total de cases de bateaux pour chaque joueur
-    const [boardA] = await db.query(
-      "SELECT board_json FROM player_boards WHERE game_id = ? AND player_id = ?",
-      [gameId, playerA]
-    );
-    const [boardB] = await db.query(
-      "SELECT board_json FROM player_boards WHERE game_id = ? AND player_id = ?",
-      [gameId, playerB]
-    );
-
-    const totalCasesA = JSON.parse(boardA[0].board_json).flat().filter(c => typeof c === 'number' && c > 0).length;
-    const totalCasesB = JSON.parse(boardB[0].board_json).flat().filter(c => typeof c === 'number' && c > 0).length;
-
-    // Compter les cases "sunk" dans la table shots
-    const [[{ sunkCount: sunkA }]] = await db.query(
-      "SELECT COUNT(*) AS sunkCount FROM shots WHERE id_game = ? AND target_id = ? AND result = 'sunk'",
-      [gameId, playerA]
-    );
-    const [[{ sunkCount: sunkB }]] = await db.query(
-      "SELECT COUNT(*) AS sunkCount FROM shots WHERE id_game = ? AND target_id = ? AND result = 'sunk'",
-      [gameId, playerB]
-    );
-
-    const allSunkA = sunkA >= totalCasesA;
-    const allSunkB = sunkB >= totalCasesB;
-
-    // Déterminer le gagnant
-    let winner = null;
-    if (allSunkA && allSunkB) winner = null;      // égalité
-    else if (allSunkA) winner = playerB;
-    else if (allSunkB) winner = playerA;
+    const winner = game.winner_id; // <-- crucial : déjà défini si partie terminée
 
     let resultType = "draw";
     if (winner === playerId) resultType = "win";
@@ -650,14 +630,14 @@ router.get("/:id/status", async (req, res) => {
       finished: true,
       winner,
       result: resultType,
-      message: winner === null ? "⚔ Égalité !" : `🏆 Victoire pour ${winner === playerId ? "vous" : "l'adversaire"}`
+      message: winner === null ? "⚔ Égalité !" : `🏆 ${winner === playerId ? "Victoire !" : "Défaite !"}`,
     });
-
   } catch (err) {
     console.error("Erreur /status :", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
+
 
 // POST /api/games/join/:id
 router.post("/join/:id", async (req, res) => {

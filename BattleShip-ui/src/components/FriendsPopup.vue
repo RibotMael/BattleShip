@@ -29,10 +29,10 @@
           <li v-for="inv in invitations" :key="inv.ID" class="friend-card">
             <div class="friend-left">
               <div class="avatar">
-                <img :src="inv.avatarUrl || defaultAvatar" alt="Avatar" />
+                <img :src="inv.Avatar || defaultAvatar" alt="Avatar" />
               </div>
               <span class="friend-pseudo">
-                Partie envoyée par {{ inv.Pseudo || "joueur #" + inv.sender_id }}
+                Partie envoyée par {{ inv.senderPseudo || "joueur #" + inv.senderId }}
               </span>
             </div>
             <div class="friend-right">
@@ -95,7 +95,7 @@ export default {
       // Conversion base64 + fallback
       return invitationStore.invitations.map((inv) => ({
         ...inv,
-        avatarUrl: inv.Avatar ? `data:${inv.mime_type};base64,${inv.Avatar}` : defaultAvatar,
+        avatarUrl: inv.avatarUrl || defaultAvatar,
       }));
     },
   },

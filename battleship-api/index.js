@@ -129,3 +129,5 @@ const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
   console.log(`🚀 Backend Battleship en ligne sur http://localhost:${PORT}`);
 });
+
+export { io };

@@ -8,6 +8,7 @@ export const invitationStore = reactive({
   invitations: [],
 });
 
+// Ajouter une invitation
 export function sendInvite(invite) {
   const newId = invitationStore.invitations.length + 1;
   invitationStore.invitations.push({ id: newId, ...invite });
@@ -19,7 +20,6 @@ export function removeInvitation(inviteId) {
     (inv) => inv.id !== inviteId
   );
 }
-
 
 // ✅ Normaliser un utilisateur
 export function normalizeUser(user) {
