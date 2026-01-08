@@ -11,60 +11,64 @@ const router = express.Router();
 router.get("/public", async (req, res) => {
   try {
     const [games] = await db.query(`
-      SELECT 
-        g.id_Game,
-        g.id_creator,
-        g.status,
-        g.id_team_mode,
-        g.id_version,
-        u.Pseudo AS CreatorPseudo,
-        COUNT(p.id_player) AS CurrentPlayers,
-        v.name AS VersionName
-      FROM games g
-      JOIN mode m ON g.id_game_mode = m.id_Mode
-      LEFT JOIN game_players p ON g.id_Game = p.id_game AND p.player_status != 'left'
-      LEFT JOIN users u ON g.id_creator = u.ID_Users
-      LEFT JOIN version v ON g.id_version = v.id_Version
-      WHERE 
-        g.status = 'preparation'
-        AND m.name = 'Public'
-      GROUP BY g.id_Game
-      HAVING CurrentPlayers < 
-        CASE g.id_team_mode 
-          WHEN 1 THEN 2 
-          WHEN 2 THEN 4 
-          WHEN 3 THEN 8 
-          WHEN 4 THEN 20 
-          ELSE 2 
-        END
-      ORDER BY g.id_Game DESC
-    `);
+  SELECT 
+    g.id_Game,
+    g.id_creator,
+    g.status,
+    g.id_team_mode,
+    g.id_version,
+    g.id_game_type,         -- ⚠️ ajouter
+    u.Pseudo AS CreatorPseudo,
+    COUNT(p.id_player) AS CurrentPlayers,
+    v.name AS VersionName
+    FROM games g
+    JOIN mode m ON g.id_game_mode = m.id_Mode
+    LEFT JOIN game_players p ON g.id_Game = p.id_game AND p.player_status != 'left'
+    LEFT JOIN users u ON g.id_creator = u.ID_Users
+    LEFT JOIN version v ON g.id_version = v.id_Version
+    WHERE g.status = 'preparation' AND m.name = 'Public'
+    GROUP BY g.id_Game
+    -- supprimer le HAVING compliqué pour le moment
+    ORDER BY g.id_Game DESC
+  `);
+
 
     const normalizedGames = games.map((g) => {
-      let langKey = "fr";
-      const rawLang = (g.VersionName || "fr").toLowerCase();
-      if (rawLang.startsWith("fr")) langKey = "fr";
-      else if (rawLang.startsWith("bel") || rawLang === "be" || rawLang === "belgium") langKey = "be";
+  // Langue
+  let langKey = "fr";
+  const rawLang = (g.VersionName || "fr").toLowerCase();
+  if (rawLang.startsWith("fr")) langKey = "fr";
+  else if (rawLang.startsWith("bel") || rawLang === "be" || rawLang === "belgium") langKey = "be";
 
-      let teamMode = "1v1";
-      let totalPlayers = 2;
+  // Mode et nombre de joueurs
+  let teamMode = "1v1";
+  let totalPlayers = 2;
 
-      switch (g.id_team_mode) {
-        case 2: teamMode = "2v2"; totalPlayers = 4; break;
-        case 3: teamMode = "4v4"; totalPlayers = 8; break;
-        case 4: teamMode = "battle-royale"; totalPlayers = 20; break;
-      }
+  if (g.id_game_type === 1) { // Battle Royale
+    teamMode = "battle-royale";
+    totalPlayers = null; 
+  } else { // Team classique
+    switch (g.id_team_mode) {
+      case 1: teamMode = "1v1"; totalPlayers = 2; break;
+      case 2: teamMode = "2v2"; totalPlayers = 4; break;
+      case 3: teamMode = "3v3"; totalPlayers = 6; break;
+      case 4: teamMode = "4v4"; totalPlayers = 8; break;
+      default: teamMode = "1v1"; totalPlayers = 2;
+    }
+  }
 
-      return {
-        ID_Game: g.id_Game,
-        CreatorPseudo: g.CreatorPseudo || "Inconnu",
-        CurrentPlayers: g.CurrentPlayers,
-        TotalPlayers: totalPlayers,
-        Status: g.status,
-        Language: langKey,
-        TeamMode: teamMode,
-      };
-    });
+  return {
+    ID_Game: g.id_Game,
+    CreatorPseudo: g.CreatorPseudo || "Inconnu",
+    CurrentPlayers: g.CurrentPlayers,
+    TotalPlayers: totalPlayers,
+    Status: g.status,
+    Language: langKey,
+    TeamMode: teamMode,
+  };
+});
+
+
 
     res.json({ success: true, games: normalizedGames });
   } catch (err) {
@@ -72,7 +76,6 @@ router.get("/public", async (req, res) => {
     res.status(500).json({ success: false, message: "Erreur lors de la récupération des parties publiques." });
   }
 });
-
 
 // 🔹 Créer une partie
 router.post("/create", async (req, res) => {
@@ -83,17 +86,20 @@ router.post("/create", async (req, res) => {
   }
 
   try {
-    let computedTotal;
-    switch (id_team_mode) {
-      case 1: computedTotal = 2; break;
-      case 2: computedTotal = 4; break;
-      case 3: computedTotal = 8; break;
-      case 4: computedTotal = 20; break;
-      default: computedTotal = 2;
+    // 🔹 Calcul du totalPlayers final selon le mode
+    let totalPlayersFinal;
+    if (id_game_type === 1) {
+      // Battle Royale ou type 1 → flexible, min 2
+      totalPlayersFinal = null;
+    } else {
+      switch (id_team_mode) {
+        case 1: totalPlayersFinal = 2; break;
+        case 2: totalPlayersFinal = 4; break;
+        case 3: totalPlayersFinal = 6; break;
+        case 4: totalPlayersFinal = 8; break;
+        default: totalPlayersFinal = 2;
+      }
     }
-
-    const totalPlayersFinal = Number(totalPlayers) || computedTotal;
-    console.log(`🎮 [CREATE GAME] hostId=${hostId}, id_team_mode=${id_team_mode}, totalPlayers=${totalPlayersFinal}`);
 
     const [result] = await db.execute(
       `INSERT INTO games (id_creator, id_game_mode, id_game_type, id_team_mode, id_version, status)
@@ -108,23 +114,11 @@ router.post("/create", async (req, res) => {
       "SELECT name FROM version WHERE id_Version = ?",
       [id_version]
     );
-
-    const rawLang = versionRows.length ? versionRows[0].name.toLowerCase() : "french";
-
-    // Normalisation
+    const rawLang = versionRows.length ? versionRows[0].name.toLowerCase() : "fr";
     let langKey;
     if (rawLang.startsWith("fr")) langKey = "fr";
     else if (rawLang.startsWith("bel") || rawLang === "be" || rawLang === "belgium") langKey = "be";
     else langKey = "fr";
-
-    console.log(`🌍 [VERSION] SQL="${rawLang}" → clé="${langKey}"`);
-
-
-    const fleet = fleetsByVersion[langKey];
-
-
-    console.log(`✅ [CREATE GAME] Partie ${gameId} créée (${totalPlayersFinal} joueurs attendus)`);
-    console.log(`🌍 Version trouvée = ${rawLang}, Clé utilisée = ${langKey}`);
 
     res.json({
       success: true,
@@ -210,10 +204,12 @@ router.get("/:id", async (req, res) => {
     switch (game.id_team_mode) {
       case 1: totalPlayers = 2; break;
       case 2: totalPlayers = 4; break;
-      case 3: totalPlayers = 8; break;
-      case 4: totalPlayers = 20; break;
+      case 3: totalPlayers = 6; break;
+      case 4: totalPlayers = 8; break;
+      case 5: totalPlayers = null; break; // Battle Royale → nombre illimité
       default: totalPlayers = 2;
     }
+
 
     // Sélection de la flotte correspondante
     const rawLang = language.toLowerCase();
@@ -243,16 +239,36 @@ router.get("/:id", async (req, res) => {
 router.post("/start", async (req, res) => {
   const { gameId, userId } = req.body;
   try {
-    // ⚠️ Utiliser les bons noms de colonnes
     const [gameRows] = await db.execute("SELECT * FROM games WHERE id_Game = ?", [gameId]);
     if (!gameRows.length) return res.status(404).json({ success: false, message: "Partie introuvable" });
 
     const game = gameRows[0];
-
     if (Number(game.id_creator) !== Number(userId))
       return res.status(403).json({ success: false, message: "Non autorisé" });
 
-    // On met à jour le statut
+    const [players] = await db.execute("SELECT * FROM game_players WHERE id_game = ?", [gameId]);
+
+    // 🔹 Minimum requis selon mode
+    let minPlayers;
+    if (game.id_game_type === 1) {
+      minPlayers = 2; // Battle Royale
+    } else {
+      switch (game.id_team_mode) {
+        case 1: minPlayers = 2; break;
+        case 2: minPlayers = 4; break;
+        case 3: minPlayers = 6; break;
+        case 4: minPlayers = 8; break;
+        default: minPlayers = 2;
+      }
+    }
+
+    if (players.length < minPlayers) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Nombre de joueurs insuffisant (${players.length}/${minPlayers})` 
+      });
+    }
+
     await db.execute("UPDATE games SET status = 'placement' WHERE id_Game = ?", [gameId]);
 
     console.log(`🚀 [START GAME] Partie ${gameId} démarrée par l'hôte ${userId}`);
@@ -296,10 +312,27 @@ router.post("/leave", async (req, res) => {
       // Vérifie si la partie en cours doit repasser en préparation
       if (game.status === 'in_progress') {
         const [stillInGame] = await db.execute("SELECT COUNT(*) as count FROM game_players WHERE id_game = ?", [gameId]);
-        const requiredPlayers = game.id_team_mode === 1 ? 2 :
-          game.id_team_mode === 2 ? 4 :
-            game.id_team_mode === 3 ? 8 :
-              game.id_team_mode === 4 ? 20 : 2;
+        let requiredPlayers;
+          switch (game.id_team_mode) {
+            case 1:
+              requiredPlayers = 2;
+              break;
+            case 2:
+              requiredPlayers = 4;
+              break;
+            case 3:
+              requiredPlayers = 6;
+              break;
+            case 4:
+              requiredPlayers = 8;
+              break;
+            case 5: // Battle Royale
+              requiredPlayers = 2; // minimum pour lancer, peut y avoir plus
+              break;
+            default:
+              requiredPlayers = 2;
+          }
+
 
         if (stillInGame[0].count < requiredPlayers) {
           await db.execute("UPDATE games SET status = 'preparation' WHERE id_Game = ?", [gameId]);
@@ -641,40 +674,61 @@ router.get("/:id/status", async (req, res) => {
 
 // POST /api/games/join/:id
 router.post("/join/:id", async (req, res) => {
-  const gameId = parseInt(req.params.id, 10);   // 🔹 Force INT
-  const playerId = parseInt(req.body.playerId, 10); // 🔹 Force INT
+  const gameId = parseInt(req.params.id, 10);   
+  const playerId = parseInt(req.body.playerId, 10); 
 
   if (!playerId || !gameId) {
     return res.status(400).json({ success: false, message: "Paramètres manquants" });
   }
 
   try {
-    const [gameRows] = await db.query(
-      `SELECT * FROM games WHERE id_Game = ? AND status = 'preparation'`,
-      [gameId]
-    );
+    // 🔹 Récupérer la partie quel que soit son statut
+    const [gameRows] = await db.query(`SELECT * FROM games WHERE id_Game = ?`, [gameId]);
+    if (!gameRows.length) return res.status(404).json({ success: false, message: "Partie introuvable" });
 
     const game = gameRows[0];
-    if (!game) {
-      return res.status(404).json({ success: false, message: "Partie introuvable ou déjà commencée." });
-    }
 
+    // 🔹 Vérifier si le joueur est déjà dans la partie
     const [existingRows] = await db.query(
       `SELECT * FROM game_players WHERE id_player = ? AND id_game = ?`,
       [playerId, gameId]
     );
 
     if (existingRows.length > 0) {
-      return res.status(400).json({ success: false, message: "Vous êtes déjà dans cette partie." });
+      // Forcer le statut joueur à in_game si nécessaire
+      await db.query(
+        `UPDATE game_players SET player_status = 'in_game' WHERE id_player = ? AND id_game = ?`,
+        [playerId, gameId]
+      );
+
+      return res.json({
+        success: true,
+        message: "Vous êtes déjà dans la partie",
+        game: {
+          ID_Game: game.id_Game,
+          status: game.status, // 🔹 garder le statut existant
+          id_creator: game.id_creator
+        }
+      });
     }
 
+    // 🔹 Ajouter le joueur sans toucher au statut de la partie
     await db.query(
       `INSERT INTO game_players (id_game, id_player, player_status) VALUES (?, ?, 'in_game')`,
       [gameId, playerId]
     );
 
-    console.log(`👥 [JOIN GAME] Joueur ${playerId} rejoint la partie ${gameId}`);
-    res.json({ success: true, message: "Vous avez rejoint la partie avec succès !" });
+    console.log(`👥 [JOIN GAME] Joueur ${playerId} rejoint la partie ${gameId} (statut=${game.status})`);
+
+    res.json({
+      success: true,
+      message: "Vous avez rejoint la partie avec succès !",
+      game: {
+        ID_Game: game.id_Game,
+        status: game.status, // 🔹 reste in_progress ou preparation
+        id_creator: game.id_creator
+      }
+    });
   } catch (err) {
     console.error("❌ Erreur rejoindre partie :", err);
     res.status(500).json({ success: false, message: "Erreur lors de la tentative de rejoindre la partie." });

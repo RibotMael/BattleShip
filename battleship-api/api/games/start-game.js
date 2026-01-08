@@ -1,49 +1,73 @@
-//games/start-games.js
+// games/start-games.js
 
 import express from "express";
-import db from '../../db.js';
+import db from "../../db.js";
+import { computeMinPlayers } from "../../utils/gameRules.js";
 
 const router = express.Router();
 
-function sanitize(param) {
-  return param !== undefined ? param : null;
-}
-
 // Démarrer une partie
-router.post("/:gameId", async (req, res) => { 
-  const gameId = sanitize(req.params.gameId);
-  const userId = sanitize(req.body.userId);
+router.post("/:gameId", async (req, res) => {
+  const gameId = Number(req.params.gameId);
+  const userId = Number(req.body.userId);
 
-  if (!gameId) return res.status(400).json({ success: false, message: "ID de partie manquant" });
+  if (!gameId) {
+    return res.status(400).json({ success: false, message: "ID de partie manquant" });
+  }
 
   try {
-    const [games] = await db.execute("SELECT * FROM games WHERE id_Game = ?", [gameId]);
-    if (!games.length) return res.status(404).json({ success: false, message: "Partie introuvable" });
+    // 🔹 Récupérer la partie + team_size
+    const [[game]] = await db.execute(
+      `SELECT g.*, tm.team_size
+       FROM games g
+       LEFT JOIN team_mode tm ON tm.id_Team = g.id_team_mode
+       WHERE g.id_Game = ?`,
+      [gameId]
+    );
 
-    const game = games[0];
-
-    if (!userId || Number(userId) !== Number(game.id_creator)) {
-      return res.status(403).json({ success: false, message: "Seul le host peut démarrer la partie." });
+    if (!game) {
+      return res.status(404).json({ success: false, message: "Partie introuvable" });
     }
 
-    // Vérifie que TotalPlayers existe, sinon fallback à 2
-    const totalPlayers = game.TotalPlayers ?? 2;
-
-    const [players] = await db.execute("SELECT * FROM game_players WHERE id_game = ?", [gameId]);
-    if (players.length < totalPlayers) {
-      return res.status(400).json({ 
-        success: false, 
-        message: `Nombre de joueurs insuffisant (${players.length}/${totalPlayers})` 
+    // 🔒 Seul l'hôte peut démarrer
+    if (!userId || Number(userId) !== Number(game.id_creator)) {
+      return res.status(403).json({
+        success: false,
+        message: "Seul l'hôte peut démarrer la partie.",
       });
     }
 
-    await db.execute("UPDATE games SET status = 'placement' WHERE id_Game = ?", [gameId]);
+    // 👥 Nombre de joueurs actuellement dans la partie
+    const [[{ count }]] = await db.execute(
+      `SELECT COUNT(*) AS count
+       FROM game_players
+       WHERE id_game = ? AND player_status = 'in_game'`,
+      [gameId]
+    );
 
+    // 🔢 Minimum requis (logique centralisée)
+    const minPlayers = computeMinPlayers(game, game.team_size);
+
+    if (count < minPlayers) {
+      return res.status(400).json({
+        success: false,
+        message: `Nombre de joueurs insuffisant (${count}/${minPlayers})`,
+      });
+    }
+
+    // 🚀 Lancer la phase de placement
+    await db.execute(
+      `UPDATE games SET status = 'placement' WHERE id_Game = ?`,
+      [gameId]
+    );
 
     res.json({ success: true, message: "Partie démarrée !" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Erreur serveur lors du démarrage de la partie" });
+    console.error("❌ start-games", err);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur lors du démarrage de la partie",
+    });
   }
 });
 

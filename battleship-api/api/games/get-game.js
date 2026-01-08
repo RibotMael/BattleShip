@@ -1,4 +1,5 @@
 //get-game.js
+/*
 import express from "express";
 import db from "../../db.js";
 
@@ -75,3 +76,4 @@ router.get("/:id", async (req, res) => {
 });
 
 export default router;
+*/

@@ -40,12 +40,24 @@
         <div class="timer-text">{{ turnTimer }}s</div>
       </div>
 
+      <!-- Sélecteur visible uniquement en Battle Royale -->
+      <div v-if="opponents.length > 1" class="opponent-selector">
+        <button
+          v-for="(opp, i) in opponents"
+          :key="opp.id"
+          :class="{ active: i === currentOpponentIndex }"
+          @click="switchOpponent(i)"
+        >
+          Joueur {{ i + 1 }}
+        </button>
+      </div>
+
       <!-- Grille Adversaire -->
       <div class="grid-section">
         <h2>Adversaire</h2>
         <div class="grid opponent-grid">
           <div
-            v-for="(cell, index) in opponentGrid"
+            v-for="(cell, index) in currentOpponent.grid"
             :key="index"
             class="cell"
             :class="{
@@ -79,17 +91,28 @@ export default {
   data() {
     return {
       playerGrid: Array(100).fill({ shipNumber: 0, status: "" }),
-      opponentGrid: Array(100).fill(""),
+      opponentGrid: Array(100).fill(""), // utilisé pour 1vs1
+      opponentId: null, // utilisé pour 1vs1
+      opponents: [], // utilisé uniquement en battle royale
+      currentOpponentIndex: 0, // pour switcher de cible en battle royale
       turnTimer: 8,
       gameOver: false,
       fetchInterval: null,
       user: JSON.parse(localStorage.getItem("user")),
       selectedCell: null,
-      opponentId: null,
       endPopup: false,
       popupMessage: "",
     };
   },
+  computed: {
+    currentOpponent() {
+      // Si battle royale → retourne l’adversaire sélectionné
+      if (this.opponents.length > 0) return this.opponents[this.currentOpponentIndex];
+      // Sinon 1vs1 → retourne un objet simulé pour compatibilité
+      return { id: this.opponentId, grid: this.opponentGrid };
+    },
+  },
+
   mounted() {
     this.initGame();
     window.addEventListener("keydown", this.preventRefresh);
@@ -179,6 +202,17 @@ export default {
       e.preventDefault();
       e.returnValue = "";
     },
+    switchOpponent(index) {
+      if (index === this.currentOpponentIndex) return;
+
+      // Nettoyer sélection visuelle
+      if (this.selectedCell !== null) {
+        this.currentOpponent.grid[this.selectedCell] = "";
+        this.selectedCell = null;
+      }
+
+      this.currentOpponentIndex = index;
+    },
 
     async fetchPlayerBoard() {
       try {
@@ -217,14 +251,29 @@ export default {
       const idx = shot.y * 10 + shot.x;
 
       if (shot.shooterId === this.user.id) {
-        this.opponentGrid[idx] = shot.result;
+        // Tir du joueur
+        if (this.opponents.length > 0) {
+          // Battle Royale → trouver adversaire ciblé
+          const opp = this.opponents.find((o) => o.id === shot.targetId);
+          if (!opp) return;
 
-        if (shot.result === "sunk" && shot.positions) {
-          shot.positions.forEach((p) => {
-            this.opponentGrid[p.y * 10 + p.x] = "sunk";
-          });
+          opp.grid[idx] = shot.result;
+          if (shot.result === "sunk" && shot.positions) {
+            shot.positions.forEach((p) => {
+              opp.grid[p.y * 10 + p.x] = "sunk";
+            });
+          }
+        } else {
+          // 1vs1
+          this.opponentGrid[idx] = shot.result;
+          if (shot.result === "sunk" && shot.positions) {
+            shot.positions.forEach((p) => {
+              this.opponentGrid[p.y * 10 + p.x] = "sunk";
+            });
+          }
         }
       } else {
+        // Tir adverse → notre grille
         this.playerGrid[idx] = {
           ...this.playerGrid[idx],
           status: shot.result,
@@ -259,36 +308,29 @@ export default {
 
     async selectCell(index) {
       if (this.gameOver) return;
-      if (["hit", "miss", "sunk"].includes(this.opponentGrid[index])) return;
+      if (["hit", "miss", "sunk"].includes(this.currentOpponent.grid[index])) return;
 
-      // Efface l'ancienne sélection visuelle
       if (this.selectedCell !== null) {
-        this.opponentGrid[this.selectedCell] = "";
+        this.currentOpponent.grid[this.selectedCell] = "";
       }
 
-      // Définit la nouvelle sélection
       this.selectedCell = index;
-      this.opponentGrid[index] = "selected";
+      this.currentOpponent.grid[index] = "selected";
     },
 
     async validateShot() {
       if (this.gameOver) return;
 
       let index = this.selectedCell;
-
-      // Tir aléatoire si aucune case choisie
       if (index === null) {
-        const available = this.opponentGrid
+        const available = this.currentOpponent.grid
           .map((v, i) => (v === "" ? i : null))
           .filter((i) => i !== null);
 
         index = available[Math.floor(Math.random() * available.length)];
       }
 
-      // Nettoyage visuel de la sélection
-      this.opponentGrid = this.opponentGrid.map((c) => (c === "selected" ? "" : c));
-
-      // Reset sélection pour permettre un nouveau choix après le tir
+      this.currentOpponent.grid = this.currentOpponent.grid.map((c) => (c === "selected" ? "" : c));
       this.selectedCell = null;
 
       await this.sendShoot(index);

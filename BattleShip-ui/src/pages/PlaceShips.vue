@@ -5,7 +5,11 @@
 
     <div class="top-info">
       <p>Partie ID : {{ game.ID_Game }}</p>
-      <p>Joueurs prêts : {{ readyPlayers.length }}/{{ game.TotalPlayers }}</p>
+      <p>
+        Joueurs prêts : {{ readyPlayers.length }}
+        <span v-if="game.TotalPlayers">/{{ game.TotalPlayers }}</span>
+        <span v-else> joueurs</span>
+      </p>
     </div>
 
     <div class="main-layout">
@@ -119,7 +123,11 @@ export default {
         const res = await fetch(`http://localhost:8080/api/games/${this.game.ID_Game}`);
         const data = await res.json();
         if (data.success) {
-          this.game = { ...this.game, ...data.game };
+          this.game = {
+            ...this.game,
+            ...data.game,
+            TotalPlayers: data.game.TotalPlayers || 999, // ou un nombre max pour BR
+          };
           this.readyPlayers = data.players || [];
           return { fleet: data.fleet, mode: data.mode }; // ✅ retourne aussi le mode
         }
@@ -266,7 +274,12 @@ export default {
         const data = await res.json();
         if (data.success) {
           this.readyPlayers = data.players.filter((p) => p.validated);
-          return this.readyPlayers.length === this.game.TotalPlayers;
+          if (this.game.TeamMode === "battle-royale") {
+            // exemple : commencer dès qu’il y a au moins 2 joueurs prêts
+            return this.readyPlayers.length >= 2;
+          } else {
+            return this.readyPlayers.length === this.game.TotalPlayers;
+          }
         }
       } catch (err) {
         console.error("[CHECK ALL READY]", err);

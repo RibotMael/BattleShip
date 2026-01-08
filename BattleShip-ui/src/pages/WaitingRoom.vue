@@ -1,8 +1,13 @@
-<!--WaitingRoom.vue-->
 <template>
   <div class="waiting-room-container">
     <h1>⏳ Salle d'attente</h1>
-    <p>Nombre de joueurs requis : {{ game?.TotalPlayers || totalPlayers }}</p>
+
+    <!-- Nombre de joueurs requis -->
+    <p v-if="game?.mode !== 'battle_royale'">Nombre de joueurs requis : {{ game?.TotalPlayers }}</p>
+    <p v-else>
+      Mode Battle Royale – minimum 2 joueurs pour lancer, actuellement :
+      {{ playersWithMe.length }} joueur{{ playersWithMe.length > 1 ? "s" : "" }}.
+    </p>
 
     <div class="room-columns">
       <!-- Colonne gauche : amis à inviter -->
@@ -44,14 +49,16 @@
           🚀 Démarrer la partie
         </button>
 
+        <!-- Message de démarrage -->
         <p v-if="!canStartGame" class="info-text">
-          <template v-if="playersWithMe.length < (game?.TotalPlayers || totalPlayers)">
-            Attendez que tous les joueurs requis rejoignent la partie ({{ playersWithMe.length }}/{{
-              game?.TotalPlayers || totalPlayers
-            }})
+          <template v-if="game?.mode === 'battle_royale'">
+            Minimum 2 joueurs pour lancer la partie, actuellement :
+            {{ playersWithMe.length }} joueur{{ playersWithMe.length > 1 ? "s" : "" }}.
           </template>
           <template v-else>
-            Tous les joueurs sont là ! ⏳ Attendez que l'hôte lance la partie.
+            Attendez que tous les joueurs requis rejoignent la partie ({{ playersWithMe.length }}/{{
+              game?.TotalPlayers
+            }}).
           </template>
         </p>
 
@@ -76,13 +83,12 @@ export default {
       game: null,
       players: [],
       onlinePlayers: [],
-      // Fallback user si localStorage vide (développement / tests)
       user: JSON.parse(localStorage.getItem("user")) || { id: 999, pseudo: "TestUser" },
       userId: 0,
       friends: [],
       isHost: false,
       polling: null,
-      totalPlayers: 2,
+      totalPlayers: null, // ⚠️ Ne pas forcer à 2
       errorMsg: "",
       invitationsList: [],
     };
@@ -92,7 +98,7 @@ export default {
       return this.invitationsList;
     },
     playersWithMe() {
-      const allPlayers = Array.isArray(this.players) ? this.players.filter((p) => p) : [];
+      const allPlayers = Array.isArray(this.players) ? this.players.filter(Boolean) : [];
       if (!allPlayers.some((p) => Number(p.ID_Users) === Number(this.userId))) {
         allPlayers.push({
           ID_Users: this.userId,
@@ -106,15 +112,22 @@ export default {
       );
     },
     canStartGame() {
-      if (!this.game || Number(this.userId) !== Number(this.game.id_creator)) return false;
-      const requiredPlayers = this.game.TotalPlayers || this.totalPlayers;
+      if (!this.game) return false;
+      if (Number(this.userId) !== Number(this.game.id_creator)) return false;
+
+      // 🎯 Battle Royale : minimum 2 joueurs
+      if (this.game.mode === "battle_royale") {
+        return this.playersWithMe.length >= 2;
+      }
+
+      // 🎮 Modes classiques : tous les joueurs requis doivent être là
+      const requiredPlayers = this.game.TotalPlayers;
       return this.playersWithMe.length === requiredPlayers;
     },
   },
   watch: {
     "game.status"(newStatus) {
       if (newStatus === "placement" || newStatus === "in_progress") {
-        console.log("[WATCH] Game en placement, navigation vers PlaceShips");
         this.$router.replace({
           name: "PlaceShips",
           params: { gameId: String(this.game?.ID_Game) },
@@ -122,47 +135,76 @@ export default {
       }
     },
   },
-
   async created() {
-    // Toujours avoir un userId
     this.userId = Number(this.user.id || 999);
-    console.log("[CREATED] userId=", this.userId);
-
-    // Récupération du gameId
     this.localGameId = this.gameId || this.$route.params.gameId;
     const storedGame = JSON.parse(localStorage.getItem("currentGame") || "null");
 
     if (!this.localGameId && storedGame?.ID_Game) this.localGameId = storedGame.ID_Game;
 
-    // Init temporaire de game depuis localStorage
     if (storedGame) {
       this.game = {
-        ID_Game: storedGame.ID_Game || storedGame.id_game || storedGame.id_Game,
-        id_creator: storedGame.id_creator || storedGame.ID_Creator || storedGame.ID_Creator,
-        TotalPlayers: storedGame.TotalPlayers || storedGame.totalPlayers || this.totalPlayers,
-        status: storedGame.status || storedGame.Status || "waiting",
+        ID_Game: storedGame.ID_Game ?? storedGame.id_game ?? storedGame.id_Game,
+        id_creator: storedGame.id_creator ?? storedGame.ID_Creator ?? storedGame.ID_Creator,
+        TotalPlayers: storedGame.TotalPlayers ?? null,
+        status: storedGame.status ?? "waiting",
       };
-      console.log("[CREATED] Game initialisé depuis localStorage:", this.game);
     }
 
     if (!this.localGameId) {
       this.errorMsg = "Impossible de récupérer l'ID de la partie.";
-      console.warn("[CREATED] Aucun gameId trouvé !");
       return;
     }
 
-    console.log("[CREATED] Initialisation salle pour gameId:", this.localGameId);
-    const ok = await this.initRoom();
-    if (ok) console.log("[CREATED] game après fetch :", this.game);
-    else console.warn("[CREATED] Échec récupération game");
+    await this.initRoom();
   },
   beforeUnmount() {
-    console.log("[BEFOREUNMOUNT] Nettoyage polling");
     clearInterval(this.polling);
   },
   methods: {
+    async inviteFriend(friendId) {
+      if (!this.game?.ID_Game) {
+        this.errorMsg = "Impossible d’inviter : aucune partie active.";
+        return;
+      }
+
+      if (!friendId) {
+        this.errorMsg = "Impossible d’inviter : ID ami invalide.";
+        return;
+      }
+
+      try {
+        console.log("Envoi invitation :", {
+          gameId: this.game.ID_Game,
+          senderId: this.userId,
+          receiverId: friendId,
+        });
+
+        const res = await fetch("http://localhost:8080/api/invitation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            gameId: this.game.ID_Game,
+            senderId: this.userId,
+            receiverId: friendId,
+          }),
+        });
+        const data = await res.json();
+
+        if (!data.success) {
+          console.error("[INVITE FRIEND FAILED]", data.message);
+          this.errorMsg = "Impossible d’envoyer l’invitation : " + data.message;
+          return;
+        }
+
+        console.log("Invitation envoyée, ID :", data.inviteId);
+        this.fetchInvitations();
+      } catch (err) {
+        console.error("[INVITE FRIEND] Erreur :", err);
+        this.errorMsg = "Erreur lors de l’envoi de l’invitation : " + err.message;
+      }
+    },
     async initRoom() {
-      console.log("[INIT] Initialisation de la room pour gameId:", this.localGameId);
       const gameOk = await this.fetchGame();
       if (!gameOk) {
         this.errorMsg = "Impossible de récupérer la partie depuis le serveur.";
@@ -177,7 +219,7 @@ export default {
       if (this.polling) clearInterval(this.polling);
       this.polling = setInterval(async () => {
         const prevStatus = this.game?.status;
-        await this.fetchGame(); // ⚡ ici on met à jour playersWithMe
+        await this.fetchGame();
         await this.fetchInvitations();
         if (prevStatus !== this.game?.status && this.game.status === "placement") {
           this.$router.replace({ name: "PlaceShips", params: { gameId: this.game.ID_Game } });
@@ -192,23 +234,21 @@ export default {
 
         const oldStatus = this.game?.status;
 
+        const isBattleRoyale = data.game.id_game_type === 1;
+
         this.game = {
           ID_Game: data.game.id_Game,
           id_creator: data.game.id_creator,
-          TotalPlayers: data.game.TotalPlayers || this.totalPlayers,
-          status: data.game.status || "waiting",
+          TotalPlayers: isBattleRoyale ? null : data.game.TotalPlayers ?? null,
+          status: data.game.status ?? "waiting",
+          mode: isBattleRoyale ? "battle_royale" : "classic",
         };
 
         this.players = Array.isArray(data.players) ? data.players : [];
         this.onlinePlayers = Array.isArray(data.onlinePlayers) ? data.onlinePlayers : [];
         this.isHost = Number(this.userId) === Number(this.game.id_creator);
-        this.totalPlayers = this.game.TotalPlayers || this.totalPlayers;
 
-        // ⚠️ Forcer le watch si status change
-        if (oldStatus !== this.game.status) {
-          this.$forceUpdate();
-        }
-
+        if (oldStatus !== this.game.status) this.$forceUpdate();
         return true;
       } catch (err) {
         console.error("[FETCH] Erreur fetchGame :", err);
@@ -217,13 +257,10 @@ export default {
     },
     async fetchFriends() {
       try {
-        console.log("[FETCH] Récupération amis pour userId:", this.userId);
         const res = await fetch(`http://localhost:8080/api/friends/list/${this.userId}`);
         const data = await res.json();
         this.friends = Array.isArray(data) ? data : [];
-        console.log("[FETCH] Friends list :", this.friends);
-      } catch (err) {
-        console.error("[FETCH] Erreur fetchFriends :", err);
+      } catch {
         this.friends = [];
       }
     },
@@ -233,25 +270,8 @@ export default {
         const data = await res.json();
         this.invitationsList =
           data.success && Array.isArray(data.invitations) ? data.invitations : [];
-      } catch (err) {
-        console.error("[CLIENT] Erreur fetchInvitations :", err);
+      } catch {
         this.invitationsList = [];
-      }
-    },
-    async respondInvite(inviteId, accept) {
-      try {
-        const res = await fetch("http://localhost:8080/api/games/invite/respond", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ inviteId, accept }),
-        });
-        const data = await res.json();
-        if (!data.success) return alert(data.message || "Erreur réponse invitation");
-        removeInvitation(inviteId);
-        this.invitationsList = this.invitationsList.filter((inv) => inv.id !== inviteId);
-        if (accept) await this.joinGame();
-      } catch (err) {
-        console.error("[CLIENT] respondInvite :", err);
       }
     },
     async joinGameIfNeeded() {
@@ -266,43 +286,11 @@ export default {
           body: JSON.stringify({ gameId: this.localGameId, playerId: this.userId }),
         });
         const data = await res.json();
-        if (!data.success)
-          return console.warn("[JOIN] Impossible de rejoindre la partie :", data.message);
-
-        // ⚡ Mettre à jour la liste des joueurs
+        if (!data.success) return;
         this.players = Array.isArray(data.players) ? data.players : this.players;
       } catch (err) {
         console.error("[JOIN] Erreur joinGame :", err);
       }
-    },
-    async inviteFriend(friendId) {
-      if (!this.game?.ID_Game || !friendId) return;
-      try {
-        const res = await fetch("http://localhost:8080/api/invitation", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            gameId: this.game.ID_Game,
-            senderId: this.userId,
-            receiverId: friendId,
-            senderPseudo: this.user?.pseudo,
-          }),
-        });
-        const data = await res.json();
-        if (!data.success) return alert("Erreur invitation : " + data.message);
-        alert(
-          `Invitation envoyée à ${this.friends.find((f) => f.ID_Users === friendId)?.Pseudo} !`
-        );
-      } catch (err) {
-        console.error("[CLIENT] Erreur inviteFriend :", err);
-      }
-    },
-    async inviteAllFriends() {
-      await Promise.all(
-        this.friends
-          .filter((f) => !this.isPlayerInGame(f.ID_Users))
-          .map((f) => this.inviteFriend(f.ID_Users))
-      );
     },
     isPlayerInGame(playerId) {
       return this.players.some((p) => Number(p.ID_Users) === Number(playerId));
@@ -312,7 +300,6 @@ export default {
     },
     async leaveRoom() {
       if (!this.game?.ID_Game) return;
-
       try {
         const res = await fetch("http://localhost:8080/api/games/leave", {
           method: "POST",
@@ -320,9 +307,8 @@ export default {
           body: JSON.stringify({ gameId: this.game.ID_Game, playerId: this.userId }),
         });
         const data = await res.json();
-        if (!data.success) return alert("Erreur départ de la partie : " + data.message);
+        if (!data.success) return;
 
-        // Nettoyage local
         localStorage.removeItem("currentGame");
         clearInterval(this.polling);
         this.$router.push("/gamemode");
@@ -331,28 +317,21 @@ export default {
         this.onlinePlayers = [];
         this.isHost = false;
       } catch (err) {
-        console.error("[LEAVE ROOM] Erreur inattendue :", err);
-        alert("Erreur de communication avec le serveur.");
+        console.error("[LEAVE ROOM] Erreur :", err);
       }
     },
     async startGame() {
       if (!this.canStartGame) return;
 
       try {
-        console.log("[START GAME] Partie démarrée par host");
-
         const res = await fetch("http://localhost:8080/api/games/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ gameId: this.game.ID_Game, userId: this.userId }),
         });
-
         const data = await res.json();
-        if (!data.success) {
-          return alert("Erreur lors du démarrage de la partie : " + data.message);
-        }
+        if (!data.success) return;
 
-        // Mettre à jour localement pour l'hôte également
         this.game.status = "placement";
       } catch (err) {
         console.error("[START GAME] Erreur:", err);

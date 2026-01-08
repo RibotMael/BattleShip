@@ -1,4 +1,4 @@
-//invitation.js
+//invitations.js
 import express from "express";
 import {
   sendInviteToDB,
@@ -22,7 +22,7 @@ router.post("/", async (req, res) => {
     const inviteId = await sendInviteToDB({ gameId, senderId, receiverId });
     res.json({ success: true, inviteId });
   } catch (err) {
-    res.json({ success: false, message: "Erreur serveur" });
+    res.json({ success: false, message: err.message });
   }
 });
 
