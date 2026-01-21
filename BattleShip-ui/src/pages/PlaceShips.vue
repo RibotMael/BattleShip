@@ -5,11 +5,7 @@
 
     <div class="top-info">
       <p>Partie ID : {{ game.ID_Game }}</p>
-      <p>
-        Joueurs prêts : {{ readyPlayers.length }}
-        <span v-if="game.TotalPlayers">/{{ game.TotalPlayers }}</span>
-        <span v-else> joueurs</span>
-      </p>
+      <p>Joueurs prêts : {{ readyCount }} / {{ game.TotalPlayers }}</p>
     </div>
 
     <div class="main-layout">
@@ -94,6 +90,9 @@ export default {
     isFrenchMode() {
       return this.game.mode === "fr"; // 🇫🇷 pour interdire les bateaux qui se touchent
     },
+    readyCount() {
+      return this.readyPlayers.length;
+    },
   },
 
   mounted() {
@@ -126,10 +125,12 @@ export default {
           this.game = {
             ...this.game,
             ...data.game,
-            TotalPlayers: data.game.TotalPlayers || 999, // ou un nombre max pour BR
+            TotalPlayers: data.players.length,
+            mode: data.game.mode,
           };
-          this.readyPlayers = data.players || [];
-          return { fleet: data.fleet, mode: data.mode }; // ✅ retourne aussi le mode
+          this.readyPlayers = (data.players || []).filter((p) => p.validated);
+
+          return { fleet: data.fleet, mode: data.mode };
         }
       } catch (err) {
         console.error("[FETCH GAME]", err);
@@ -272,14 +273,18 @@ export default {
       try {
         const res = await fetch(`http://localhost:8080/api/games/${this.game.ID_Game}`);
         const data = await res.json();
+
         if (data.success) {
+          // ✅ MET À JOUR LE STATE LOCAL
           this.readyPlayers = data.players.filter((p) => p.validated);
-          if (this.game.TeamMode === "battle-royale") {
-            // exemple : commencer dès qu’il y a au moins 2 joueurs prêts
-            return this.readyPlayers.length >= 2;
-          } else {
-            return this.readyPlayers.length === this.game.TotalPlayers;
+
+          // ✅ Battle Royale
+          if (this.game.mode === "battle_royale") {
+            return this.readyPlayers.length === data.players.length;
           }
+
+          // 🎮 Mode classique
+          return this.readyPlayers.length === this.game.TotalPlayers;
         }
       } catch (err) {
         console.error("[CHECK ALL READY]", err);
