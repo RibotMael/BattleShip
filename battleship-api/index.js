@@ -64,12 +64,13 @@ const games = {};
 
 function startTurn(gameId, duration = 8) {
   if (!games[gameId]) {
-    games[gameId] = { finished: false, timer: null };
+    games[gameId] = { finished: false };
   }
 
   clearInterval(games[gameId].timer);
 
   games[gameId].turnStartAt = Date.now();
+  games[gameId].ended = false;
 
   games[gameId].timer = setInterval(() => {
     if (games[gameId].finished) {
@@ -82,12 +83,20 @@ function startTurn(gameId, duration = 8) {
 
     io.to(gameId).emit("turn-timer", { timeLeft });
 
-    if (timeLeft <= 0) {
+    if (timeLeft <= 0 && !games[gameId].ended) {
+      games[gameId].ended = true;
+
+      // 🔥 TOUS les joueurs tirent maintenant
       io.to(gameId).emit("turn-ended", { reason: "timeout" });
+
+      // Nouveau tour
       games[gameId].turnStartAt = Date.now();
+      games[gameId].ended = false;
     }
   }, 1000);
 }
+
+
 
 
 /* ==========================

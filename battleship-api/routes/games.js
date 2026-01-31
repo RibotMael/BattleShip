@@ -457,23 +457,22 @@ router.post("/shoot", async (req, res) => {
     return res.status(400).json({ success: false, message: "Paramètres manquants" });
   }
 
-  let gameOver = false; // ✅ déclaration ici
   let finalResult;
-  let positions;
+  let positions = [];
+  let gameOver = false;
 
   try {
-    // 1️⃣ Vérifier si la case est déjà sélectionnée par ce joueur
+    // 1️⃣ Vérifier si la case a déjà été tirée par ce joueur
     const [existingShots] = await db.query(
       "SELECT result, state FROM shots WHERE id_game=? AND target_x=? AND target_y=? AND target_id=? AND id_player=?",
       [gameId, x, y, targetId, playerId]
     );
-
     if (existingShots.length > 0) {
-      return res.status(409).json({ 
-        success: false, 
-        message: "Case déjà sélectionnée", 
+      return res.status(409).json({
+        success: false,
+        message: "Case déjà sélectionnée",
         result: existingShots[0].result,
-        state: existingShots[0].state
+        state: existingShots[0].state,
       });
     }
 
@@ -486,7 +485,7 @@ router.post("/shoot", async (req, res) => {
 
     const board = JSON.parse(rows[0].board_json);
     const cellValue = board[y][x];
-    finalResult = cellValue && cellValue > 0 ? "hit" : "miss";
+    finalResult = cellValue > 0 ? "hit" : "miss";
 
     // 3️⃣ Insérer le tir
     await db.query(
@@ -494,10 +493,9 @@ router.post("/shoot", async (req, res) => {
       [gameId, playerId, targetId, x, y, finalResult]
     );
 
-    // 4️⃣ Vérifier si le bateau est coulé
+    // 4️⃣ Si hit, vérifier si le bateau est coulé
     if (finalResult === "hit") {
       const targetValue = board[y][x];
-      positions = [];
       board.forEach((row, rowIdx) =>
         row.forEach((cell, colIdx) => {
           if (cell === targetValue && cell > 0) positions.push({ x: colIdx, y: rowIdx });
@@ -512,6 +510,7 @@ router.post("/shoot", async (req, res) => {
       );
 
       if (hits[0].hitCount >= positions.length) {
+        // ✅ Bateau coulé
         await db.query(
           `UPDATE shots SET result='sunk'
            WHERE id_game=? AND target_id=? AND id_player=? AND result IN ('hit','sunk')
@@ -522,36 +521,37 @@ router.post("/shoot", async (req, res) => {
       }
     }
 
-    // 5️⃣ Vérifier si tous les bateaux du joueur ciblé sont coulés
-    const totalShipCells = board.flat().filter(c => typeof c === "number" && c > 0).length;
+    // 5️⃣ Vérifier si tous les bateaux sont coulés
+    const totalShipCells = board.flat().filter(c => c > 0).length;
     const [[{ sunkCount }]] = await db.query(
       "SELECT COUNT(*) AS sunkCount FROM shots WHERE id_game=? AND target_id=? AND id_player=? AND result='sunk'",
       [gameId, targetId, playerId]
     );
-
-    gameOver = sunkCount >= totalShipCells; // ✅ mise à jour ici
+    gameOver = sunkCount >= totalShipCells;
 
     if (gameOver) {
       await db.query("UPDATE games SET status='finished', winner_id=? WHERE id_Game=?", [playerId, gameId]);
-      io.to(gameId).emit("game-over", { winnerId: playerId });
     }
 
-    // 6️⃣ Émettre le tir
+    // 6️⃣ Émettre le tir à tous les joueurs
     io.to(gameId).emit("shot-fired", {
       shooterId: playerId,
       targetId,
       x,
       y,
       result: finalResult,
-      positions: finalResult === "sunk" ? positions : undefined,
+      positions: finalResult === "sunk" ? positions : [],
+      gameOver,
+      winnerId: gameOver ? playerId : null,
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       result: finalResult,
-      state: 'resolved',
-      gameOver, 
-      ...(gameOver && { winner_id: playerId })
+      state: "resolved",
+      positions: finalResult === "sunk" ? positions : [],
+      gameOver,
+      ...(gameOver && { winner_id: playerId }),
     });
 
   } catch (err) {
@@ -559,7 +559,6 @@ router.post("/shoot", async (req, res) => {
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
-
 
 // GET /api/games/:gameId/shots
 router.get("/:gameId/shots", async (req, res) => {
@@ -579,11 +578,11 @@ router.get("/:gameId/shots", async (req, res) => {
       [gameId]
     );
 
-    // 2️⃣ Pour les tirs "sunk", reconstruire les positions depuis la grille
+    // 2️⃣ Reconstruire les positions pour les tirs "sunk"
     const enhancedShots = await Promise.all(
       shots.map(async (s) => {
         if (s.result === "sunk") {
-          const targetPlayerId = s.target_id; // utiliser target_id direct
+          const targetPlayerId = s.target_id;
           const [rows] = await db.query(
             "SELECT board_json FROM player_boards WHERE game_id = ? AND player_id = ?",
             [gameId, targetPlayerId]
@@ -594,6 +593,7 @@ router.get("/:gameId/shots", async (req, res) => {
           const board = JSON.parse(rows[0].board_json);
           const cellValue = board[s.y][s.x]; // valeur du bateau touché
           const positions = [];
+
           board.forEach((row, yIdx) =>
             row.forEach((cell, xIdx) => {
               if (cell === cellValue && cell > 0) positions.push({ x: xIdx, y: yIdx });
@@ -603,19 +603,23 @@ router.get("/:gameId/shots", async (req, res) => {
           return { ...s, positions };
         }
 
-
         return s;
       })
     );
 
-    // 3️⃣ Retourner tous les tirs
-    res.json({ success: true, shots: enhancedShots });
+    // 3️⃣ Séparer incomingShots et playerShots
+    const incomingShots = enhancedShots.filter(s => s.target_id === playerId);
+    const playerShots = enhancedShots.filter(s => s.id_player === playerId);
+
+    // 4️⃣ Retourner les données
+    res.json({ success: true, incomingShots, playerShots });
 
   } catch (err) {
     console.error("❌ Erreur /shots :", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
+
 
 
 router.get("/:gameId/opponents", async (req, res) => {
