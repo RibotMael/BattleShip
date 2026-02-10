@@ -130,11 +130,8 @@ export default {
     socket.on("game-over", ({ winnerId, isDraw }) => {
       let msg = "💥 Défaite !";
 
-      if (isDraw) {
-        msg = "⚖️ Égalité parfaite !";
-      } else if (winnerId === this.user.id) {
-        msg = "🏆 Victoire !";
-      }
+      if (isDraw) msg = "⚖️ Égalité parfaite !";
+      else if (winnerId === this.user.id) msg = "🏆 Victoire !";
 
       this.showEndPopup(msg);
     });
@@ -411,7 +408,14 @@ export default {
         if (data.finished && !this.gameOver) {
           this.gameOver = true;
           clearInterval(this.fetchInterval);
-          const msg = data.winner === this.user.id ? "🏆 Victoire !" : "💥 Défaite !";
+          let msg = "💥 Défaite !";
+
+          if (data.result === "draw") {
+            msg = "⚖️ Égalité parfaite !";
+          } else if (data.winner === this.user.id) {
+            msg = "🏆 Victoire !";
+          }
+
           this.showEndPopup(msg);
           await this.fetchEnemyShots();
         }
@@ -447,15 +451,18 @@ export default {
       }
     },
     async checkDefeat() {
-      const allSunk = this.playerGrid
-        .filter((cell) => cell.shipNumber > 0)
-        .every((cell) => cell.status === "sunk");
+      if (this.playerStatus !== "in_game") return;
 
-      if (allSunk && !this.gameOver) {
-        this.gameOver = true;
+      const shipCells = this.playerGrid.filter((c) => c.shipNumber > 0);
+      if (!shipCells.length) return;
 
-        // ⬅️ On NOTIFIE le serveur
-        await fetch("http://localhost:8080/api/games/eliminate-player", {
+      const allDestroyed = shipCells.every((c) => c.status === "hit" || c.status === "sunk");
+      if (!allDestroyed) return;
+
+      this.playerStatus = "dead";
+
+      try {
+        const res = await fetch("http://localhost:8080/api/games/eliminate-player", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -464,9 +471,24 @@ export default {
             reason: "shot",
           }),
         });
+        const data = await res.json();
+        if (!data.success) return console.warn(data.message);
 
-        // ❌ PAS DE POPUP ICI
-        // ❌ PAS DE MESSAGE LOCAL
+        // 🔹 Afficher popup si c'est la fin du jeu ou défaite
+        if (data.finished) {
+          const msg =
+            data.winner_id === this.user.id
+              ? "🏆 Victoire !"
+              : data.winner_id === null
+                ? "⚖️ Égalité parfaite !"
+                : "💥 Défaite !";
+          this.showEndPopup(msg);
+        } else {
+          // Joueur éliminé mais la partie continue
+          this.showEndPopup("💥 Tous vos bateaux sont coulés !");
+        }
+      } catch (err) {
+        console.error(err);
       }
     },
 

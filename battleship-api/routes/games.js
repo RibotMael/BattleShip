@@ -620,8 +620,6 @@ router.get("/:gameId/shots", async (req, res) => {
   }
 });
 
-
-
 router.get("/:gameId/opponents", async (req, res) => {
   const { gameId } = req.params;
   const playerId = Number(req.query.playerId);
@@ -634,7 +632,7 @@ router.get("/:gameId/opponents", async (req, res) => {
       `SELECT u.ID_Users as id, u.pseudo
         FROM users u
         JOIN game_players gp ON u.ID_Users = gp.id_player
-        WHERE gp.id_game = ? AND u.ID_Users != ? AND gp.player_status != 'dead'
+        WHERE gp.id_game = ? AND u.ID_Users != ?
         `,
       [gameId, playerId]
     );
@@ -671,10 +669,7 @@ router.post("/eliminate-player", async (req, res) => {
     );
 
 
-    if (update.affectedRows === 0) {
-      await conn.rollback();
-      return res.json({ success: false, message: "Joueur déjà éliminé ou quitté" });
-    }
+    // Même si déjà mort, on continue pour vérifier la fin de partie
 
     // 2️⃣ Récupérer type de partie et joueurs restants
     const [[game]] = await conn.query(`
@@ -683,8 +678,10 @@ router.post("/eliminate-player", async (req, res) => {
       JOIN type t ON t.id_Type = g.id_game_type
       WHERE g.id_Game = ?`, [gameId]);
 
+    // 2️⃣ Récupérer les joueurs encore en vie
     const [players] = await conn.query(
-      `SELECT id_player, player_status FROM game_players WHERE id_game = ?`, [gameId]
+      "SELECT id_player, player_status FROM game_players WHERE id_game = ?",
+      [gameId]
     );
 
     const alivePlayers = players.filter(p => p.player_status === "in_game");
@@ -693,24 +690,24 @@ router.post("/eliminate-player", async (req, res) => {
     let winnerId = null;
     let isDraw = false;
 
+    // ⚖️ ÉGALITÉ
     if (alivePlayers.length === 0) {
-      // ⚖️ ÉGALITÉ
       finished = true;
       isDraw = true;
 
       await conn.query(
-        `UPDATE games SET status = 'finished', winner_id = NULL WHERE id_Game = ?`,
+        "UPDATE games SET status = 'finished', winner_id = NULL WHERE id_Game = ?",
         [gameId]
       );
     }
 
+    // 🏆 DERNIER SURVIVANT
     else if (alivePlayers.length === 1) {
-      // 🏆 VICTOIRE
       finished = true;
       winnerId = alivePlayers[0].id_player;
 
       await conn.query(
-        `UPDATE games SET status = 'finished', winner_id = ? WHERE id_Game = ?`,
+        "UPDATE games SET status = 'finished', winner_id = ? WHERE id_Game = ?",
         [winnerId, gameId]
       );
     }
@@ -748,7 +745,6 @@ router.post("/eliminate-player", async (req, res) => {
     conn.release();
   }
 });
-
 
 // 📍 Vérifie si la partie est terminée et qui a gagné
 router.get("/:id/status", async (req, res) => {
@@ -798,19 +794,33 @@ router.get("/:id/status", async (req, res) => {
 
     // --- 2. Partie en cours ---
     if (game.mode === "battle_royale") {
-      // Récupérer tous les joueurs de la partie
       const [players] = await db.query(
-        "SELECT id_User, eliminated FROM game_players WHERE id_Game = ?",
+        "SELECT id_player, player_status FROM game_players WHERE id_game = ?",
         [gameId]
       );
 
-      const alivePlayers = players.filter(p => p.eliminated === 0);
+      const alivePlayers = players.filter(p => p.player_status === "in_game");
 
-      // Vérifier si il reste un seul joueur
+      // ⚖️ ÉGALITÉ
+      if (alivePlayers.length === 0) {
+        await db.query(
+          "UPDATE games SET status = 'finished', winner_id = NULL WHERE id_Game = ?",
+          [gameId]
+        );
+
+        return res.json({
+          success: true,
+          finished: true,
+          winner: null,
+          result: "draw",
+          message: "⚖️ Égalité parfaite !"
+        });
+      }
+
+      // 🏆 VICTOIRE
       if (alivePlayers.length === 1) {
-        const winnerId = alivePlayers[0].id_User;
+        const winnerId = alivePlayers[0].id_player;
 
-        // Mettre à jour la table games
         await db.query(
           "UPDATE games SET status = 'finished', winner_id = ? WHERE id_Game = ?",
           [winnerId, gameId]
@@ -825,7 +835,6 @@ router.get("/:id/status", async (req, res) => {
         });
       }
 
-      // Toujours en cours
       return res.json({ success: true, finished: false });
     }
 
@@ -838,8 +847,6 @@ router.get("/:id/status", async (req, res) => {
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
-
-
 
 // POST /api/games/join/:id
 router.post("/join/:id", async (req, res) => {
