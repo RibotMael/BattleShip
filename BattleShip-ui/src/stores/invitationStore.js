@@ -10,11 +10,14 @@ export const invitationStore = {
 export function sendInviteToDB(invite) {
   const newInvite = {
     ID: invitationStore.invitations.length + 1,
-    ...invite
+    ...invite,
+    senderPseudo: invite.senderPseudo, 
+    avatarUrl: invite.avatarUrl || null
   };
   invitationStore.invitations.push(newInvite);
   return newInvite.ID;
 }
+
 
 /**
  * Récupérer toutes les invitations pour un utilisateur

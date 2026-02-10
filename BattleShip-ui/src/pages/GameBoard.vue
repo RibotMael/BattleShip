@@ -136,7 +136,34 @@ export default {
         msg = "🏆 Victoire !";
       }
 
+<<<<<<< HEAD
       this.showEndPopup(msg);
+=======
+    socket.on("turn-timer", ({ timeLeft }) => {
+      console.log("⏰ Timer reçu côté client:", timeLeft);
+      this.turnTimer = timeLeft;
+      const update = () => {
+        this.updateCircle();
+        if (this.turnTimer > 0) {
+          requestAnimationFrame(update);
+        }
+      };
+      requestAnimationFrame(update);
+    });
+
+    socket.on("turn-ended", ({ reason }) => {
+      console.log("⏳ Tour terminé, raison:", reason);
+      this.validateShot();
+    });
+
+    socket.on("shot-fired", this.onShotFired);
+
+    socket.on("game-over", ({ winnerId }) => {
+      console.log("🏁 Partie terminée, gagnant:", winnerId);
+      this.gameOver = true;
+      clearInterval(this.fetchInterval);
+      this.showEndPopup(winnerId === this.user.id ? "🏆 Victoire !" : "💥 Défaite !");
+>>>>>>> 63aebf3 (pseudo dans invitation, positionnement aléatoire lors du placement des bateaux)
     });
   },
   beforeUnmount() {
@@ -151,6 +178,14 @@ export default {
     window.removeEventListener("keydown", this.preventRefresh);
     window.removeEventListener("popstate", this.preventBack);
     window.removeEventListener("beforeunload", this.preventUnload);
+<<<<<<< HEAD
+=======
+
+    socket.off("turn-timer");
+    socket.off("turn-ended");
+    socket.off("shot-fired");
+    socket.off("game-over");
+>>>>>>> 63aebf3 (pseudo dans invitation, positionnement aléatoire lors du placement des bateaux)
   },
   methods: {
     /* ----------------- Timer ----------------- */
@@ -233,7 +268,32 @@ export default {
         console.error(err);
       }
     },
+<<<<<<< HEAD
     async fetchOpponents() {
+=======
+
+    onShotFired(shot) {
+      const idx = shot.y * 10 + shot.x;
+
+      if (shot.shooterId === this.user.id) {
+        this.opponentGrid[idx] = shot.result;
+
+        if (shot.result === "sunk" && shot.positions) {
+          shot.positions.forEach((p) => {
+            this.opponentGrid[p.y * 10 + p.x] = "sunk";
+          });
+        }
+      } else {
+        this.playerGrid[idx] = {
+          ...this.playerGrid[idx],
+          status: shot.result,
+        };
+      }
+    },
+
+    async abandonGame() {
+      if (!confirm("Voulez-vous vraiment abandonner la partie ?")) return;
+>>>>>>> 63aebf3 (pseudo dans invitation, positionnement aléatoire lors du placement des bateaux)
       try {
         const res = await fetch(
           `http://localhost:8080/api/games/${this.gameId}/opponents?playerId=${this.user.id}`,
@@ -245,11 +305,27 @@ export default {
         console.error(err);
       }
     },
+<<<<<<< HEAD
     updateGridCell(opponent, index, value) {
       // clone la grille pour éviter la mutation directe
       const newGrid = [...opponent.grid];
       newGrid[index] = value;
       opponent.grid = newGrid;
+=======
+
+    async selectCell(index) {
+      if (this.gameOver) return;
+      if (["hit", "miss", "sunk"].includes(this.opponentGrid[index])) return;
+
+      // Efface l'ancienne sélection visuelle
+      if (this.selectedCell !== null) {
+        this.opponentGrid[this.selectedCell] = "";
+      }
+
+      // Définit la nouvelle sélection
+      this.selectedCell = index;
+      this.opponentGrid[index] = "selected";
+>>>>>>> 63aebf3 (pseudo dans invitation, positionnement aléatoire lors du placement des bateaux)
     },
 
     /* ----------------- Sélection & Tir ----------------- */
@@ -266,6 +342,11 @@ export default {
     async validateShot() {
       if (this.gameOver || this.turnTimer !== 0) return;
       let index = this.selectedCell;
+<<<<<<< HEAD
+=======
+
+      // Tir aléatoire si aucune case choisie
+>>>>>>> 63aebf3 (pseudo dans invitation, positionnement aléatoire lors du placement des bateaux)
       if (index === null) {
         const available = this.currentOpponent.grid
           .map((v, i) => (v === "" ? i : null))
@@ -273,8 +354,18 @@ export default {
         if (!available.length) return;
         index = available[Math.floor(Math.random() * available.length)];
       }
+<<<<<<< HEAD
       this.updateGridCell(this.currentOpponent, index, "");
       this.selectedCell = null;
+=======
+
+      // Nettoyage visuel de la sélection
+      this.opponentGrid = this.opponentGrid.map((c) => (c === "selected" ? "" : c));
+
+      // Reset sélection pour permettre un nouveau choix après le tir
+      this.selectedCell = null;
+
+>>>>>>> 63aebf3 (pseudo dans invitation, positionnement aléatoire lors du placement des bateaux)
       await this.sendShoot(index);
     },
     async sendShoot(index) {
@@ -425,6 +516,7 @@ export default {
       this.popupMessage = msg;
       this.endPopup = true;
       this.gameOver = true;
+<<<<<<< HEAD
       clearInterval(this.fetchInterval);
       clearInterval(this.turnInterval);
       this.turnTimer = 8;
@@ -468,6 +560,8 @@ export default {
         // ❌ PAS DE POPUP ICI
         // ❌ PAS DE MESSAGE LOCAL
       }
+=======
+>>>>>>> 63aebf3 (pseudo dans invitation, positionnement aléatoire lors du placement des bateaux)
     },
 
     goHome() {
