@@ -689,13 +689,26 @@ router.post("/eliminate-player", async (req, res) => {
 
     const alivePlayers = players.filter(p => p.player_status === "in_game");
 
-    // 3️⃣ Vérifier si la partie est terminée
     let finished = false;
     let winnerId = null;
+    let isDraw = false;
 
-    if (alivePlayers.length === 1) {
+    if (alivePlayers.length === 0) {
+      // ⚖️ ÉGALITÉ
+      finished = true;
+      isDraw = true;
+
+      await conn.query(
+        `UPDATE games SET status = 'finished', winner_id = NULL WHERE id_Game = ?`,
+        [gameId]
+      );
+    }
+
+    else if (alivePlayers.length === 1) {
+      // 🏆 VICTOIRE
       finished = true;
       winnerId = alivePlayers[0].id_player;
+
       await conn.query(
         `UPDATE games SET status = 'finished', winner_id = ? WHERE id_Game = ?`,
         [winnerId, gameId]
@@ -708,7 +721,7 @@ router.post("/eliminate-player", async (req, res) => {
     if (finished) {
       io.to(gameId).emit("game-over", {
         winnerId,
-        reason: winnerId === playerId ? "auto-win" : "last_alive"
+        isDraw
       });
     } else {
       io.to(gameId).emit("player-eliminated", {

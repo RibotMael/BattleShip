@@ -127,8 +127,15 @@ export default {
     socket.on("turn-ended", this.endTurn);
     socket.on("shot-fired", this.onShotFired);
     socket.on("player-eliminated", this.onPlayerEliminated);
-    socket.on("game-over", ({ winnerId }) => {
-      const msg = winnerId === this.user.id ? "🏆 Victoire !" : "💥 Défaite !";
+    socket.on("game-over", ({ winnerId, isDraw }) => {
+      let msg = "💥 Défaite !";
+
+      if (isDraw) {
+        msg = "⚖️ Égalité parfaite !";
+      } else if (winnerId === this.user.id) {
+        msg = "🏆 Victoire !";
+      }
+
       this.showEndPopup(msg);
     });
   },
@@ -310,6 +317,37 @@ export default {
         target.grid = newGrid;
       }
     },
+    onShotFired({ shooterId, targetId, x, y, result, positions }) {
+      const idx = y * 10 + x;
+
+      // 🧍‍♂️ TIR SUR MOI
+      if (targetId === this.user.id) {
+        const newGrid = [...this.playerGrid];
+        newGrid[idx].status = result;
+        if (positions?.length) {
+          positions.forEach((p) => {
+            newGrid[p.y * 10 + p.x].status = "sunk";
+          });
+        }
+        this.playerGrid = newGrid;
+
+        // Vérifier si défaite
+        this.checkDefeat();
+        return;
+      }
+
+      // 🎯 TIR sur adversaire
+      const targetOpponent = this.opponents.find((o) => o.id === targetId);
+      if (!targetOpponent) return;
+      const newGrid = [...targetOpponent.grid];
+      newGrid[idx] = result;
+      if (positions?.length) {
+        positions.forEach((p) => {
+          newGrid[p.y * 10 + p.x] = "sunk";
+        });
+      }
+      targetOpponent.grid = newGrid;
+    },
 
     /* ----------------- Enemy shots ----------------- */
     async fetchEnemyShots() {
@@ -347,6 +385,9 @@ export default {
             });
           o.grid = newGrid;
         });
+
+        // 🔥 VÉRIFIER DÉFAITE APRÈS SYNCHRO
+        this.checkDefeat();
       } catch (err) {
         console.error(err);
       }
@@ -403,6 +444,29 @@ export default {
         this.showEndPopup(this.is1v1 ? "💥 Défaite par abandon" : "💀 Vous avez abandonné");
       } catch (err) {
         console.error(err);
+      }
+    },
+    async checkDefeat() {
+      const allSunk = this.playerGrid
+        .filter((cell) => cell.shipNumber > 0)
+        .every((cell) => cell.status === "sunk");
+
+      if (allSunk && !this.gameOver) {
+        this.gameOver = true;
+
+        // ⬅️ On NOTIFIE le serveur
+        await fetch("http://localhost:8080/api/games/eliminate-player", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            gameId: this.gameId,
+            playerId: this.user.id,
+            reason: "shot",
+          }),
+        });
+
+        // ❌ PAS DE POPUP ICI
+        // ❌ PAS DE MESSAGE LOCAL
       }
     },
 
