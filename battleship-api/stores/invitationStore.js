@@ -5,6 +5,24 @@ import db from "../db.js";
 // Envoyer une invitation
 export async function sendInviteToDB({ gameId, senderId, receiverId }) {
   try {
+    // Vérifier que les IDs existent
+    const [[game]] = await db.execute(`SELECT id_Game FROM games WHERE id_Game = ?`, [gameId]);
+    if (!game) throw new Error("Partie inexistante");
+
+    const [[sender]] = await db.execute(`SELECT ID_Users FROM users WHERE ID_Users = ?`, [senderId]);
+    if (!sender) throw new Error("Utilisateur émetteur inexistant");
+
+    const [[receiver]] = await db.execute(`SELECT ID_Users FROM users WHERE ID_Users = ?`, [receiverId]);
+    if (!receiver) throw new Error("Utilisateur destinataire inexistant");
+
+    // Vérifier que l'invitation n'existe pas déjà
+    const [existing] = await db.execute(
+      `SELECT ID FROM game_invites 
+       WHERE id_game = ? AND sender_id = ? AND receiver_id = ? AND status = 'Pending'`,
+      [gameId, senderId, receiverId]
+    );
+    if (existing.length > 0) throw new Error("Invitation déjà envoyée");
+
     const [result] = await db.execute(
       `INSERT INTO game_invites (id_game, sender_id, receiver_id, status)
        VALUES (?, ?, ?, 'Pending')`,
@@ -12,12 +30,15 @@ export async function sendInviteToDB({ gameId, senderId, receiverId }) {
     );
     return result.insertId;
   } catch (err) {
+    console.error("[INVITE DB ERROR]", err.message);
     throw err;
   }
 }
 
+// Récupérer les invitations pour un utilisateur
 export async function getInvitationsForUserFromDB(userId) {
   const [rows] = await db.execute(
+<<<<<<< HEAD
     `SELECT 
        gi.ID, 
        gi.id_game AS gameId, 
@@ -27,6 +48,11 @@ export async function getInvitationsForUserFromDB(userId) {
        gi.status
      FROM game_invites gi
      LEFT JOIN users u ON gi.sender_id = u.ID_Users
+=======
+    `SELECT gi.*, u.Pseudo AS senderPseudo
+     FROM game_invites gi
+     JOIN users u ON gi.sender_id = u.ID_Users
+>>>>>>> fix/retour-version
      WHERE gi.receiver_id = ? AND gi.status = 'Pending'`,
     [userId]
   );
@@ -47,11 +73,17 @@ export async function getInvitationsForUserFromDB(userId) {
 
 // Supprimer invitation
 export async function removeInvitationFromDB(inviteId) {
-  await db.execute(`DELETE FROM game_invites WHERE ID = ?`, [inviteId]);
+  const [result] = await db.execute(`DELETE FROM game_invites WHERE ID = ?`, [inviteId]);
+  return result.affectedRows;
 }
 
-export async function respondInviteDB(inviteId, accept) {
-  const status = accept ? 'Accepted' : 'Rejected';
-  await db.execute(`UPDATE game_invites SET status = ? WHERE ID = ?`, [status, inviteId]);
-}
 
+// Répondre à une invitation (accept/reject)
+export async function respondInviteDB(inviteId, accept, receiverId) {
+  const status = accept ? "Accepted" : "Rejected";
+  const [result] = await db.execute(
+    `UPDATE game_invites SET status = ? WHERE ID = ? AND receiver_id = ?`,
+    [status, inviteId, receiverId]
+  );
+  return result.affectedRows;
+}

@@ -92,7 +92,7 @@ export default {
     watch(
       () => userBus.userUpdated,
       () => this.refreshUser(),
-      { immediate: true }
+      { immediate: true },
     );
   },
   methods: {
@@ -417,7 +417,9 @@ export default {
   font-weight: bold;
   cursor: pointer;
   color: white;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .create-button {

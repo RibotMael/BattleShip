@@ -5,7 +5,7 @@
 
     <div class="top-info">
       <p>Partie ID : {{ game.ID_Game }}</p>
-      <p>Joueurs prêts : {{ readyPlayers.length }}/{{ game.TotalPlayers }}</p>
+      <p>Joueurs prêts : {{ readyCount }} / {{ game.TotalPlayers }}</p>
     </div>
 
     <div class="main-layout">
@@ -90,6 +90,9 @@ export default {
     isFrenchMode() {
       return this.game.mode === "fr"; // 🇫🇷 pour interdire les bateaux qui se touchent
     },
+    readyCount() {
+      return this.readyPlayers.length;
+    },
   },
 
   mounted() {
@@ -119,9 +122,15 @@ export default {
         const res = await fetch(`http://localhost:8080/api/games/${this.game.ID_Game}`);
         const data = await res.json();
         if (data.success) {
-          this.game = { ...this.game, ...data.game };
-          this.readyPlayers = data.players || [];
-          return { fleet: data.fleet, mode: data.mode }; // ✅ retourne aussi le mode
+          this.game = {
+            ...this.game,
+            ...data.game,
+            TotalPlayers: data.players.length,
+            mode: data.game.mode,
+          };
+          this.readyPlayers = (data.players || []).filter((p) => p.validated);
+
+          return { fleet: data.fleet, mode: data.mode };
         }
       } catch (err) {
         console.error("[FETCH GAME]", err);
@@ -264,8 +273,17 @@ export default {
       try {
         const res = await fetch(`http://localhost:8080/api/games/${this.game.ID_Game}`);
         const data = await res.json();
+
         if (data.success) {
+          // ✅ MET À JOUR LE STATE LOCAL
           this.readyPlayers = data.players.filter((p) => p.validated);
+
+          // ✅ Battle Royale
+          if (this.game.mode === "battle_royale") {
+            return this.readyPlayers.length === data.players.length;
+          }
+
+          // 🎮 Mode classique
           return this.readyPlayers.length === this.game.TotalPlayers;
         }
       } catch (err) {
@@ -273,7 +291,10 @@ export default {
       }
       return false;
     },
+<<<<<<< HEAD
 
+=======
+>>>>>>> fix/retour-version
     placeShipsRandomly() {
       // Reset de la grille et des bateaux
       this.grid = this.grid.map(() => ({ hasShip: false, shipId: null }));

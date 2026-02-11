@@ -4,8 +4,26 @@ export const invitationStore = reactive({
   invitations: [],
 });
 
+<<<<<<< HEAD
 // Normaliser une invitation
 function normalizeInvite(inv) {
+=======
+// Ajouter une invitation
+export function sendInvite(invite) {
+  const newId = invitationStore.invitations.length + 1;
+  invitationStore.invitations.push({ id: newId, ...invite });
+  return newId;
+}
+
+export function removeInvitation(inviteId) {
+  invitationStore.invitations = invitationStore.invitations.filter(
+    (inv) => inv.id !== inviteId
+  );
+}
+
+// ✅ Normaliser un utilisateur
+export function normalizeUser(user) {
+>>>>>>> fix/retour-version
   return {
     ID: inv.ID ?? inv.id,                 // uniformiser ID
     senderId: inv.sender_id ?? inv.senderId,

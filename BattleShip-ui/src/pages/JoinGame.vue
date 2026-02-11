@@ -20,6 +20,7 @@
           <option value="">Tous</option>
           <option value="1v1">1 vs 1</option>
           <option value="2v2">2 vs 2</option>
+          <option value="3v3">3 vs 3</option>
           <option value="4v4">4 vs 4</option>
           <option value="battle-royale">Battle Royale</option>
         </select>
@@ -75,7 +76,8 @@ export default {
     filteredGames() {
       // 🔹 Filtrer uniquement les parties en préparation et non-pleines
       const filtered = this.publicGames
-        .filter((game) => game.Status === "preparation" && game.CurrentPlayers < game.TotalPlayers)
+        .filter((game) => game.Status === "preparation")
+        .filter((game) => game.TotalPlayers === null || game.CurrentPlayers < game.TotalPlayers)
         .filter((game) => !this.selectedLanguage || game.Language === this.selectedLanguage)
         .filter((game) => !this.selectedMode || game.TeamMode === this.selectedMode);
 
@@ -133,6 +135,8 @@ export default {
           return "1 vs 1";
         case "2v2":
           return "2 vs 2";
+        case "3v3":
+          return "3 vs 3";
         case "4v4":
           return "4 vs 4";
         case "battle-royale":

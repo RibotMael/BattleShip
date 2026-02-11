@@ -36,14 +36,16 @@ export function removeInvitationFromDB(inviteId) {
 /**
  * Répondre à une invitation (accept/reject)
  */
-export function respondInviteDB(inviteId, accept, userId) {
-  const index = invitationStore.invitations.findIndex(inv => inv.ID === inviteId && inv.receiverId === userId);
+export function respondInviteDB(inviteId, accept, receiverId) {
+  const index = invitationStore.invitations.findIndex(
+    inv => inv.ID === inviteId && inv.receiverId === receiverId
+  );
+
   if (index !== -1) {
     const invite = invitationStore.invitations[index];
     invitationStore.invitations.splice(index, 1);
-    if (accept) {
-      return { joinGameId: invite.gameId, playerId: invite.receiverId };
-    }
+    return accept ? { joinGameId: invite.gameId, playerId: invite.receiverId } : { success: true };
   }
-  return { success: true };
+  return { success: false, message: "Invitation non trouvée" };
 }
+

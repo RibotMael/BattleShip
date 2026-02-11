@@ -26,6 +26,7 @@
         <select id="mode" v-model="mode">
           <option value="1v1">1 vs 1</option>
           <option value="2v2">2 vs 2</option>
+          <option value="3v3">3 vs 3</option>
           <option value="4v4">4 vs 4</option>
           <option value="battle-royale">Battle Royale</option>
         </select>
@@ -69,27 +70,31 @@ export default {
   },
   computed: {
     canStart() {
-      return (
-        this.user && (!this.isPrivate || (this.totalPlayers >= 2 && this.totalPlayers % 2 === 0))
-      );
+      // Battle Royale : minimum 2 joueurs
+      if (this.mode === "battle-royale") return this.user;
+      // Partie privée classique : pair >= 2
+      if (this.isPrivate) return this.user && this.totalPlayers >= 2 && this.totalPlayers % 2 === 0;
+      return this.user;
     },
   },
   mounted() {
     this.user = JSON.parse(localStorage.getItem("user"));
   },
   methods: {
-    getTeamModeFromSelection(mode) {
-      switch (mode) {
+    getTeamModeFromSelection(gameType) {
+      switch (gameType) {
         case "1v1":
           return 1;
         case "2v2":
           return 2;
-        case "4v4":
+        case "3v3":
           return 3;
-        case "battle-royale":
+        case "4v4":
           return 4;
+        case "battle-royale":
+          return null; // Battle Royale n'a pas de FK
         default:
-          return 1;
+          throw new Error(`Mode inconnu : ${gameType}`);
       }
     },
     async startGame() {
@@ -101,32 +106,25 @@ export default {
       this.loading = true;
 
       try {
+        // Déterminer id_team_mode
         const teamModeId = this.isPrivate
           ? Math.floor(this.totalPlayers / 2)
           : this.getTeamModeFromSelection(this.mode);
 
+        // Calcul du totalPlayers pour la partie
         let totalPlayers;
-        switch (teamModeId) {
-          case 1:
-            totalPlayers = 2;
-            break;
-          case 2:
-            totalPlayers = 4;
-            break;
-          case 3:
-            totalPlayers = 8;
-            break;
-          case 4:
-            totalPlayers = 20;
-            break;
-          default:
-            totalPlayers = 2;
+        if (this.mode === "battle-royale") {
+          totalPlayers = 2; // minimum, mais côté serveur tu peux gérer le max
+        } else if (this.isPrivate) {
+          totalPlayers = this.totalPlayers;
+        } else {
+          totalPlayers = teamModeId * 2; // 1v1 → 2, 2v2 → 4, etc.
         }
 
         const payload = {
           hostId: Number(this.user.id),
-          id_game_mode: this.isPrivate ? 2 : 1,
-          id_game_type: 2,
+          id_game_mode: this.isPrivate ? 2 : 1, // privé/public
+          id_game_type: this.mode === "battle-royale" ? 1 : 2, // type BattleRoyal = 1, Team = 2
           id_team_mode: teamModeId,
           id_version: this.language === "fr" ? 1 : 2,
           totalPlayers,
@@ -147,8 +145,8 @@ export default {
         const normalizedGame = {
           ID_Game: data.game.ID_Game || data.game.id_game || data.game.id,
           ID_Creator: data.game.ID_Creator || data.game.id_creator || data.game.creatorId,
-          TotalPlayers: data.game.TotalPlayers || data.game.totalPlayers || totalPlayers,
-          Status: data.game.Status || data.game.status || "preparation",
+          TotalPlayers: data.game.TotalPlayers || totalPlayers,
+          Status: data.game.Status || "preparation",
         };
 
         localStorage.setItem("currentGame", JSON.stringify(normalizedGame));

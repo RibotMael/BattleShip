@@ -92,10 +92,13 @@ export default {
   },
   computed: {
     invitations() {
-      // Conversion base64 + fallback
       return invitationStore.invitations.map((inv) => ({
         ...inv,
+<<<<<<< HEAD
         avatarUrl: inv.avatarUrl || defaultAvatar,
+=======
+        avatarUrl: inv.senderAvatar ? `data:image/jpeg;base64,${inv.senderAvatar}` : defaultAvatar,
+>>>>>>> fix/retour-version
       }));
     },
   },
