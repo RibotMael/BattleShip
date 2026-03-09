@@ -260,32 +260,7 @@ export default {
         console.error(err);
       }
     },
-<<<<<<< HEAD
     async fetchOpponents() {
-=======
-
-    onShotFired(shot) {
-      const idx = shot.y * 10 + shot.x;
-
-      if (shot.shooterId === this.user.id) {
-        this.opponentGrid[idx] = shot.result;
-
-        if (shot.result === "sunk" && shot.positions) {
-          shot.positions.forEach((p) => {
-            this.opponentGrid[p.y * 10 + p.x] = "sunk";
-          });
-        }
-      } else {
-        this.playerGrid[idx] = {
-          ...this.playerGrid[idx],
-          status: shot.result,
-        };
-      }
-    },
-
-    async abandonGame() {
-      if (!confirm("Voulez-vous vraiment abandonner la partie ?")) return;
->>>>>>> 63aebf3 (pseudo dans invitation, positionnement aléatoire lors du placement des bateaux)
       try {
         const res = await fetch(
           `http://localhost:8080/api/games/${this.gameId}/opponents?playerId=${this.user.id}`,
@@ -302,31 +277,12 @@ export default {
         console.error(err);
       }
     },
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 
->>>>>>> fix/retour-version
     updateGridCell(opponent, index, value) {
       // clone la grille pour éviter la mutation directe
       const newGrid = [...opponent.grid];
       newGrid[index] = value;
       opponent.grid = newGrid;
-=======
-
-    async selectCell(index) {
-      if (this.gameOver) return;
-      if (["hit", "miss", "sunk"].includes(this.opponentGrid[index])) return;
-
-      // Efface l'ancienne sélection visuelle
-      if (this.selectedCell !== null) {
-        this.opponentGrid[this.selectedCell] = "";
-      }
-
-      // Définit la nouvelle sélection
-      this.selectedCell = index;
-      this.opponentGrid[index] = "selected";
->>>>>>> 63aebf3 (pseudo dans invitation, positionnement aléatoire lors du placement des bateaux)
     },
 
     /* ----------------- Sélection & Tir ----------------- */
@@ -354,11 +310,6 @@ export default {
       console.log("[TURN ENDED] Validation du tir");
 
       let index = this.selectedCell;
-<<<<<<< HEAD
-=======
-
-      // Tir aléatoire si aucune case choisie
->>>>>>> 63aebf3 (pseudo dans invitation, positionnement aléatoire lors du placement des bateaux)
       if (index === null) {
         const available = this.currentOpponent.grid
           .map((v, i) => (v === "" ? i : null))
@@ -366,25 +317,12 @@ export default {
         if (!available.length) return;
         index = available[Math.floor(Math.random() * available.length)];
       }
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 
       // ON VERROUILLE AVANT L'ENVOI
       this.hasFiredThisTurn = true;
 
->>>>>>> fix/retour-version
       this.updateGridCell(this.currentOpponent, index, "");
       this.selectedCell = null;
-=======
-
-      // Nettoyage visuel de la sélection
-      this.opponentGrid = this.opponentGrid.map((c) => (c === "selected" ? "" : c));
-
-      // Reset sélection pour permettre un nouveau choix après le tir
-      this.selectedCell = null;
-
->>>>>>> 63aebf3 (pseudo dans invitation, positionnement aléatoire lors du placement des bateaux)
       await this.sendShoot(index);
     },
     async sendShoot(index) {
@@ -571,7 +509,6 @@ export default {
       this.popupMessage = msg;
       this.endPopup = true;
       this.gameOver = true;
-<<<<<<< HEAD
       clearInterval(this.fetchInterval);
       clearInterval(this.turnInterval);
       this.turnTimer = 8;
@@ -633,8 +570,6 @@ export default {
       } catch (err) {
         console.error(err);
       }
-=======
->>>>>>> 63aebf3 (pseudo dans invitation, positionnement aléatoire lors du placement des bateaux)
     },
 
     goHome() {
