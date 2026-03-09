@@ -110,11 +110,7 @@ export default {
     invitations() {
       return invitationStore.invitations.map((inv) => ({
         ...inv,
-<<<<<<< HEAD
         avatarUrl: inv.senderAvatar ? `data:image/jpeg;base64,${inv.senderAvatar}` : defaultAvatar,
-=======
-        avatarUrl: inv.avatarUrl || defaultAvatar,
->>>>>>> 63aebf3 (pseudo dans invitation, positionnement aléatoire lors du placement des bateaux)
       }));
     },
   },

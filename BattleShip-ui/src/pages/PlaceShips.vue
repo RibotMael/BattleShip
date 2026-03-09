@@ -290,10 +290,6 @@ export default {
       }
       return false;
     },
-<<<<<<< HEAD
-=======
-
->>>>>>> 63aebf3 (pseudo dans invitation, positionnement aléatoire lors du placement des bateaux)
     placeShipsRandomly() {
       // Reset de la grille et des bateaux
       this.grid = this.grid.map(() => ({ hasShip: false, shipId: null }));
