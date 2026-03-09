@@ -101,7 +101,7 @@ export default {
     async fetchPublicGames() {
       this.loading = true;
       try {
-        const res = await fetch("http://localhost:8080/api/games/public");
+        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/public");
         const data = await res.json();
         if (data.success) this.publicGames = data.games;
       } catch (err) {
@@ -114,7 +114,7 @@ export default {
     async refreshPublicGames() {
       this.refreshing = true;
       try {
-        const res = await fetch("http://localhost:8080/api/games/public");
+        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/public");
         const data = await res.json();
         if (data.success) this.publicGames = data.games;
       } catch (err) {
@@ -160,11 +160,14 @@ export default {
       }
 
       try {
-        const res = await fetch(`http://localhost:8080/api/games/join/${gameId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ playerId }),
-        });
+        const res = await fetch(
+          `https://battleship-api-i276.onrender.com/api/games/join/${gameId}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ playerId }),
+          },
+        );
 
         const data = await res.json();
         if (!data.success) {

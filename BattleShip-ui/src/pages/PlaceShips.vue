@@ -119,7 +119,9 @@ export default {
   methods: {
     async fetchGame() {
       try {
-        const res = await fetch(`http://localhost:8080/api/games/${this.game.ID_Game}`);
+        const res = await fetch(
+          `https://battleship-api-i276.onrender.com/api/games/${this.game.ID_Game}`,
+        );
         const data = await res.json();
         if (data.success) {
           this.game = {
@@ -242,7 +244,7 @@ export default {
       const shipsNumbers = this.grid.map((c) => (c.hasShip ? c.shipId + 1 : 0));
 
       try {
-        const res = await fetch(`http://localhost:8080/api/games/place-ships`, {
+        const res = await fetch(`https://battleship-api-i276.onrender.com/api/games/place-ships`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -270,7 +272,9 @@ export default {
 
     async checkAllPlayersReady() {
       try {
-        const res = await fetch(`http://localhost:8080/api/games/${this.game.ID_Game}`);
+        const res = await fetch(
+          `https://battleship-api-i276.onrender.com/api/games/${this.game.ID_Game}`,
+        );
         const data = await res.json();
 
         if (data.success) {

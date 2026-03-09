@@ -306,7 +306,7 @@ export default {
 
       // 2. Envoi de l'information au serveur pour que les autres joueurs la reçoivent
       try {
-        await fetch("http://localhost:8080/api/games/assign-team", {
+        await fetch("https://battleship-api-i276.onrender.com/api/games/assign-team", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -330,7 +330,7 @@ export default {
         return;
       }
       try {
-        const res = await fetch("http://localhost:8080/api/invitation", {
+        const res = await fetch("https://battleship-api-i276.onrender.com/api/invitation", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -376,7 +376,7 @@ export default {
       if (!confirm("Voulez-vous vraiment éjecter ce joueur ?")) return;
 
       try {
-        const res = await fetch("http://localhost:8080/api/games/kick", {
+        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/kick", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -396,7 +396,9 @@ export default {
 
     async fetchGame() {
       try {
-        const res = await fetch(`http://localhost:8080/api/games/${this.localGameId}`);
+        const res = await fetch(
+          `https://battleship-api-i276.onrender.com/api/games/${this.localGameId}`,
+        );
 
         // 1. Si la route renvoie 404, la partie a été supprimée par l'Host
         if (res.status === 404) {
@@ -464,7 +466,9 @@ export default {
     },
     async fetchFriends() {
       try {
-        const res = await fetch(`http://localhost:8080/api/friends/list/${this.userId}`);
+        const res = await fetch(
+          `https://battleship-api-i276.onrender.com/api/friends/list/${this.userId}`,
+        );
         const data = await res.json();
         this.friends = Array.isArray(data) ? data : [];
       } catch {
@@ -473,7 +477,9 @@ export default {
     },
     async fetchInvitations() {
       try {
-        const res = await fetch(`http://localhost:8080/api/invitation/${this.userId}`);
+        const res = await fetch(
+          `https://battleship-api-i276.onrender.com/api/invitation/${this.userId}`,
+        );
         const data = await res.json();
         this.invitationsList =
           data.success && Array.isArray(data.invitations) ? data.invitations : [];
@@ -487,7 +493,7 @@ export default {
     },
     async joinGame() {
       try {
-        const res = await fetch("http://localhost:8080/api/games/join", {
+        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/join", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ gameId: this.localGameId, playerId: this.userId }),
@@ -508,7 +514,7 @@ export default {
     async leaveRoom() {
       if (!this.game?.ID_Game) return;
       try {
-        const res = await fetch("http://localhost:8080/api/games/leave", {
+        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/leave", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ gameId: this.game.ID_Game, playerId: this.userId }),
@@ -531,7 +537,7 @@ export default {
       if (!this.canStartGame) return;
 
       try {
-        const res = await fetch("http://localhost:8080/api/games/start", {
+        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

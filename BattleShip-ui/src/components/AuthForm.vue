@@ -108,7 +108,7 @@ export default {
   methods: {
     showLegal() {
       alert(
-        `Conditions Générales d'Utilisation :\n\n- Aucun bot ni logiciel de triche n'est autorisé.\n- Le respect des autres joueurs est obligatoire.\n- Les comptes multiples sont interdits.\n- Vos statistiques (pseudo, victoires, avatar) sont publiques.`
+        `Conditions Générales d'Utilisation :\n\n- Aucun bot ni logiciel de triche n'est autorisé.\n- Le respect des autres joueurs est obligatoire.\n- Les comptes multiples sont interdits.\n- Vos statistiques (pseudo, victoires, avatar) sont publiques.`,
       );
     },
 
@@ -142,7 +142,7 @@ export default {
 
     async fetchAvatars() {
       try {
-        const res = await axios.get("http://localhost:8080/api/avatars");
+        const res = await axios.get("https://battleship-api-i276.onrender.com/api/avatars");
         console.log("Avatars reçus :", res.data);
         // la BDD doit renvoyer [{ID_Avatar, Avatar, mime_type, Name}, ...]
         this.avatars = res.data.avatars;
@@ -163,7 +163,7 @@ export default {
     async checkPseudo() {
       if (!this.pseudo.trim()) return;
       try {
-        const res = await axios.post("http://localhost:8080/api/check-pseudo", {
+        const res = await axios.post("https://battleship-api-i276.onrender.com/api/check-pseudo", {
           pseudo: this.pseudo,
         });
         if (!res.data.available) {
@@ -214,8 +214,8 @@ export default {
       };
 
       const url = this.isLogin
-        ? "http://localhost:8080/api/login"
-        : "http://localhost:8080/api/register";
+        ? "https://battleship-api-i276.onrender.com/api/login"
+        : "https://battleship-api-i276.onrender.com/api/register";
 
       try {
         const response = await axios.post(url, formData);

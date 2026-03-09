@@ -87,7 +87,7 @@ export default {
   methods: {
     async fetchAvatars() {
       try {
-        const res = await axios.get("http://localhost:8080/api/avatars");
+        const res = await axios.get("https://battleship-api-i276.onrender.com/api/avatars");
         this.avatars = res.data.avatars;
         if (this.avatar) {
           const sel = this.avatars.find((a) => a.ID_Avatar === this.avatar);
@@ -108,11 +108,14 @@ export default {
       if (this.avatar) payload.avatar = this.avatar;
 
       try {
-        const response = await fetch(`http://localhost:8080/api/users/${this.userId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+        const response = await fetch(
+          `https://battleship-api-i276.onrender.com/api/users/${this.userId}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          },
+        );
         if (!response.ok) throw new Error(await response.text());
         const updatedUser = await response.json();
         this.avatarPreviewUrl = updatedUser.avatar || defaultAvatar;
@@ -136,9 +139,12 @@ export default {
     async deleteAccount() {
       if (!confirm("Êtes-vous sûr de vouloir supprimer votre compte ?")) return;
       try {
-        const response = await fetch(`http://localhost:8080/api/users/${this.userId}`, {
-          method: "DELETE",
-        });
+        const response = await fetch(
+          `https://battleship-api-i276.onrender.com/api/users/${this.userId}`,
+          {
+            method: "DELETE",
+          },
+        );
         if (!response.ok) throw new Error(await response.text());
         localStorage.removeItem("user");
         userBus.userUpdated = !userBus.userUpdated;

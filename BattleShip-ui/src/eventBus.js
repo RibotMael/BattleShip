@@ -34,7 +34,7 @@ export function normalizeUser(user) {
 // ✅ Charger les invitations depuis le backend
 export async function fetchInvitations(userId) {
   try {
-    const res = await fetch(`http://localhost:8080/api/games/invite/${userId}`);
+    const res = await fetch(`https://battleship-api-i276.onrender.com/api/games/invite/${userId}`);
     const data = await res.json();
     if (data.success && Array.isArray(data.invitations)) {
       invitationStore.invitations = data.invitations;

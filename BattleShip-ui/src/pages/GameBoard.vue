@@ -230,7 +230,7 @@ export default {
     async fetchPlayerBoard() {
       try {
         const res = await fetch(
-          `http://localhost:8080/api/games/${this.gameId}/board?playerId=${this.user.id}`,
+          `https://battleship-api-i276.onrender.com/api/games/${this.gameId}/board?playerId=${this.user.id}`,
         );
         const data = await res.json();
         if (!data.success) return console.warn(data.message);
@@ -244,7 +244,7 @@ export default {
     async fetchOpponent() {
       try {
         const res = await fetch(
-          `http://localhost:8080/api/games/${this.gameId}/opponent?playerId=${this.user.id}`,
+          `https://battleship-api-i276.onrender.com/api/games/${this.gameId}/opponent?playerId=${this.user.id}`,
         );
         const data = await res.json();
         if (!data.success) return console.warn(data.message);
@@ -263,7 +263,7 @@ export default {
     async fetchOpponents() {
       try {
         const res = await fetch(
-          `http://localhost:8080/api/games/${this.gameId}/opponents?playerId=${this.user.id}`,
+          `https://battleship-api-i276.onrender.com/api/games/${this.gameId}/opponents?playerId=${this.user.id}`,
         );
         const data = await res.json();
         if (!data.success) return;
@@ -333,7 +333,7 @@ export default {
       const y = Math.floor(index / 10);
 
       try {
-        const res = await fetch("http://localhost:8080/api/games/shoot", {
+        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/shoot", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -408,7 +408,7 @@ export default {
     async fetchEnemyShots() {
       try {
         const res = await fetch(
-          `http://localhost:8080/api/games/${this.gameId}/shots?playerId=${this.user.id}&t=${Date.now()}`,
+          `https://battleship-api-i276.onrender.com/api/games/${this.gameId}/shots?playerId=${this.user.id}&t=${Date.now()}`,
         );
         const data = await res.json();
         if (!data.success) return;
@@ -481,7 +481,7 @@ export default {
     async checkGameStatus() {
       try {
         const res = await fetch(
-          `http://localhost:8080/api/games/${this.gameId}/status?playerId=${this.user.id}`,
+          `https://battleship-api-i276.onrender.com/api/games/${this.gameId}/status?playerId=${this.user.id}`,
         );
         const data = await res.json();
         if (!data.success) return;
@@ -517,11 +517,18 @@ export default {
     async abandonGame() {
       if (!confirm("Voulez-vous vraiment abandonner ?")) return;
       try {
-        const res = await fetch("http://localhost:8080/api/games/eliminate-player", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ gameId: this.gameId, playerId: this.user.id, reason: "abandon" }),
-        });
+        const res = await fetch(
+          "https://battleship-api-i276.onrender.com/api/games/eliminate-player",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              gameId: this.gameId,
+              playerId: this.user.id,
+              reason: "abandon",
+            }),
+          },
+        );
         const data = await res.json();
         if (!data.success) return console.warn(data.message);
         clearInterval(this.fetchInterval);
@@ -542,15 +549,18 @@ export default {
       this.playerStatus = "dead";
 
       try {
-        const res = await fetch("http://localhost:8080/api/games/eliminate-player", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            gameId: this.gameId,
-            playerId: this.user.id,
-            reason: "shot",
-          }),
-        });
+        const res = await fetch(
+          "https://battleship-api-i276.onrender.com/api/games/eliminate-player",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              gameId: this.gameId,
+              playerId: this.user.id,
+              reason: "shot",
+            }),
+          },
+        );
         const data = await res.json();
         if (!data.success) return console.warn(data.message);
 
