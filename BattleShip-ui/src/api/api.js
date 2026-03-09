@@ -3,6 +3,7 @@ import router from "@/router";
 
 const api = axios.create({
   baseURL: "https://battleship-api-i276.onrender.com/api",
+  withCredentials: true
 });
 
 // Intercepteur global
