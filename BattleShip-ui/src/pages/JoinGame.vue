@@ -74,7 +74,7 @@ export default {
   },
   computed: {
     filteredGames() {
-      // 🔹 Filtrer uniquement les parties en préparation et non-pleines
+      //   Filtrer uniquement les parties en préparation et non-pleines
       const filtered = this.publicGames
         .filter((game) => game.Status === "preparation")
         .filter((game) => game.TotalPlayers === null || game.CurrentPlayers < game.TotalPlayers)
@@ -260,7 +260,9 @@ select:focus {
   padding: 1rem;
   backdrop-filter: blur(8px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
 }
 .game-card:hover {
   transform: translateY(-6px);
@@ -318,7 +320,9 @@ p {
   font-weight: 600;
   cursor: pointer;
   margin-top: 0.6rem;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 .join-btn:hover {
   transform: scale(1.05);

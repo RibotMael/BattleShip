@@ -7,11 +7,13 @@ import GameMode from '../pages/GameMode.vue';
 import WaitingRoom from '../pages/WaitingRoom.vue';
 import PlaceShips from '../pages/PlaceShips.vue';
 import GameBoard from '../pages/GameBoard.vue';
+import Settings from '../pages/Settings.vue';
 
 const routes = [
   { path: '/', component: Home },
   { path: '/rules', component: Rules },
   { path: '/profile', component: Profile },
+  { path: '/settings', component: Settings },
   {
     path: '/gamemode',
     name: 'GameMode',

@@ -6,7 +6,7 @@ import db from "../db.js";
 
 const router = Router();
 
-// 🔹 Récupérer un utilisateur avec son avatar
+//   Récupérer un utilisateur avec son avatar
 router.get('/:id', async (req, res) => {
   const userId = req.params.id;
   const sql = `
@@ -44,7 +44,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// 🔹 Récupérer la liste des amis
+//   Récupérer la liste des amis
 router.get('/:id/list', async (req, res) => {
   const userId = req.params.id;
 
@@ -82,7 +82,7 @@ router.get('/:id/list', async (req, res) => {
   }
 });
 
-// 🔹 Modifier pseudo + avatar
+//   Modifier pseudo + avatar
 router.put('/:id', async (req, res) => {
   const userId = req.params.id;
   const { pseudo, avatar, mimeType = "image/png" } = req.body;
@@ -127,7 +127,7 @@ router.put('/:id', async (req, res) => {
       newAvatarId = oldAvatarId;
     }
 
-    // 🔹 Récupérer l’utilisateur mis à jour
+    //   Récupérer l’utilisateur mis à jour
     const [rows] = await query(`
       SELECT u.ID_Users, u.Email, u.Pseudo, u.BirthDay, u.niveau,
              a.Avatar AS avatar_blob, a.mime_type, u.Avatar AS avatarId
@@ -150,7 +150,7 @@ router.put('/:id', async (req, res) => {
       birthDay: updatedUser.BirthDay,
       niveau: updatedUser.niveau,
       avatar: avatarUrl,
-      avatarId: updatedUser.avatarId   // 🔹 On renvoie aussi l'ID
+      avatarId: updatedUser.avatarId   //   On renvoie aussi l'ID
     });
 
   } catch (err) {
@@ -159,7 +159,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// 🔹 Supprimer un utilisateur (+ son avatar lié)
+//   Supprimer un utilisateur (+ son avatar lié)
 router.delete('/:id', async (req, res) => {
   const userId = req.params.id;
 
@@ -176,7 +176,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 
-// 🔹 Vérifie si un utilisateur existe encore
+//   Vérifie si un utilisateur existe encore
 router.get("/check-user/:id", async (req, res) => {
   try {
     const { id } = req.params;

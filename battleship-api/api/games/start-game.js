@@ -16,7 +16,7 @@ router.post("/:gameId", async (req, res) => {
   }
 
   try {
-    // 🔹 Récupérer la partie + team_size
+    //   Récupérer la partie + team_size
     const [[game]] = await db.execute(
       `SELECT g.*, tm.team_size
        FROM games g

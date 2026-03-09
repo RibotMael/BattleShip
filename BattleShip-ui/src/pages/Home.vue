@@ -32,13 +32,13 @@
         <div class="menu-buttons">
           <img :src="logo" alt="Logo" class="menu-logo" />
 
-          <!-- ✅ Si on n'a pas encore cliqué sur jouer -->
+          <!-- Si on n'a pas encore cliqué sur jouer -->
           <div v-if="!showPlayOptions">
             <button class="play-button" @click="showPlayOptions = true">Jouer</button>
             <button class="rules-button" @click="showRules">Règles du jeu</button>
           </div>
 
-          <!-- ✅ Après avoir cliqué sur jouer -->
+          <!-- Après avoir cliqué sur jouer -->
           <div v-else class="play-options">
             <button class="create-button" @click="goToCreate">Créer une partie</button>
             <button class="join-button" @click="goToJoin">Rejoindre une partie</button>
@@ -118,7 +118,7 @@ export default {
       this.$router.push("/profile");
     },
     goToSettings() {
-      alert("Redirection vers les paramètres (à développer)");
+      this.$router.push("/settings");
     },
     goToCreate() {
       this.$router.push("/gamemode");
