@@ -4,7 +4,7 @@
 /*
 import { Router } from 'express';
 import { query } from '../db.js';
-import bcrypt from 'bcrypt';
+import bcryptjs from 'bcryptjs';
 
 const saltRounds = 10;
 const router = Router();
@@ -32,7 +32,7 @@ router.post('/register', async (req, res) => {
     }
 
     // Hash du mot de passe
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const hashedPassword = await bcryptjs.hash(password, saltRounds);
 
     //   Ici on utilise juste l'ID de l'avatar choisi, pas de Buffer
     const avatarId = avatar;

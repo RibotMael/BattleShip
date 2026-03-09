@@ -1,7 +1,7 @@
 // battleship-api/routes/auth.js
 import { Router } from 'express';
 import { query } from '../db.js';
-import bcrypt from 'bcrypt';
+import bcryptjs from 'bcryptjs';
 const router = Router();
 
 // -------------------- INSCRIPTION --------------------
@@ -19,7 +19,7 @@ router.post('/register', async (req, res) => {
     const [existingPseudos] = await query("SELECT ID_Users FROM users WHERE Pseudo = ?", [pseudo]);
     if (existingPseudos.length > 0) return res.status(409).json({ success: false, message: "Pseudo déjà utilisé." });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcryptjs.hash(password, 10);
 
     //On garde juste l'ID de l'avatar
     const avatarId = avatar;
@@ -54,7 +54,7 @@ router.post('/login', async (req, res) => {
     if (results.length === 0) return res.status(401).json({ success: false, message: "Email non trouvé" });
 
     const user = results[0];
-    const isPasswordValid = await bcrypt.compare(password, user.Password);
+    const isPasswordValid = await bcryptjs.compare(password, user.Password);
     if (!isPasswordValid) return res.status(401).json({ success: false, message: "Mot de passe incorrect" });
 
     await query("UPDATE users SET Online = 1 WHERE ID_Users = ?", [user.ID_Users]);

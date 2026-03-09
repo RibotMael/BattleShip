@@ -4,7 +4,7 @@
 /*
 import { Router } from 'express';
 import { query } from '../db';
-import bcrypt from 'bcrypt';
+import bcryptjs from 'bcryptjs';
 
 const router = Router();
 
@@ -25,7 +25,7 @@ router.post('/login', async (req, res) => {
 
     const user = results[0];
 
-    const isPasswordValid = await bcrypt.compare(password, user.MotDePasse);
+    const isPasswordValid = await bcryptjs.compare(password, user.MotDePasse);
     if (!isPasswordValid) {
       return res.status(401).json({ success: false, message: "Mot de passe invalide" });
     }
