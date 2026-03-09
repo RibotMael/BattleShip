@@ -9,10 +9,22 @@
 </template>
 
 <script>
+import { settingsStore } from "@/stores/settings";
+
 export default {
+  setup() {
+    return { settingsStore };
+  },
   mounted() {
     const audio = document.getElementById("background-music");
-    audio.volume = 0.5;
+    audio.volume = settingsStore.musicVolume / 100;
+
+    this.$watch(
+      () => settingsStore.musicVolume,
+      (newVal) => {
+        audio.volume = newVal / 100;
+      }
+    );
 
     const playMusic = () => {
       audio.play().catch((err) => {

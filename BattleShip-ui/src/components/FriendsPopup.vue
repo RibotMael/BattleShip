@@ -1,77 +1,93 @@
 <template>
-  <div class="popup-overlay">
+  <div class="popup-overlay" @click.self="$emit('close')">
     <div class="popup-content">
-      <h2>👥 Mes amis</h2>
+      <header class="popup-header">
+        <h2>👥 Mes amis</h2>
+        <button class="header-close" @click="$emit('close')">✕</button>
+      </header>
 
-      <!-- Liste d'amis -->
-      <div class="section">
-        <h3>Liste d'amis</h3>
-        <ul>
-          <li v-for="f in friends" :key="f.ID_Users" class="friend-card">
-            <div class="friend-left">
-              <div class="avatar">
-                <img :src="f.avatarUrl || defaultAvatar" alt="Avatar" />
-              </div>
-              <span class="status-dot" :class="f.isOnline ? 'online' : 'offline'"></span>
-              <span class="friend-pseudo">{{ f.Pseudo }}</span>
-            </div>
-            <div class="friend-right">
-              <button class="remove-button" @click="removeFriend(f.ID_Users)">✕</button>
-            </div>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Invitations reçues -->
-      <div class="section" v-if="invitations.length">
-        <h3>🎮 Invitations de partie reçues</h3>
-        <ul>
-          <li v-for="inv in invitations" :key="inv.ID" class="friend-card">
-            <div class="friend-left">
-              <div class="avatar">
-                <img :src="inv.Avatar || defaultAvatar" alt="Avatar" />
-              </div>
-              <span class="friend-pseudo">
-                Partie envoyée par {{ inv.senderPseudo || "joueur #" + inv.senderId }}
-              </span>
-            </div>
-            <div class="friend-right">
-              <button class="accept-button" @click="acceptInvitation(inv)">✓</button>
-              <button class="remove-button" @click="refuseInvitation(inv)">✕</button>
-            </div>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Ajouter un ami -->
-      <div class="section">
-        <h3>➕ Ajouter un ami</h3>
-        <div class="add-friend">
-          <input v-model="identifier" placeholder="Pseudo de l'ami" />
-          <button @click="addFriend" class="add-button">Ajouter</button>
+      <div class="section add-friend-section">
+        <div class="add-friend-wrapper">
+          <input
+            v-model="identifier"
+            placeholder="Rechercher un pseudo..."
+            @keyup.enter="addFriend"
+          />
+          <button @click="addFriend" class="add-button">
+            <span>➕</span>
+          </button>
         </div>
       </div>
 
-      <!-- Demandes d'amis reçues -->
-      <div class="section" v-if="requests.length">
-        <h3>📩 Demandes d'amis reçues</h3>
-        <ul>
-          <li v-for="r in requests" :key="r.ID_Users" class="friend-card">
-            <div class="friend-left">
-              <div class="avatar">
-                <img :src="r.avatarUrl || defaultAvatar" alt="Avatar" />
+      <div class="scroll-area">
+        <div class="section highlight" v-if="invitations.length">
+          <h3>🎮 Invitations de partie</h3>
+          <div class="card-list">
+            <div v-for="inv in invitations" :key="inv.ID" class="friend-card invite-card">
+              <div class="friend-left">
+                <div class="avatar">
+                  <img :src="inv.Avatar || defaultAvatar" alt="Avatar" />
+                </div>
+                <div class="friend-info">
+                  <span class="friend-pseudo">{{ inv.senderPseudo || "Joueur" }}</span>
+                  <span class="sub-text">t'invite à jouer !</span>
+                </div>
               </div>
-              <span class="friend-pseudo">{{ r.Pseudo }}</span>
+              <div class="friend-right">
+                <button class="action-btn accept" @click="acceptInvitation(inv)" title="Accepter">
+                  ✓
+                </button>
+                <button class="action-btn refuse" @click="refuseInvitation(inv)" title="Refuser">
+                  ✕
+                </button>
+              </div>
             </div>
-            <div class="friend-right">
-              <button class="accept-button" @click="acceptRequest(r.ID_Users)">✓</button>
-              <button class="remove-button" @click="removeFriend(r.ID_Users)">✕</button>
-            </div>
-          </li>
-        </ul>
-      </div>
+          </div>
+        </div>
 
-      <button class="close-btn" @click="$emit('close')">Fermer</button>
+        <div class="section" v-if="requests.length">
+          <h3>📩 Demandes reçues</h3>
+          <div class="card-list">
+            <div v-for="r in requests" :key="r.ID_Users" class="friend-card request-card">
+              <div class="friend-left">
+                <div class="avatar">
+                  <img :src="r.avatarUrl || defaultAvatar" alt="Avatar" />
+                </div>
+                <span class="friend-pseudo">{{ r.Pseudo }}</span>
+              </div>
+              <div class="friend-right">
+                <button class="action-btn accept" @click="acceptRequest(r.ID_Users)">✓</button>
+                <button class="action-btn refuse" @click="removeFriend(r.ID_Users)">✕</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-header">
+            <h3>Liste d'amis</h3>
+            <span class="count-badge">{{ friends.length }}</span>
+          </div>
+          <div class="card-list">
+            <div v-for="f in friends" :key="f.ID_Users" class="friend-card">
+              <div class="friend-left">
+                <div class="avatar-container">
+                  <div class="avatar">
+                    <img :src="f.avatarUrl || defaultAvatar" alt="Avatar" />
+                  </div>
+                  <span class="status-indicator" :class="f.isOnline ? 'online' : 'offline'"></span>
+                </div>
+                <span class="friend-pseudo" :class="{ 'is-offline': !f.isOnline }">{{
+                  f.Pseudo
+                }}</span>
+              </div>
+              <div class="friend-right">
+                <button class="remove-link" @click="removeFriend(f.ID_Users)">Supprimer</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -246,180 +262,253 @@ export default {
 </script>
 
 <style scoped>
+/* Overlay avec flou gaussien */
 .popup-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  inset: 0;
+  background: rgba(5, 15, 25, 0.85);
+  backdrop-filter: blur(8px);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 999;
-  padding: 1rem;
+  z-index: 1000;
+  padding: 20px;
 }
 
+/* Container style "Cyber/Space" */
 .popup-content {
-  background: linear-gradient(145deg, #0f2a3d, #1b3b57);
-  padding: 2rem;
-  border-radius: 15px;
+  background: #121c26;
+  background: linear-gradient(160deg, #162431 0%, #0d141d 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
   width: 100%;
-  max-width: 500px;
-  color: #fff;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  overflow-y: auto;
-  max-height: 90vh;
+  max-width: 450px;
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+  color: #e0e6ed;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
 }
 
-.popup-content h2 {
-  font-size: 2rem;
-  margin-bottom: 1rem;
-  text-align: center;
-  text-shadow: 1px 1px 4px #000;
+/* Header fixe */
+.popup-header {
+  padding: 20px 25px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.section {
-  margin-bottom: 1.8rem;
-}
-
-.section h3 {
-  font-size: 1.3rem;
-  margin-bottom: 0.5rem;
-  color: #ffd700;
-  text-shadow: 1px 1px 2px #000;
-}
-
-ul {
-  list-style: none;
-  padding: 0;
+.popup-header h2 {
   margin: 0;
+  font-size: 1.4rem;
+  letter-spacing: 0.5px;
 }
 
+.header-close {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.header-close:hover {
+  color: #fff;
+}
+
+/* Barre de recherche / Ajout */
+.add-friend-wrapper {
+  display: flex;
+  background: rgba(0, 0, 0, 0.2);
+  margin: 15px 25px;
+  padding: 5px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.add-friend-wrapper input {
+  background: none;
+  border: none;
+  padding: 10px 15px;
+  color: white;
+  flex: 1;
+  outline: none;
+}
+
+.add-button {
+  background: #3b82f6;
+  color: white;
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.add-button:hover {
+  background: #2563eb;
+  transform: scale(1.05);
+}
+
+/* Zone de scroll */
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 25px 25px;
+}
+
+.scroll-area::-webkit-scrollbar {
+  width: 5px;
+}
+.scroll-area::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+/* Sections et Titres */
+.section {
+  margin-bottom: 25px;
+}
+.section h3 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  color: #94a3b8;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.count-badge {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+}
+
+/* Cartes d'amis */
 .friend-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 0.5rem 1rem;
-  border-radius: 10px;
-  margin-bottom: 0.5rem;
-  transition: transform 0.2s, background 0.2s;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
 }
+
 .friend-card:hover {
-  transform: translateY(-2px);
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.07);
+  transform: translateX(5px);
 }
 
-.friend-left {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.invite-card {
+  border-left: 3px solid #fbbf24;
+  background: rgba(251, 191, 36, 0.05);
 }
 
-/* Avatars petits et ronds */
+/* Avatars et Status */
+.avatar-container {
+  position: relative;
+}
+
 .avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #1e293b;
   overflow: hidden;
-  border: 2px solid #fff;
-  flex-shrink: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.status-indicator {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
+  border: 2px solid #121c26;
 }
 
-.friend-pseudo {
-  font-weight: 500;
+.status-indicator.online {
+  background: #22c55e;
+  box-shadow: 0 0 10px #22c55e;
+}
+.status-indicator.offline {
+  background: #64748b;
 }
 
+.friend-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sub-text {
+  font-size: 0.75rem;
+  color: #fbbf24;
+}
+
+.is-offline {
+  color: #64748b;
+}
+
+/* Boutons d'action */
 .friend-right {
   display: flex;
-  gap: 0.4rem;
+  gap: 8px;
+  align-items: center;
 }
 
-button {
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: all 0.2s;
-}
-
-.accept-button {
-  background-color: #28a745;
-  color: white;
+.action-btn {
   width: 32px;
   height: 32px;
-}
-.accept-button:hover {
-  background-color: #218838;
-}
-
-.remove-button {
-  background-color: #e74c3c;
-  color: white;
-  width: 32px;
-  height: 32px;
-}
-.remove-button:hover {
-  background-color: #c0392b;
-}
-
-.add-friend {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-.add-friend input {
-  flex: 1;
-  padding: 0.5rem;
   border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: none;
-  outline: none;
-}
-.add-button {
-  background-color: #1f78b4;
+  cursor: pointer;
   color: white;
-  padding: 0.5rem 1rem;
-}
-.add-button:hover {
-  background-color: #145d89;
+  transition: opacity 0.2s;
 }
 
-.status-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-  border: 1px solid #fff;
+.action-btn.accept {
+  background: #22c55e;
 }
-.status-dot.online {
-  background-color: #28a745;
+.action-btn.refuse {
+  background: #ef4444;
 }
-.status-dot.offline {
-  background-color: #e74c3c;
+.action-btn:hover {
+  opacity: 0.8;
 }
 
-.close-btn {
-  margin-top: 1rem;
-  width: 100%;
-  padding: 0.6rem;
-  font-weight: bold;
-  background-color: #555;
-  color: white;
-  border-radius: 10px;
+.remove-link {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 5px;
 }
-.close-btn:hover {
-  background-color: #333;
+
+.remove-link:hover {
+  color: #ef4444;
+  text-decoration: underline;
 }
 </style>

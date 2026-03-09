@@ -9,7 +9,7 @@
     </div>
 
     <div class="main-layout">
-      <!-- 🗺️ Grille du joueur -->
+      <!-- Grille du joueur -->
       <div class="player-grid">
         <h2>Votre grille</h2>
         <div class="grid" @mouseleave="hoverCells = []">
@@ -28,7 +28,7 @@
         <button class="random-btn" @click="placeShipsRandomly">🎲 Placer aléatoirement</button>
       </div>
 
-      <!-- ⚓ Flotte -->
+      <!-- Flotte -->
       <div class="side-panel">
         <h2>Flotte</h2>
         <div class="fleet-list">
@@ -88,7 +88,7 @@ export default {
       return this.remainingShips === 0;
     },
     isFrenchMode() {
-      return this.game.mode === "fr"; // 🇫🇷 pour interdire les bateaux qui se touchent
+      return this.game.mode === "fr";
     },
     readyCount() {
       return this.readyPlayers.length;
@@ -100,11 +100,11 @@ export default {
     this.game.ID_Game = Number(this.gameId);
 
     this.fetchGame().then((data) => {
-      if (data.mode) this.game.mode = data.mode; // ✅ récupération du mode depuis le backend
+      if (data.mode) this.game.mode = data.mode; // récupération du mode depuis le backend
       this.fleet = (data.fleet || []).map((ship) => ({ ...ship, placed: false }));
     });
 
-    // 🔹 Vérification périodique si tous les joueurs sont prêts
+    //   Vérification périodique si tous les joueurs sont prêts - à faire en socket.io
     this.readyInterval = setInterval(async () => {
       const allReady = await this.checkAllPlayersReady();
       if (allReady) {
@@ -231,7 +231,7 @@ export default {
       if (cell.hasShip) return "ship";
       if (this.hoverCells.includes(index))
         return this.invalidPreview ? "preview invalid" : "preview";
-      if (this.selectedCell === index) return "selected"; // ✅ nouvelle classe
+      if (this.selectedCell === index) return "selected";
       return "";
     },
 
@@ -248,13 +248,12 @@ export default {
           body: JSON.stringify({
             gameId: this.game.ID_Game,
             playerId: this.userId,
-            ships: shipsNumbers, // ⚡ tableau avec chiffres représentant chaque bateau
+            ships: shipsNumbers, // tableau avec chiffres représentant chaque bateau
             mode: this.game.mode,
           }),
         });
         const data = await res.json();
         if (data.success) {
-          alert("✅ Placement validé !");
           const allReady = await this.checkAllPlayersReady();
           if (allReady) {
             this.$router.push({ name: "GameBoard", params: { gameId: this.game.ID_Game } });
@@ -275,15 +274,15 @@ export default {
         const data = await res.json();
 
         if (data.success) {
-          // ✅ MET À JOUR LE STATE LOCAL
+          // MET À JOUR LE STATE LOCAL
           this.readyPlayers = data.players.filter((p) => p.validated);
 
-          // ✅ Battle Royale
+          // Battle Royale
           if (this.game.mode === "battle_royale") {
             return this.readyPlayers.length === data.players.length;
           }
 
-          // 🎮 Mode classique
+          // Mode classique
           return this.readyPlayers.length === this.game.TotalPlayers;
         }
       } catch (err) {

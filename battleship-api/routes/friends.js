@@ -3,7 +3,7 @@ import { query } from "../db.js";
 
 const router = express.Router();
 
-// 🔹 Ajouter un ami par pseudo ou email
+//   Ajouter un ami par pseudo ou email
 router.post("/add", async (req, res) => {
   const { userId, identifier } = req.body;
   console.log("[FRIENDS] POST /add", req.body);
@@ -66,7 +66,7 @@ router.post("/add", async (req, res) => {
   }
 });
 
-// 🔹 Accepter une demande
+//   Accepter une demande
 router.post("/accept", async (req, res) => {
   const { userId, friendId } = req.body;
   console.log("[FRIENDS] POST /accept", req.body);
@@ -90,18 +90,24 @@ router.post("/accept", async (req, res) => {
   }
 });
 
-// 🔹 Liste des amis acceptés
+//   Liste des amis acceptés
 router.get("/list/:userId", async (req, res) => {
   const { userId } = req.params;
-  console.log("[FRIENDS] GET /list/:userId", userId);
 
   try {
     const [results] = await query(
-      `SELECT u.ID_Users AS id, u.Pseudo AS pseudo, u.Online, u.Avatar
+      `SELECT 
+          u.ID_Users AS id,
+          u.Pseudo AS pseudo,
+          u.Online,
+          a.Avatar AS avatar_blob,
+          a.mime_type
        FROM friends f
        JOIN users u 
          ON (u.ID_Users = f.Sender_ID AND f.Receiver_ID = ?) 
          OR (u.ID_Users = f.Receiver_ID AND f.Sender_ID = ?)
+       LEFT JOIN avatar a 
+         ON u.Avatar = a.ID_Avatar
        WHERE f.Status='Accepted'`,
       [userId, userId]
     );
@@ -109,11 +115,13 @@ router.get("/list/:userId", async (req, res) => {
     const friends = results.map(r => ({
       ID_Users: r.id,
       Pseudo: r.pseudo,
-      avatar: r.Avatar ? `data:image/png;base64,${r.Avatar}` : null,
+      Avatar: r.avatar_blob
+        ? r.avatar_blob.toString("base64")
+        : null,
+      mime_type: r.mime_type || "image/png",
       isOnline: r.Online === 1
     }));
 
-    console.log(`[FRIENDS] ${friends.length} amis pour user ${userId}`);
     res.json(friends);
   } catch (err) {
     console.error("Erreur SQL friends/list:", err);
@@ -121,16 +129,23 @@ router.get("/list/:userId", async (req, res) => {
   }
 });
 
-// 🔹 Liste des demandes reçues
+//   Liste des demandes reçues
 router.get("/requests/:userId", async (req, res) => {
   const { userId } = req.params;
-  console.log("[FRIENDS] GET /requests/:userId", userId);
 
   try {
     const [results] = await query(
-      `SELECT f.ID_Friends AS requestId, u.ID_Users AS id, u.Pseudo AS pseudo, u.Online, u.Avatar
+      `SELECT 
+          f.ID_Friends AS requestId,
+          u.ID_Users AS id,
+          u.Pseudo AS pseudo,
+          u.Online,
+          a.Avatar AS avatar_blob,
+          a.mime_type
        FROM friends f
        JOIN users u ON u.ID_Users = f.Sender_ID
+       LEFT JOIN avatar a 
+         ON u.Avatar = a.ID_Avatar
        WHERE f.Receiver_ID=? AND f.Status='Pending'`,
       [userId]
     );
@@ -139,11 +154,13 @@ router.get("/requests/:userId", async (req, res) => {
       requestId: r.requestId,
       ID_Users: r.id,
       Pseudo: r.pseudo,
-      avatar: r.Avatar ? `data:image/png;base64,${r.Avatar}` : null,
+      Avatar: r.avatar_blob
+        ? r.avatar_blob.toString("base64")
+        : null,
+      mime_type: r.mime_type || "image/png",
       isOnline: r.Online === 1
     }));
 
-    console.log(`[FRIENDS] ${requests.length} demandes reçues pour user ${userId}`);
     res.json(requests);
   } catch (err) {
     console.error("Erreur SQL friends/requests:", err);
@@ -151,7 +168,7 @@ router.get("/requests/:userId", async (req, res) => {
   }
 });
 
-// 🔹 Supprimer un ami
+//   Supprimer un ami
 router.post("/remove", async (req, res) => {
   const { userId, friendId } = req.body;
   console.log("[FRIENDS] POST /remove", req.body);

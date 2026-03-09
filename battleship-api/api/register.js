@@ -34,7 +34,7 @@ router.post('/register', async (req, res) => {
     // Hash du mot de passe
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // 🔹 Ici on utilise juste l'ID de l'avatar choisi, pas de Buffer
+    //   Ici on utilise juste l'ID de l'avatar choisi, pas de Buffer
     const avatarId = avatar;
 
     // Insertion utilisateur

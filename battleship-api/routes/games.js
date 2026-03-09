@@ -7,7 +7,7 @@ import { io } from "../index.js";
 
 const router = express.Router();
 
-// 🔹 Récupérer les parties publiques disponibles
+//   Récupérer les parties publiques disponibles
 router.get("/public", async (req, res) => {
   try {
     const [games] = await db.query(`
@@ -34,7 +34,7 @@ router.get("/public", async (req, res) => {
 
 
     const normalizedGames = games.map((g) => {
-  // Langue
+  // Mode Fr ou Be
   let langKey = "fr";
   const rawLang = (g.VersionName || "fr").toLowerCase();
   if (rawLang.startsWith("fr")) langKey = "fr";
@@ -77,7 +77,7 @@ router.get("/public", async (req, res) => {
   }
 });
 
-// 🔹 Créer une partie
+//   Créer une partie
 router.post("/create", async (req, res) => {
   const { hostId, id_game_mode, id_game_type, id_team_mode, id_version, totalPlayers } = req.body;
 
@@ -86,10 +86,9 @@ router.post("/create", async (req, res) => {
   }
 
   try {
-    // 🔹 Calcul du totalPlayers final selon le mode
+    //   Calcul du totalPlayers final selon le mode
     let totalPlayersFinal;
     if (id_game_type === 1) {
-      // Battle Royale ou type 1 → flexible, min 2
       totalPlayersFinal = null;
     } else {
       switch (id_team_mode) {
@@ -101,7 +100,7 @@ router.post("/create", async (req, res) => {
       }
     }
 
-    // 🔹 Créer la partie
+    //   Créer la partie
     const [result] = await db.execute(
       `INSERT INTO games (id_creator, id_game_mode, id_game_type, id_team_mode, id_version, status)
       VALUES (?, ?, ?, ?, ?, 'preparation')`,
@@ -109,7 +108,7 @@ router.post("/create", async (req, res) => {
     );
     const gameId = result.insertId;
 
-    // 🔹 Ajouter l’hôte à game_players avec player_status correct
+    //   Ajouter l’hôte à game_players avec player_status correct
     await db.execute(
       "INSERT INTO game_players (id_game, id_player, player_status) VALUES (?, ?, 'in_game')",
       [gameId, hostId]
@@ -147,14 +146,15 @@ router.post("/create", async (req, res) => {
   }
 });
 
-// 🔹 Rejoindre une partie
+//   Rejoindre une partie
 router.post("/join", async (req, res) => {
+  console.log("📩 Requête reçue sur /join :", req.body);
   const { gameId, playerId } = req.body;
   if (!gameId || !playerId) return res.status(400).json({ success: false, message: "Paramètres manquants" });
 
   try {
     const [games] = await db.execute("SELECT * FROM games WHERE id_Game = ?", [gameId]);
-    // 🔍 Récupérer la langue à partir de la version
+    // Récupérer la langue à partir de la version
     const [versionRows] = await db.execute("SELECT name FROM version WHERE id_Version = ?", [games[0].id_version]);
     const rawLang = versionRows.length ? versionRows[0].name.toLowerCase() : "french";
     let langKey;
@@ -180,7 +180,7 @@ router.post("/join", async (req, res) => {
   }
 });
 
-// 🔹 Récupérer une partie
+//   Récupérer une partie
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -195,14 +195,18 @@ router.get("/:id", async (req, res) => {
 
     // Récupération des joueurs
     const [players] = await db.execute(
-      `SELECT gp.id_player AS ID_Users, u.Pseudo, u.Avatar,
-              IFNULL(pb.validated, 0) AS validated
-      FROM game_players gp
-      JOIN users u ON u.ID_Users = gp.id_player
-      LEFT JOIN player_boards pb ON pb.game_id = gp.id_game AND pb.player_id = gp.id_player
-      WHERE gp.id_game = ?`,
-      [id]
-    );
+    `SELECT 
+      gp.id_player AS ID_Users, 
+      u.Pseudo, 
+      u.Avatar,
+      gp.team_number AS team,  -- On récupère le numéro d'équipe ici
+      IFNULL(pb.validated, 0) AS validated
+    FROM game_players gp
+    JOIN users u ON u.ID_Users = gp.id_player
+    LEFT JOIN player_boards pb ON pb.game_id = gp.id_game AND pb.player_id = gp.id_player
+    WHERE gp.id_game = ?`,
+    [id]
+  );
 
 
     // Calcul du nombre total de joueurs selon le mode
@@ -212,7 +216,7 @@ router.get("/:id", async (req, res) => {
       case 2: totalPlayers = 4; break;
       case 3: totalPlayers = 6; break;
       case 4: totalPlayers = 8; break;
-      case 5: totalPlayers = null; break; // Battle Royale → nombre illimité
+      case 5: totalPlayers = null; break;
       default: totalPlayers = 2;
     }
 
@@ -225,23 +229,63 @@ router.get("/:id", async (req, res) => {
     else langKey = "fr";
 
     const fleet = fleetsByVersion[langKey] || fleetsByVersion.fr;
-    //console.log(`🌍 [GET GAME] Version SQL="${language}" → clé="${langKey}" → ${fleet.length} bateaux`);
-
 
     res.json({
-      success: true,
-      game: { ...game, TotalPlayers: totalPlayers, language },
-      players,
-      fleet,
-      mode: langKey,
-    });
+    success: true,
+    game: { 
+      ...game, 
+      ID_Game: game.id_Game, 
+      TotalPlayers: totalPlayers, 
+      language 
+    },
+    players,
+    fleet,
+    mode: langKey,
+  });
   } catch (err) {
     console.error("❌ Erreur get-game:", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
 
-// 🔹 Lancer la partie
+router.post("/kick", async (req, res) => {
+  const { gameId, hostId, targetPlayerId } = req.body;
+
+  try {
+    // 1. Vérifier que c'est bien l'host qui fait la demande
+    const [game] = await db.execute("SELECT id_creator FROM games WHERE id_Game = ?", [gameId]);
+    if (!game.length || Number(game[0].id_creator) !== Number(hostId)) {
+      return res.status(403).json({ success: false, message: "Action non autorisée" });
+    }
+
+    // 2. Supprimer le joueur cible
+    await db.execute("DELETE FROM game_players WHERE id_game = ? AND id_player = ?", [gameId, targetPlayerId]);
+
+    res.json({ success: true, message: "Joueur éjecté" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Erreur lors de l'expulsion" });
+  }
+});
+
+// POST /api/games/assign-team
+router.post("/assign-team", async (req, res) => {
+  const { gameId, playerId, team } = req.body;
+
+  try {
+    // On met à jour le team_number dans la table game_players
+    await db.execute(
+      "UPDATE game_players SET team_number = ? WHERE id_game = ? AND id_player = ?",
+      [team, gameId, playerId]
+    );
+
+    res.json({ success: true, message: "Équipe mise à jour" });
+  } catch (err) {
+    console.error("Erreur assign-team:", err);
+    res.status(500).json({ success: false, message: "Erreur lors de l'assignation" });
+  }
+});
+
+//   Lancer la partie
 router.post("/start", async (req, res) => {
   const { gameId, userId } = req.body;
   try {
@@ -254,10 +298,10 @@ router.post("/start", async (req, res) => {
 
     const [players] = await db.execute("SELECT * FROM game_players WHERE id_game = ?", [gameId]);
 
-    // 🔹 Minimum requis selon mode
+    //   Minimum requis selon mode
     let minPlayers;
     if (game.id_game_type === 1) {
-      minPlayers = 2; // Battle Royale
+      minPlayers = 2; 
     } else {
       switch (game.id_team_mode) {
         case 1: minPlayers = 2; break;
@@ -285,7 +329,7 @@ router.post("/start", async (req, res) => {
   }
 });
 
-// 🔹 Quitter ou supprimer la partie
+//   Quitter ou supprimer la partie
 router.post("/leave", async (req, res) => {
   const { gameId, playerId } = req.body;
   if (!gameId || !playerId) return res.status(400).json({ success: false, message: "Paramètres manquants" });
@@ -354,7 +398,7 @@ router.post("/leave", async (req, res) => {
   }
 });
 
-// 🔹 Supprimer la partie (seul l’hôte)
+//   Supprimer la partie (seul l’hôte)
 router.delete("/delete/:gameId", async (req, res) => {
   const { gameId } = req.params;
   const playerId = Number(req.query.playerId);
@@ -380,50 +424,77 @@ router.delete("/delete/:gameId", async (req, res) => {
   }
 });
 
-// 🔹 Enregistrer le placement des bateaux
+//   Enregistrer le placement des bateaux
 router.post("/place-ships", async (req, res) => {
   console.log("🚀 Route /place-ships appelée", req.body);
   const { gameId, playerId, ships, mode } = req.body;
 
   if (!gameId || !playerId || !Array.isArray(ships)) {
-    return res.status(400).json({ success: false, message: "Paramètres manquants ou invalides" });
+    return res.status(400).json({ success: false, message: "Paramètres invalides" });
   }
 
   try {
-    // ✅ On reformate la grille 1D (100 cases) en 10x10
     const board2D = [];
     for (let y = 0; y < 10; y++) {
       board2D.push(ships.slice(y * 10, (y + 1) * 10));
     }
-
-    // ✅ Conversion en JSON
     const boardJson = JSON.stringify(board2D);
 
-    // ✅ On enregistre ou met à jour l’entrée pour ce joueur et cette partie
+    // 1. Sauvegarde du plateau
     const [existing] = await db.execute(
       "SELECT id FROM player_boards WHERE game_id = ? AND player_id = ?",
       [gameId, playerId]
     );
 
     if (existing.length) {
-      // Mise à jour si déjà existant
       await db.execute(
         "UPDATE player_boards SET board_json = ?, validated = 1 WHERE game_id = ? AND player_id = ?",
         [boardJson, gameId, playerId]
       );
-      console.log(`♻️ [UPDATE BOARD] game=${gameId}, player=${playerId}`);
     } else {
-      // Insertion sinon
       await db.execute(
         "INSERT INTO player_boards (game_id, player_id, board_json, validated) VALUES (?, ?, ?, 1)",
         [gameId, playerId, boardJson]
       );
-      console.log(`💾 [SAVE BOARD] game=${gameId}, player=${playerId}`);
     }
+
+    // 2. NOUVEAU : Vérifier si c'est le dernier joueur à valider
+    const [readyRows] = await db.execute(
+      "SELECT COUNT(DISTINCT player_id) as count FROM player_boards WHERE game_id = ? AND validated = 1",
+      [gameId]
+    );
+    const readyCount = readyRows[0].count;
+
+    const [totalRows] = await db.execute(
+      "SELECT COUNT(DISTINCT id_player) as count FROM game_players WHERE id_game = ?",
+      [gameId]
+    );
+    let totalPlayers = totalRows[0].count;
+    if (totalPlayers < 2) totalPlayers = 2; // Sécurité
+
+    // 3. NOUVEAU : Si tout le monde est prêt, Node.js démarre officiellement la partie !
+    if (readyCount >= totalPlayers) {
+      const now = Math.floor(Date.now() / 1000); // Timestamp UNIX comme en PHP
+      
+      await db.execute(`
+        UPDATE games 
+        SET status = 'in_progress', current_round = 1, last_turn_timestamp = ? 
+        WHERE id_Game = ?
+      `, [now, gameId]);
+      
+      await db.execute(
+        "UPDATE game_players SET player_status = 'in_game' WHERE id_game = ?", 
+        [gameId]
+      );
+      
+      console.log(`⚔️ [GAME START] La partie ${gameId} est officiellement lancée par Node.js !`);
+    }
+
+    res.json({ success: true, message: "Bateaux validés avec succès !" });
 
   } catch (err) {
     console.error("❌ [PLACE SHIPS ERROR]", err);
-    res.status(500).json({ success: false, message: "Erreur serveur lors de l'enregistrement." });
+    res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
 
@@ -462,7 +533,7 @@ router.post("/shoot", async (req, res) => {
   let gameOver = false;
 
   try {
-    // 1️⃣ Vérifier si la case a déjà été tirée par ce joueur
+    // Vérifier si la case a déjà été tirée par ce joueur
     const [existingShots] = await db.query(
       "SELECT result, state FROM shots WHERE id_game=? AND target_x=? AND target_y=? AND target_id=? AND id_player=?",
       [gameId, x, y, targetId, playerId]
@@ -476,7 +547,7 @@ router.post("/shoot", async (req, res) => {
       });
     }
 
-    // 2️⃣ Récupérer la grille du joueur ciblé
+    // Récupérer la grille du joueur ciblé
     const [rows] = await db.query(
       "SELECT board_json FROM player_boards WHERE game_id=? AND player_id=?",
       [gameId, targetId]
@@ -487,13 +558,13 @@ router.post("/shoot", async (req, res) => {
     const cellValue = board[y][x];
     finalResult = cellValue > 0 ? "hit" : "miss";
 
-    // 3️⃣ Insérer le tir
+    // Insérer le tir
     await db.query(
       "INSERT INTO shots (id_game, id_player, target_id, target_x, target_y, result, state) VALUES (?, ?, ?, ?, ?, ?, 'resolved')",
       [gameId, playerId, targetId, x, y, finalResult]
     );
 
-    // 4️⃣ Si hit, vérifier si le bateau est coulé
+    // Si hit, vérifier si le bateau est coulé
     if (finalResult === "hit") {
       const targetValue = board[y][x];
       board.forEach((row, rowIdx) =>
@@ -510,7 +581,7 @@ router.post("/shoot", async (req, res) => {
       );
 
       if (hits[0].hitCount >= positions.length) {
-        // ✅ Bateau coulé
+        // Bateau coulé
         await db.query(
           `UPDATE shots SET result='sunk'
            WHERE id_game=? AND target_id=? AND id_player=? AND result IN ('hit','sunk')
@@ -521,7 +592,7 @@ router.post("/shoot", async (req, res) => {
       }
     }
 
-    // 5️⃣ Vérifier si tous les bateaux sont coulés
+    // Vérifier si tous les bateaux sont coulés
     const totalShipCells = board.flat().filter(c => c > 0).length;
     const [[{ sunkCount }]] = await db.query(
       "SELECT COUNT(*) AS sunkCount FROM shots WHERE id_game=? AND target_id=? AND id_player=? AND result='sunk'",
@@ -533,7 +604,7 @@ router.post("/shoot", async (req, res) => {
       await db.query("UPDATE games SET status='finished', winner_id=? WHERE id_Game=?", [playerId, gameId]);
     }
 
-    // 6️⃣ Émettre le tir à tous les joueurs
+    // Émettre le tir à tous les joueurs
     io.to(gameId).emit("shot-fired", {
       shooterId: playerId,
       targetId,
@@ -565,55 +636,51 @@ router.get("/:gameId/shots", async (req, res) => {
   const { gameId } = req.params;
   const playerId = Number(req.query.playerId);
 
-  if (!gameId || !playerId) {
-    return res.status(400).json({ success: false, message: "Paramètres manquants" });
-  }
-
   try {
-    // 1️⃣ Récupérer tous les tirs pour ce jeu
     const [shots] = await db.query(
-      `SELECT id_player, target_id, target_x AS x, target_y AS y, result, state
+      `SELECT id_player, target_id, target_x, target_y, result, state
        FROM shots
        WHERE id_game = ?`,
       [gameId]
     );
 
-    // 2️⃣ Reconstruire les positions pour les tirs "sunk"
     const enhancedShots = await Promise.all(
       shots.map(async (s) => {
-        if (s.result === "sunk") {
-          const targetPlayerId = s.target_id;
+        // Conversion explicite en nombre pour éviter les bugs de concaténation (ex: "5"+"5" = "55")
+        const shot = {
+          ...s,
+          target_x: Number(s.target_x),
+          target_y: Number(s.target_y),
+          id_player: Number(s.id_player),
+          target_id: Number(s.target_id)
+        };
+
+        if (shot.result === "sunk") {
           const [rows] = await db.query(
             "SELECT board_json FROM player_boards WHERE game_id = ? AND player_id = ?",
-            [gameId, targetPlayerId]
+            [gameId, shot.target_id]
           );
 
-          if (!rows.length) return s;
-
-          const board = JSON.parse(rows[0].board_json);
-          const cellValue = board[s.y][s.x]; // valeur du bateau touché
-          const positions = [];
-
-          board.forEach((row, yIdx) =>
-            row.forEach((cell, xIdx) => {
-              if (cell === cellValue && cell > 0) positions.push({ x: xIdx, y: yIdx });
-            })
-          );
-
-          return { ...s, positions };
+          if (rows.length) {
+            const board = JSON.parse(rows[0].board_json);
+            const cellValue = board[shot.target_y][shot.target_x];
+            const positions = [];
+            board.forEach((row, yIdx) =>
+              row.forEach((cell, xIdx) => {
+                if (cell === cellValue && cell > 0) positions.push({ x: xIdx, y: yIdx });
+              })
+            );
+            shot.positions = positions;
+          }
         }
-
-        return s;
+        return shot;
       })
     );
 
-    // 3️⃣ Séparer incomingShots et playerShots
     const incomingShots = enhancedShots.filter(s => s.target_id === playerId);
     const playerShots = enhancedShots.filter(s => s.id_player === playerId);
 
-    // 4️⃣ Retourner les données
     res.json({ success: true, incomingShots, playerShots });
-
   } catch (err) {
     console.error("❌ Erreur /shots :", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
@@ -658,9 +725,7 @@ router.post("/eliminate-player", async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // 1️⃣ Mettre à jour le statut du joueur
     const newStatus = reason === "abandon" ? "left" : "dead";
-    // Mettre à jour le statut du joueur
     const [update] = await conn.query(
       `UPDATE game_players
       SET player_status = ?
@@ -668,17 +733,14 @@ router.post("/eliminate-player", async (req, res) => {
       [newStatus, gameId, playerId]
     );
 
-
-    // Même si déjà mort, on continue pour vérifier la fin de partie
-
-    // 2️⃣ Récupérer type de partie et joueurs restants
+    // Récupérer type de partie et joueurs restants
     const [[game]] = await conn.query(`
       SELECT t.name AS game_type
       FROM games g
       JOIN type t ON t.id_Type = g.id_game_type
       WHERE g.id_Game = ?`, [gameId]);
 
-    // 2️⃣ Récupérer les joueurs encore en vie
+    // Récupérer les joueurs encore en vie
     const [players] = await conn.query(
       "SELECT id_player, player_status FROM game_players WHERE id_game = ?",
       [gameId]
@@ -690,7 +752,7 @@ router.post("/eliminate-player", async (req, res) => {
     let winnerId = null;
     let isDraw = false;
 
-    // ⚖️ ÉGALITÉ
+    // ÉGALITÉ
     if (alivePlayers.length === 0) {
       finished = true;
       isDraw = true;
@@ -701,7 +763,7 @@ router.post("/eliminate-player", async (req, res) => {
       );
     }
 
-    // 🏆 DERNIER SURVIVANT
+    // DERNIER SURVIVANT
     else if (alivePlayers.length === 1) {
       finished = true;
       winnerId = alivePlayers[0].id_player;
@@ -714,7 +776,7 @@ router.post("/eliminate-player", async (req, res) => {
 
     await conn.commit();
 
-    // 4️⃣ Envoyer événements Socket.io
+    // Envoyer événements Socket.io
     if (finished) {
       io.to(gameId).emit("game-over", {
         winnerId,
@@ -746,7 +808,7 @@ router.post("/eliminate-player", async (req, res) => {
   }
 });
 
-// 📍 Vérifie si la partie est terminée et qui a gagné
+// Vérifie si la partie est terminée et qui a gagné
 router.get("/:id/status", async (req, res) => {
   const gameId = req.params.id;
   const playerId = Number(req.query.playerId);
@@ -765,9 +827,9 @@ router.get("/:id/status", async (req, res) => {
 
     const game = gameRows[0];
 
-    // 🔹 Mapper id_game_mode en string
+    //   Mapper id_game_mode en string
     let mode = "1v1"; // valeur par défaut
-    if (game.id_game_mode === 2) mode = "battle_royale"; // adapte selon ton id_mode Battle Royale
+    if (game.id_game_mode === 2) mode = "battle_royale"; // adapte selon l'id_mode Battle Royale
     game.mode = mode;
 
 
@@ -801,7 +863,7 @@ router.get("/:id/status", async (req, res) => {
 
       const alivePlayers = players.filter(p => p.player_status === "in_game");
 
-      // ⚖️ ÉGALITÉ
+      // ÉGALITÉ
       if (alivePlayers.length === 0) {
         await db.query(
           "UPDATE games SET status = 'finished', winner_id = NULL WHERE id_Game = ?",
@@ -817,7 +879,7 @@ router.get("/:id/status", async (req, res) => {
         });
       }
 
-      // 🏆 VICTOIRE
+      // VICTOIRE
       if (alivePlayers.length === 1) {
         const winnerId = alivePlayers[0].id_player;
 
@@ -839,7 +901,6 @@ router.get("/:id/status", async (req, res) => {
     }
 
     // --- 3. Partie classique 1v1 ---
-    // Si mode 1v1 et status != finished, alors partie en cours
     return res.json({ success: true, finished: false });
 
   } catch (err) {
@@ -858,13 +919,13 @@ router.post("/join/:id", async (req, res) => {
   }
 
   try {
-    // 🔹 Récupérer la partie quel que soit son statut
+    // Récupérer la partie quel que soit son statut
     const [gameRows] = await db.query(`SELECT * FROM games WHERE id_Game = ?`, [gameId]);
     if (!gameRows.length) return res.status(404).json({ success: false, message: "Partie introuvable" });
 
     const game = gameRows[0];
 
-    // 🔹 Vérifier si le joueur est déjà dans la partie
+    // Vérifier si le joueur est déjà dans la partie
     const [existingRows] = await db.query(
       `SELECT * FROM game_players WHERE id_player = ? AND id_game = ?`,
       [playerId, gameId]
@@ -882,13 +943,13 @@ router.post("/join/:id", async (req, res) => {
         message: "Vous êtes déjà dans la partie",
         game: {
           ID_Game: game.id_Game,
-          status: game.status, // 🔹 garder le statut existant
+          status: game.status, //   garder le statut existant
           id_creator: game.id_creator
         }
       });
     }
 
-    // 🔹 Ajouter le joueur sans toucher au statut de la partie
+    //   Ajouter le joueur sans toucher au statut de la partie
     await db.query(
       `INSERT INTO game_players (id_game, id_player, player_status) VALUES (?, ?, 'in_game')`,
       [gameId, playerId]
@@ -901,7 +962,7 @@ router.post("/join/:id", async (req, res) => {
       message: "Vous avez rejoint la partie avec succès !",
       game: {
         ID_Game: game.id_Game,
-        status: game.status, // 🔹 reste in_progress ou preparation
+        status: game.status, //   reste in_progress ou preparation
         id_creator: game.id_creator
       }
     });
