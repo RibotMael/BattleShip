@@ -132,42 +132,8 @@ export default {
     socket.on("game-over", this.handleGameOver);
     socket.on("game-started", this.handleGameStarted);
 
-<<<<<<< HEAD
-      if (isDraw) msg = "⚖️ Égalité parfaite !";
-      else if (winnerId === this.user.id) msg = "🏆 Victoire !";
-
-<<<<<<< HEAD
-    socket.on("turn-timer", ({ timeLeft }) => {
-      console.log("⏰ Timer reçu côté client:", timeLeft);
-      this.turnTimer = timeLeft;
-      const update = () => {
-        this.updateCircle();
-        if (this.turnTimer > 0) {
-          requestAnimationFrame(update);
-        }
-      };
-      requestAnimationFrame(update);
-    });
-
-    socket.on("turn-ended", ({ reason }) => {
-      console.log("⏳ Tour terminé, raison:", reason);
-      this.validateShot();
-    });
-
-    socket.on("shot-fired", this.onShotFired);
-
-    socket.on("game-over", ({ winnerId }) => {
-      console.log("🏁 Partie terminée, gagnant:", winnerId);
-      this.gameOver = true;
-      clearInterval(this.fetchInterval);
-      this.showEndPopup(winnerId === this.user.id ? "🏆 Victoire !" : "💥 Défaite !");
-=======
-      this.showEndPopup(msg);
->>>>>>> fix/retour-version
-=======
     socket.onAny((eventName, ...args) => {
       console.log(`[SOCKET DEBUG] Reçu: ${eventName}`, args);
->>>>>>> main
     });
   },
   beforeUnmount() {
@@ -179,22 +145,8 @@ export default {
     socket.off("turn-ended");
     socket.off("game-over");
 
-<<<<<<< HEAD
-    window.removeEventListener("keydown", this.preventRefresh);
-    window.removeEventListener("popstate", this.preventBack);
-    window.removeEventListener("beforeunload", this.preventUnload);
-<<<<<<< HEAD
-
-    socket.off("turn-timer");
-    socket.off("turn-ended");
-    socket.off("shot-fired");
-    socket.off("game-over");
-=======
->>>>>>> fix/retour-version
-=======
     // 3. Quitter la room sur le serveur
     socket.emit("leave-game", { gameId: this.gameId });
->>>>>>> main
   },
   methods: {
     removeSocketListeners() {
@@ -308,32 +260,7 @@ export default {
         console.error(err);
       }
     },
-<<<<<<< HEAD
-
-    onShotFired(shot) {
-      const idx = shot.y * 10 + shot.x;
-
-      if (shot.shooterId === this.user.id) {
-        this.opponentGrid[idx] = shot.result;
-
-        if (shot.result === "sunk" && shot.positions) {
-          shot.positions.forEach((p) => {
-            this.opponentGrid[p.y * 10 + p.x] = "sunk";
-          });
-        }
-      } else {
-        this.playerGrid[idx] = {
-          ...this.playerGrid[idx],
-          status: shot.result,
-        };
-      }
-    },
-
-    async abandonGame() {
-      if (!confirm("Voulez-vous vraiment abandonner la partie ?")) return;
-=======
     async fetchOpponents() {
->>>>>>> fix/retour-version
       try {
         const res = await fetch(
           `https://battleship-api-i276.onrender.com/api/games/${this.gameId}/opponents?playerId=${this.user.id}`,
@@ -350,31 +277,12 @@ export default {
         console.error(err);
       }
     },
-<<<<<<< HEAD
-<<<<<<< HEAD
 
-    async selectCell(index) {
-      if (this.gameOver) return;
-      if (["hit", "miss", "sunk"].includes(this.opponentGrid[index])) return;
-
-      // Efface l'ancienne sélection visuelle
-      if (this.selectedCell !== null) {
-        this.opponentGrid[this.selectedCell] = "";
-      }
-
-      // Définit la nouvelle sélection
-      this.selectedCell = index;
-      this.opponentGrid[index] = "selected";
-=======
-=======
-
->>>>>>> main
     updateGridCell(opponent, index, value) {
       // clone la grille pour éviter la mutation directe
       const newGrid = [...opponent.grid];
       newGrid[index] = value;
       opponent.grid = newGrid;
->>>>>>> fix/retour-version
     },
 
     /* ----------------- Sélection & Tir ----------------- */
@@ -402,11 +310,6 @@ export default {
       console.log("[TURN ENDED] Validation du tir");
 
       let index = this.selectedCell;
-<<<<<<< HEAD
-
-      // Tir aléatoire si aucune case choisie
-=======
->>>>>>> fix/retour-version
       if (index === null) {
         const available = this.currentOpponent.grid
           .map((v, i) => (v === "" ? i : null))
@@ -414,25 +317,12 @@ export default {
         if (!available.length) return;
         index = available[Math.floor(Math.random() * available.length)];
       }
-<<<<<<< HEAD
-<<<<<<< HEAD
-
-      // Nettoyage visuel de la sélection
-      this.opponentGrid = this.opponentGrid.map((c) => (c === "selected" ? "" : c));
-
-      // Reset sélection pour permettre un nouveau choix après le tir
-      this.selectedCell = null;
-
-=======
-=======
 
       // ON VERROUILLE AVANT L'ENVOI
       this.hasFiredThisTurn = true;
 
->>>>>>> main
       this.updateGridCell(this.currentOpponent, index, "");
       this.selectedCell = null;
->>>>>>> fix/retour-version
       await this.sendShoot(index);
     },
     async sendShoot(index) {
@@ -619,8 +509,6 @@ export default {
       this.popupMessage = msg;
       this.endPopup = true;
       this.gameOver = true;
-<<<<<<< HEAD
-=======
       clearInterval(this.fetchInterval);
       clearInterval(this.turnInterval);
       this.turnTimer = 8;
@@ -692,7 +580,6 @@ export default {
       } catch (err) {
         console.error(err);
       }
->>>>>>> fix/retour-version
     },
 
     goHome() {
@@ -706,22 +593,29 @@ export default {
 </script>
 
 <style>
+/* --- CONTENEUR PRINCIPAL --- */
 .battle-container {
   width: 100vw;
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   background: linear-gradient(to bottom, #002f4b, #005f8e);
-  overflow: hidden;
+  /* On permet le scroll si le contenu dépasse la hauteur de l'écran (mobile) */
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px 0;
 }
 
+/* --- WRAPPER DES GRILLES --- */
 .grids-wrapper {
   display: flex;
+  flex-direction: row; /* Côte à côte par défaut (PC) */
   justify-content: center;
   align-items: center;
-  gap: 100px;
+  gap: 60px; /* Réduit de 100px pour plus de flexibilité */
+  width: 100%;
 }
 
 .grid-section {
@@ -733,53 +627,65 @@ export default {
 h2 {
   margin-bottom: 15px;
   font-size: 1.8rem;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
+/* --- STRUCTURE DE LA GRILLE --- */
 .grid {
   display: grid;
-  grid-template-columns: repeat(10, 50px);
-  gap: 3px;
+  /* Utilise 45px sur PC, mais s'adapte sur mobile (voir media query) */
+  grid-template-columns: repeat(10, 45px);
+  gap: 2px;
 }
 
 .cell {
-  width: 50px;
-  height: 50px;
+  width: 100%;
+  aspect-ratio: 1 / 1; /* Garde la cellule carrée peu importe la largeur */
   background: #eee;
   border: 1px solid #9b9b9b;
   cursor: pointer;
   transition: transform 0.2s;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 0.8rem;
 }
 
+/* --- ETATS DES CELLULES --- */
 .cell.ship {
-  background: #2196f3;
+  background-color: #1976d2;
+  border: 2px solid #90caf9;
+  box-shadow: inset 0 0 5px #2196f3;
 }
-
 .cell.hit {
-  background: orange;
+  background-color: #ff4444;
+}
+.cell.miss {
+  background-color: #00bcd4;
 }
 .cell.sunk {
-  background: red;
+  background-color: #d32f2f;
 }
-
-.cell.miss {
-  background-color: cyan;
-}
-
 .cell.selected {
   background-color: rgba(255, 255, 0, 0.6);
   border: 2px solid yellow;
 }
 
 .opponent-grid .cell:hover {
-  transform: scale(1.15) rotate(-2deg);
+  transform: scale(1.1) rotate(-2deg);
+  z-index: 10;
 }
 
+/* --- BOUTON ABANDON --- */
 .btn-abandon {
-  width: auto;
+  position: absolute;
   top: 20px;
   right: 20px;
   padding: 10px 15px;
-  background-color: red;
+  background-color: #ff4b2b;
   color: white;
   font-weight: bold;
   border: none;
@@ -796,6 +702,7 @@ h2 {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
+/* --- CHRONO --- */
 .timer-circle {
   position: relative;
   width: 120px;
@@ -803,7 +710,6 @@ h2 {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-bottom: 20px;
 }
 
 .progress-ring {
@@ -823,26 +729,15 @@ h2 {
   color: white;
 }
 
-/* --- Styles inchangés, avec amélioration pour visibilité des bateaux --- */
-.player-grid .cell.ship {
-  background-color: #1976d2;
-  border: 2px solid #90caf9;
-  box-shadow: inset 0 0 5px #2196f3;
-}
-.player-grid .cell.hit {
-  background-color: #ff4444;
-}
-.player-grid .cell.miss {
-  background-color: #00bcd4;
-}
-.player-grid .cell.sunk {
-  background-color: #d32f2f;
-}
-.opponent-grid .cell.selected {
-  background-color: rgba(255, 255, 0, 0.6);
-  border: 2px solid yellow;
+/* --- DROPDOWN BATTLE ROYALE --- */
+.opponent-dropdown {
+  padding: 5px;
+  border-radius: 5px;
+  background: white;
+  font-size: 1rem;
 }
 
+/* --- POPUP FIN DE PARTIE --- */
 .end-popup {
   position: fixed;
   top: 0;
@@ -852,26 +747,28 @@ h2 {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.85);
   z-index: 999;
 }
 
 .end-popup .popup-content {
   background: white;
-  padding: 30px;
-  border-radius: 10px;
+  padding: 40px;
+  border-radius: 15px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
-.end-popup h1 {
-  margin-bottom: 20px;
-  font-size: 2rem;
-  text-align: center;
+.end-popup .popup-content h1 {
+  margin-bottom: 25px;
+  font-size: 2.5rem;
+  color: #333;
 }
+
 .end-popup button {
-  padding: 10px 20px;
+  padding: 12px 30px;
   border: none;
   border-radius: 5px;
   background: #1976d2;
@@ -880,10 +777,40 @@ h2 {
   cursor: pointer;
 }
 
-.end-popup .popup-content h1 {
-  margin-bottom: 20px;
-  font-size: 2rem;
-  text-align: center;
-  color: #222; /* texte sombre sur fond blanc */
+/* --- MOBILE RESPONSIVE (écrans < 850px) --- */
+@media (max-width: 850px) {
+  .battle-container {
+    justify-content: flex-start; /* Permet de scroller naturellement vers le bas */
+    padding-top: 80px; /* Espace pour le bouton abandon */
+  }
+
+  .grids-wrapper {
+    flex-direction: column; /* On empile les grilles */
+    gap: 30px;
+  }
+
+  .grid {
+    /* Largeur dynamique : 90% de l'écran divisé par 10 colonnes */
+    grid-template-columns: repeat(10, 8.5vw);
+    max-width: 350px; /* Sécurité pour ne pas être trop gros sur tablettes */
+  }
+
+  h2 {
+    font-size: 1.4rem;
+  }
+
+  .timer-circle {
+    order: -1; /* Le chrono s'affiche en premier en haut */
+    transform: scale(0.8);
+    margin-bottom: 0;
+  }
+
+  .btn-abandon {
+    position: fixed; /* Reste visible même en scrollant */
+    top: 10px;
+    right: 10px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
 }
 </style>

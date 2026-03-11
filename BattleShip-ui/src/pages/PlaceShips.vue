@@ -294,10 +294,6 @@ export default {
       }
       return false;
     },
-<<<<<<< HEAD
-
-=======
->>>>>>> fix/retour-version
     placeShipsRandomly() {
       // Reset de la grille et des bateaux
       this.grid = this.grid.map(() => ({ hasShip: false, shipId: null }));
