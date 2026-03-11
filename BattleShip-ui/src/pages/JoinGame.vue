@@ -74,7 +74,7 @@ export default {
   },
   computed: {
     filteredGames() {
-      // 🔹 Filtrer uniquement les parties en préparation et non-pleines
+      //   Filtrer uniquement les parties en préparation et non-pleines
       const filtered = this.publicGames
         .filter((game) => game.Status === "preparation")
         .filter((game) => game.TotalPlayers === null || game.CurrentPlayers < game.TotalPlayers)
@@ -101,7 +101,7 @@ export default {
     async fetchPublicGames() {
       this.loading = true;
       try {
-        const res = await fetch("http://localhost:8080/api/games/public");
+        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/public");
         const data = await res.json();
         if (data.success) this.publicGames = data.games;
       } catch (err) {
@@ -114,7 +114,7 @@ export default {
     async refreshPublicGames() {
       this.refreshing = true;
       try {
-        const res = await fetch("http://localhost:8080/api/games/public");
+        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/public");
         const data = await res.json();
         if (data.success) this.publicGames = data.games;
       } catch (err) {
@@ -160,11 +160,14 @@ export default {
       }
 
       try {
-        const res = await fetch(`http://localhost:8080/api/games/join/${gameId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ playerId }),
-        });
+        const res = await fetch(
+          `https://battleship-api-i276.onrender.com/api/games/join/${gameId}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ playerId }),
+          },
+        );
 
         const data = await res.json();
         if (!data.success) {
@@ -260,7 +263,9 @@ select:focus {
   padding: 1rem;
   backdrop-filter: blur(8px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
 }
 .game-card:hover {
   transform: translateY(-6px);
@@ -318,7 +323,9 @@ p {
   font-weight: 600;
   cursor: pointer;
   margin-top: 0.6rem;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 .join-btn:hover {
   transform: scale(1.05);

@@ -1,32 +1,57 @@
 <template>
-  <div class="profile-container">
-    <div class="profile-form">
-      <!-- Aperçu -->
-      <label>Avatar</label>
-      <div class="avatar-preview">
-        <img :src="avatarPreviewUrl" alt="Avatar actuel" />
-      </div>
+  <div class="background profile-page">
+    <div class="profile-card">
+      <button @click="$router.push('/')" class="btn-icon-back" title="Retour au menu">
+        <span class="icon">⬅</span>
+      </button>
 
-      <!-- Sélection des avatars depuis la BDD -->
-      <div class="avatar-selection">
-        <div
-          v-for="av in avatars"
-          :key="av.ID_Avatar"
-          class="avatar-option"
-          :class="{ selected: avatar === av.ID_Avatar }"
-          @click="selectAvatar(av.ID_Avatar)"
-        >
-          <img :src="'data:' + av.mime_type + ';base64,' + av.Avatar" />
+      <h1 class="profile-title">MON PROFIL</h1>
+
+      <div class="profile-content">
+        <div class="avatar-section">
+          <div class="avatar-main">
+            <img :src="avatarPreviewUrl" alt="Aperçu" class="main-img" />
+          </div>
+          <p class="section-label">Choisir un avatar</p>
+
+          <div class="avatar-grid-container">
+            <div class="avatar-grid">
+              <div
+                v-for="av in avatars"
+                :key="av.ID_Avatar"
+                class="avatar-option"
+                :class="{ selected: avatar === av.ID_Avatar }"
+                @click="selectAvatar(av.ID_Avatar)"
+              >
+                <img :src="'data:' + av.mime_type + ';base64,' + av.Avatar" />
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <label>Pseudo</label>
-      <input v-model="pseudo" type="text" placeholder="Votre pseudo" />
+        <div class="info-section">
+          <div class="input-group">
+            <label>NOM DE CODE (PSEUDO)</label>
+            <input
+              v-model="pseudo"
+              type="text"
+              placeholder="Entrez votre pseudo..."
+              maxlength="15"
+            />
+          </div>
 
-      <div class="buttons">
-        <button @click="saveProfile" class="save-button">💾 Enregistrer</button>
-        <button @click="deleteAccount" class="delete-button">🗑️ Supprimer le compte</button>
-        <button @click="$router.push('/')" class="back-button">⬅ Retour au menu</button>
+          <div class="action-buttons">
+            <button @click="saveProfile" class="btn btn-save">
+              <span class="icon">💾</span> ENREGISTRER
+            </button>
+
+            <div class="danger-zone">
+              <button @click="deleteAccount" class="btn-delete">
+                Supprimer mon compte définitivement
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -62,7 +87,7 @@ export default {
   methods: {
     async fetchAvatars() {
       try {
-        const res = await axios.get("http://localhost:8080/api/avatars");
+        const res = await axios.get("https://battleship-api-i276.onrender.com/api/avatars");
         this.avatars = res.data.avatars;
         if (this.avatar) {
           const sel = this.avatars.find((a) => a.ID_Avatar === this.avatar);
@@ -83,11 +108,14 @@ export default {
       if (this.avatar) payload.avatar = this.avatar;
 
       try {
-        const response = await fetch(`http://localhost:8080/api/users/${this.userId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+        const response = await fetch(
+          `https://battleship-api-i276.onrender.com/api/users/${this.userId}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          },
+        );
         if (!response.ok) throw new Error(await response.text());
         const updatedUser = await response.json();
         this.avatarPreviewUrl = updatedUser.avatar || defaultAvatar;
@@ -99,7 +127,7 @@ export default {
             pseudo: updatedUser.pseudo,
             avatarId: updatedUser.avatarId,
             avatar: updatedUser.avatar,
-          })
+          }),
         );
         userBus.userUpdated = !userBus.userUpdated;
         alert("Profil mis à jour !");
@@ -111,9 +139,12 @@ export default {
     async deleteAccount() {
       if (!confirm("Êtes-vous sûr de vouloir supprimer votre compte ?")) return;
       try {
-        const response = await fetch(`http://localhost:8080/api/users/${this.userId}`, {
-          method: "DELETE",
-        });
+        const response = await fetch(
+          `https://battleship-api-i276.onrender.com/api/users/${this.userId}`,
+          {
+            method: "DELETE",
+          },
+        );
         if (!response.ok) throw new Error(await response.text());
         localStorage.removeItem("user");
         userBus.userUpdated = !userBus.userUpdated;
@@ -129,125 +160,162 @@ export default {
 </script>
 
 <style scoped>
-.profile-container {
-  background: linear-gradient(to bottom, #002f4b, #005f8e);
-  color: white;
-  height: 100vh;
-  width: 100vw;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+/* Conteneur principal figé */
+.profile-page {
   position: fixed;
   top: 0;
   left: 0;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden; /* Empêche tout scroll sur la page */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)),
+    url("@/assets/images/BackGroundAccueil.png");
+  background-size: cover;
+  background-position: center;
 }
 
-.profile-container h1 {
-  font-size: 2rem;
-  margin-bottom: 1.5rem;
-  text-shadow: 1px 1px 4px #000;
+.info-section,
+.section-label {
+  color: white;
 }
 
-.profile-form {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(6px);
-  padding: 2rem;
-  border-radius: 20px;
-  max-width: 450px;
-  width: 100%;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+.profile-card {
+  background: rgba(13, 27, 42, 0.9);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 30px;
+  border-radius: 24px;
+  width: 90%;
+  max-width: 500px; /* Légèrement réduit pour éviter le débordement */
+  max-height: 90vh; /* Empêche la carte de dépasser de l'écran */
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-title {
+  text-align: center;
+  font-size: 1.8rem;
+  letter-spacing: 3px;
+  margin-bottom: 20px;
+  color: white;
+}
+
+.profile-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow: hidden; /* Verrouille le contenu interne */
+}
+
+/* --- Avatar Section --- */
+.avatar-section {
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-.avatar-preview img {
+.main-img {
   width: 100px;
   height: 100px;
   border-radius: 50%;
   border: 3px solid #3498db;
   object-fit: cover;
-  margin-bottom: 1rem;
-  transition: transform 0.2s;
-}
-.avatar-preview img:hover {
-  transform: scale(1.05);
+  margin-bottom: 10px;
 }
 
-.avatar-selection {
+.avatar-grid-container {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 10px;
+  border-radius: 15px;
+}
+
+.avatar-grid {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: center;
-  margin-bottom: 1rem;
+  overflow-x: auto; /* Seul le choix d'avatar peut défiler horizontalement */
+  gap: 10px;
+  padding: 5px;
+}
+
+/* Style de la scrollbar interne pour rester discret */
+.avatar-grid::-webkit-scrollbar {
+  height: 4px;
+}
+.avatar-grid::-webkit-scrollbar-thumb {
+  background: #3498db;
+  border-radius: 10px;
 }
 
 .avatar-option {
-  width: 60px;
-  height: 60px;
+  flex: 0 0 50px;
+  height: 50px;
   border-radius: 50%;
-  border: 2px solid transparent;
   cursor: pointer;
-  transition: all 0.2s ease;
+  overflow: hidden;
+  border: 2px solid transparent;
+  transition: 0.2s;
 }
+
 .avatar-option.selected {
-  border-color: #ffd700;
+  border-color: #3498db;
   transform: scale(1.1);
 }
+
 .avatar-option img {
   width: 100%;
   height: 100%;
-  border-radius: 50%;
   object-fit: cover;
 }
 
+/* --- Info Section --- */
 input[type="text"] {
   width: 100%;
-  padding: 0.6rem;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 12px;
   border-radius: 10px;
-  border: none;
-  margin-bottom: 1rem;
-  outline: none;
-  font-size: 1rem;
+  color: white;
+  text-align: center;
 }
 
-.buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+.btn {
   width: 100%;
-}
-
-button {
-  padding: 0.6rem;
-  font-weight: bold;
+  padding: 14px;
   border-radius: 10px;
+  font-weight: bold;
   cursor: pointer;
-  transition: all 0.2s;
   border: none;
 }
 
-.save-button {
-  background: linear-gradient(to right, #1abc9c, #16a085);
+.btn-save {
+  background: #1abc9c;
   color: white;
-}
-.save-button:hover {
-  background: linear-gradient(to right, #16a085, #138d75);
 }
 
-.delete-button {
-  background: linear-gradient(to right, #e74c3c, #c0392b);
-  color: white;
-}
-.delete-button:hover {
-  background: linear-gradient(to right, #c0392b, #992d22);
+.btn-delete {
+  background: transparent;
+  color: #e74c3c;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+  border: none;
+  margin-top: 10px;
 }
 
-.back-button {
-  background: linear-gradient(to right, #3498db, #2980b9);
+.btn-icon-back {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  background: none;
+  border: none;
   color: white;
-}
-.back-button:hover {
-  background: linear-gradient(to right, #2980b9, #21618c);
+  font-size: 1.2rem;
+  cursor: pointer;
 }
 </style>

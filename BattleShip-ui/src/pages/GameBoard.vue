@@ -88,7 +88,7 @@ export default {
   name: "GameBoard",
   props: {
     gameId: { type: String, required: true },
-    gameType: { type: String, required: true }, // "1v1" ou "BattleRoyal"
+    gameType: { type: String, required: true },
   },
   data() {
     return {
@@ -104,6 +104,7 @@ export default {
       endPopup: false,
       popupMessage: "",
       playerStatus: "in_game",
+      hasFiredThisTurn: false,
     };
   },
   computed: {
@@ -115,6 +116,7 @@ export default {
     },
   },
   mounted() {
+    this.removeSocketListeners();
     this.resetGameState();
     this.initGame();
 
@@ -127,9 +129,10 @@ export default {
     socket.on("turn-ended", this.endTurn);
     socket.on("shot-fired", this.onShotFired);
     socket.on("player-eliminated", this.onPlayerEliminated);
-    socket.on("game-over", ({ winnerId, isDraw }) => {
-      let msg = "💥 Défaite !";
+    socket.on("game-over", this.handleGameOver);
+    socket.on("game-started", this.handleGameStarted);
 
+<<<<<<< HEAD
       if (isDraw) msg = "⚖️ Égalité parfaite !";
       else if (winnerId === this.user.id) msg = "🏆 Victoire !";
 
@@ -161,17 +164,22 @@ export default {
 =======
       this.showEndPopup(msg);
 >>>>>>> fix/retour-version
+=======
+    socket.onAny((eventName, ...args) => {
+      console.log(`[SOCKET DEBUG] Reçu: ${eventName}`, args);
+>>>>>>> main
     });
   },
   beforeUnmount() {
+    // 1. Arrêter les appels API vers PHP
     clearInterval(this.fetchInterval);
-    clearInterval(this.turnInterval);
+
+    // 2. Nettoyer TOUS les écouteurs de socket
     socket.off("turn-timer");
     socket.off("turn-ended");
-    socket.off("shot-fired");
-    socket.off("player-eliminated");
     socket.off("game-over");
 
+<<<<<<< HEAD
     window.removeEventListener("keydown", this.preventRefresh);
     window.removeEventListener("popstate", this.preventBack);
     window.removeEventListener("beforeunload", this.preventUnload);
@@ -183,12 +191,33 @@ export default {
     socket.off("game-over");
 =======
 >>>>>>> fix/retour-version
+=======
+    // 3. Quitter la room sur le serveur
+    socket.emit("leave-game", { gameId: this.gameId });
+>>>>>>> main
   },
   methods: {
+    removeSocketListeners() {
+      socket.off("turn-timer", this.socketTurnTimer);
+      socket.off("turn-ended", this.endTurn);
+      socket.off("shot-fired", this.onShotFired);
+      socket.off("player-eliminated", this.onPlayerEliminated);
+      socket.off("game-over", this.handleGameOver); // Précis ici aussi
+      socket.off("connect"); // Optionnel mais propre
+      socket.offAny();
+    },
     /* ----------------- Timer ----------------- */
     socketTurnTimer({ timeLeft }) {
+      if (timeLeft > this.turnTimer) {
+        this.hasFiredThisTurn = false;
+      }
+
       this.turnTimer = timeLeft;
       this.updateCircle();
+
+      if (this.turnTimer <= 0) {
+        this.validateShot();
+      }
     },
     endTurn() {
       if (this.gameOver) return;
@@ -201,41 +230,55 @@ export default {
       if (!circle) return;
       const radius = 54;
       const circumference = 2 * Math.PI * radius;
-      circle.style.strokeDashoffset = circumference - (this.turnTimer / 8) * circumference;
+      const ratio = Math.max(0, Math.min(this.turnTimer / 7, 1));
+      circle.style.strokeDashoffset = circumference - ratio * circumference;
     },
 
     /* ----------------- Init & Reset ----------------- */
+    handleGameStarted(data) {
+      console.log("🚀 La partie commence réellement !");
+      this.resetGameState();
+      this.turnTimer = data.timeLeft || 7;
+      this.updateCircle();
+    },
     resetGameState() {
-      clearInterval(this.turnInterval);
-      clearInterval(this.fetchInterval);
-      this.turnTimer = 8;
+      if (this.turnInterval) clearInterval(this.turnInterval);
+      if (this.fetchInterval) clearInterval(this.fetchInterval);
+
+      this.fetchInterval = null;
+      this.turnInterval = null;
+      this.turnTimer = 7;
       this.gameOver = false;
       this.selectedCell = null;
       this.endPopup = false;
       this.popupMessage = "";
+      this.playerStatus = "in_game";
     },
     async initGame() {
+      console.log("🛠️ Initialisation du jeu...");
       this.resetGameState();
+      console.log("📡 Fetching data initial...");
       await this.fetchPlayerBoard();
       if (this.is1v1) await this.fetchOpponent();
       else await this.fetchOpponents();
-
+      console.log(`🏠 Rejoint la salle: ${this.gameId} en tant que ${this.user.id}`);
+      // 1. Rejoindre la salle
       socket.emit("join-game", { gameId: this.gameId, playerId: this.user.id });
+      console.log("✅ Envoi du signal 'player-ready'");
+      // 2. Signaler que le chargement est fini
+      socket.emit("player-ready", { gameId: this.gameId, playerId: this.user.id });
 
       this.fetchInterval = setInterval(async () => {
         await this.fetchEnemyShots();
         await this.checkGameStatus();
       }, 2000);
-
-      this.turnTimer = 8;
-      this.updateCircle();
     },
 
     /* ----------------- Grilles ----------------- */
     async fetchPlayerBoard() {
       try {
         const res = await fetch(
-          `http://localhost:8080/api/games/${this.gameId}/board?playerId=${this.user.id}`,
+          `https://battleship-api-i276.onrender.com/api/games/${this.gameId}/board?playerId=${this.user.id}`,
         );
         const data = await res.json();
         if (!data.success) return console.warn(data.message);
@@ -249,7 +292,7 @@ export default {
     async fetchOpponent() {
       try {
         const res = await fetch(
-          `http://localhost:8080/api/games/${this.gameId}/opponent?playerId=${this.user.id}`,
+          `https://battleship-api-i276.onrender.com/api/games/${this.gameId}/opponent?playerId=${this.user.id}`,
         );
         const data = await res.json();
         if (!data.success) return console.warn(data.message);
@@ -293,15 +336,21 @@ export default {
 >>>>>>> fix/retour-version
       try {
         const res = await fetch(
-          `http://localhost:8080/api/games/${this.gameId}/opponents?playerId=${this.user.id}`,
+          `https://battleship-api-i276.onrender.com/api/games/${this.gameId}/opponents?playerId=${this.user.id}`,
         );
         const data = await res.json();
         if (!data.success) return;
+
+        // On crée les grilles vides pour chaque adversaire
         this.opponents = data.opponents.map((o) => ({ ...o, grid: Array(100).fill("") }));
+
+        // Sélection automatique du premier adversaire
+        this.currentOpponentIndex = 0;
       } catch (err) {
         console.error(err);
       }
     },
+<<<<<<< HEAD
 <<<<<<< HEAD
 
     async selectCell(index) {
@@ -317,6 +366,9 @@ export default {
       this.selectedCell = index;
       this.opponentGrid[index] = "selected";
 =======
+=======
+
+>>>>>>> main
     updateGridCell(opponent, index, value) {
       // clone la grille pour éviter la mutation directe
       const newGrid = [...opponent.grid];
@@ -327,17 +379,28 @@ export default {
 
     /* ----------------- Sélection & Tir ----------------- */
     selectCell(index) {
-      if (this.gameOver) return;
+      console.log(`[ACTION] Tentative de clic sur cellule ${index}`);
+      if (this.gameOver) {
+        console.warn("[ACTION BLOQUÉE] La partie est finie (gameOver: true)");
+        return;
+      }
       const val = this.currentOpponent.grid[index];
-      if (["hit", "miss", "sunk", "selected"].includes(val)) return;
-
+      if (["hit", "miss", "sunk", "selected"].includes(val)) {
+        console.warn(`[ACTION BLOQUÉE] Cellule déjà occupée par: ${val}`);
+        return;
+      }
+      console.log(`[ACTION OK] Cellule ${index} sélectionnée`);
       if (this.selectedCell !== null)
         this.updateGridCell(this.currentOpponent, this.selectedCell, "");
       this.selectedCell = index;
       this.updateGridCell(this.currentOpponent, index, "selected");
     },
     async validateShot() {
-      if (this.gameOver || this.turnTimer !== 0) return;
+      // On ajoute la vérification du verrou
+      if (this.gameOver || this.hasFiredThisTurn) return;
+
+      console.log("[TURN ENDED] Validation du tir");
+
       let index = this.selectedCell;
 <<<<<<< HEAD
 
@@ -352,6 +415,7 @@ export default {
         index = available[Math.floor(Math.random() * available.length)];
       }
 <<<<<<< HEAD
+<<<<<<< HEAD
 
       // Nettoyage visuel de la sélection
       this.opponentGrid = this.opponentGrid.map((c) => (c === "selected" ? "" : c));
@@ -360,55 +424,68 @@ export default {
       this.selectedCell = null;
 
 =======
+=======
+
+      // ON VERROUILLE AVANT L'ENVOI
+      this.hasFiredThisTurn = true;
+
+>>>>>>> main
       this.updateGridCell(this.currentOpponent, index, "");
       this.selectedCell = null;
 >>>>>>> fix/retour-version
       await this.sendShoot(index);
     },
     async sendShoot(index) {
-      if (this.gameOver) return;
-      const targetId = this.currentOpponent.id;
+      if (this.gameOver || this.playerStatus === "dead") return;
+
+      const targetOpponent = this.opponents[this.currentOpponentIndex];
       const x = index % 10;
       const y = Math.floor(index / 10);
+
       try {
-        const res = await fetch("http://localhost:8080/api/games/shoot", {
+        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/shoot", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ gameId: this.gameId, playerId: this.user.id, targetId, x, y }),
+          body: JSON.stringify({
+            gameId: this.gameId,
+            playerId: this.user.id,
+            targetId: targetOpponent.id,
+            x: x,
+            y: y,
+          }),
         });
         const data = await res.json();
-        if (!data.success) return console.warn(data.message);
-        this.applyShot(targetId, x, y, data.result, data.positions);
+
+        if (data.success) {
+          this.applyShot(targetOpponent.id, x, y, data.result, data.positions);
+        }
       } catch (err) {
-        console.error(err);
+        console.error("Erreur lors de l'envoi du tir:", err);
       }
     },
     applyShot(targetId, x, y, result, positions) {
       const idx = y * 10 + x;
       if (targetId === this.user.id) {
-        const newGrid = [...this.playerGrid];
-        newGrid[idx].status = result;
-        if (positions)
-          positions.forEach((p) => {
-            newGrid[p.y * 10 + p.x].status = "sunk";
-          });
-        this.playerGrid = newGrid;
+        this.playerGrid[idx].status = result;
+        if (positions) {
+          positions.forEach((p) => (this.playerGrid[p.y * 10 + p.x].status = "sunk"));
+        }
       } else {
         const target = this.opponents.find((o) => o.id === targetId);
-        if (!target) return;
-        const newGrid = [...target.grid];
-        newGrid[idx] = result;
-        if (positions)
-          positions.forEach((p) => {
-            newGrid[p.y * 10 + p.x] = "sunk";
-          });
-        target.grid = newGrid;
+        if (target) {
+          const newGrid = [...target.grid];
+          newGrid[idx] = result;
+          if (positions) {
+            positions.forEach((p) => (newGrid[p.y * 10 + p.x] = "sunk"));
+          }
+          target.grid = newGrid;
+        }
       }
     },
     onShotFired({ shooterId, targetId, x, y, result, positions }) {
       const idx = y * 10 + x;
 
-      // 🧍‍♂️ TIR SUR MOI
+      // TIR SUR MOI
       if (targetId === this.user.id) {
         const newGrid = [...this.playerGrid];
         newGrid[idx].status = result;
@@ -424,7 +501,7 @@ export default {
         return;
       }
 
-      // 🎯 TIR sur adversaire
+      // TIR sur adversaire
       const targetOpponent = this.opponents.find((o) => o.id === targetId);
       if (!targetOpponent) return;
       const newGrid = [...targetOpponent.grid];
@@ -441,44 +518,66 @@ export default {
     async fetchEnemyShots() {
       try {
         const res = await fetch(
-          `http://localhost:8080/api/games/${this.gameId}/shots?playerId=${this.user.id}`,
+          `https://battleship-api-i276.onrender.com/api/games/${this.gameId}/shots?playerId=${this.user.id}&t=${Date.now()}`,
         );
         const data = await res.json();
         if (!data.success) return;
 
-        // Joueur
-        const newPlayerGrid = [...this.playerGrid];
-        (data.incomingShots || []).forEach((s) => {
-          const idx = s.y * 10 + s.x;
-          newPlayerGrid[idx].status = s.state === "pending" ? "selected" : s.result;
-          if (s.positions)
-            s.positions.forEach((p) => {
-              newPlayerGrid[p.y * 10 + p.x].status = "sunk";
-            });
-        });
-        this.playerGrid = newPlayerGrid;
+        // 1. MISE À JOUR DE MA GRILLE (Tirs subis venant du PHP ou Node)
+        if (data.incomingShots) {
+          const newPlayerGrid = [...this.playerGrid];
+          data.incomingShots.forEach((s) => {
+            // IMPORTANT : Conversion coordonnées -> Index 0-99
+            const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
+            if (newPlayerGrid[idx]) {
+              // On ne met à jour que si le tir est résolu (hit/miss/sunk)
+              newPlayerGrid[idx].status = s.result;
+            }
+          });
+          this.playerGrid = newPlayerGrid;
+        }
 
-        // Adverses
-        this.opponents.forEach((o) => {
-          const newGrid = [...o.grid];
-          (data.playerShots || [])
-            .filter((s) => s.target_id === o.id)
-            .forEach((s) => {
-              const idx = s.y * 10 + s.x;
-              newGrid[idx] = s.state === "pending" ? "selected" : s.result;
-              if (s.positions)
-                s.positions.forEach((p) => {
-                  newGrid[p.y * 10 + p.x] = "sunk";
-                });
-            });
-          o.grid = newGrid;
-        });
+        // 2. MISE À JOUR DES GRILLES ADVERSES (Mes tirs vers le PHP ou Node)
+        if (data.playerShots) {
+          data.playerShots.forEach((s) => {
+            const target = this.opponents.find((o) => o.id === s.target_id);
+            if (target) {
+              const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
+              // Si le PHP a calculé le résultat, on l'affiche
+              if (s.result) {
+                const newOpponentGrid = [...target.grid];
+                newOpponentGrid[idx] = s.result;
+                target.grid = newOpponentGrid;
+              }
+            }
+          });
+        }
 
-        // 🔥 VÉRIFIER DÉFAITE APRÈS SYNCHRO
+        // On vérifie si ces nouveaux tirs m'ont fait perdre
         this.checkDefeat();
       } catch (err) {
-        console.error(err);
+        console.error("Erreur Sync Shots (PHP/Node):", err);
       }
+    },
+
+    handleGameOver(payload) {
+      console.log("🏁 Fin de partie reçue :", payload);
+      if (this.gameOver) return;
+
+      this.gameOver = true; // On bloque les actions immédiatement
+      clearInterval(this.fetchInterval);
+      clearInterval(this.turnInterval);
+
+      let msg = "💥 Défaite !";
+
+      // Correction de la ReferenceError ici :
+      if (payload.isDraw) {
+        msg = "⚖️ Égalité parfaite !";
+      } else if (payload.winnerId === this.user.id) {
+        msg = "🏆 Victoire !";
+      }
+
+      this.showEndPopup(msg);
     },
 
     /* ----------------- Battle Royale ----------------- */
@@ -492,7 +591,7 @@ export default {
     async checkGameStatus() {
       try {
         const res = await fetch(
-          `http://localhost:8080/api/games/${this.gameId}/status?playerId=${this.user.id}`,
+          `https://battleship-api-i276.onrender.com/api/games/${this.gameId}/status?playerId=${this.user.id}`,
         );
         const data = await res.json();
         if (!data.success) return;
@@ -530,11 +629,18 @@ export default {
     async abandonGame() {
       if (!confirm("Voulez-vous vraiment abandonner ?")) return;
       try {
-        const res = await fetch("http://localhost:8080/api/games/eliminate-player", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ gameId: this.gameId, playerId: this.user.id, reason: "abandon" }),
-        });
+        const res = await fetch(
+          "https://battleship-api-i276.onrender.com/api/games/eliminate-player",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              gameId: this.gameId,
+              playerId: this.user.id,
+              reason: "abandon",
+            }),
+          },
+        );
         const data = await res.json();
         if (!data.success) return console.warn(data.message);
         clearInterval(this.fetchInterval);
@@ -555,19 +661,22 @@ export default {
       this.playerStatus = "dead";
 
       try {
-        const res = await fetch("http://localhost:8080/api/games/eliminate-player", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            gameId: this.gameId,
-            playerId: this.user.id,
-            reason: "shot",
-          }),
-        });
+        const res = await fetch(
+          "https://battleship-api-i276.onrender.com/api/games/eliminate-player",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              gameId: this.gameId,
+              playerId: this.user.id,
+              reason: "shot",
+            }),
+          },
+        );
         const data = await res.json();
         if (!data.success) return console.warn(data.message);
 
-        // 🔹 Afficher popup si c'est la fin du jeu ou défaite
+        // Afficher popup si c'est la fin du jeu ou défaite
         if (data.finished) {
           const msg =
             data.winner_id === this.user.id

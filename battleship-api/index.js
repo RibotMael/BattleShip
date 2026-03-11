@@ -59,67 +59,98 @@ const io = new Server(server, {
 /* ==========================
    TIMER SERVEUR
 ========================== */
-
 const games = {};
 
-function startTurn(gameId, duration = 8) {
-  if (!games[gameId]) {
-    games[gameId] = { finished: false };
+function startTurn(gameId, duration = 7) {
+  if (games[gameId] && games[gameId].timer) {
+    clearInterval(games[gameId].timer);
+    console.log(`🧹 Ancien timer nettoyé pour la partie ${gameId}`);
   }
 
-  clearInterval(games[gameId].timer);
-
-  games[gameId].turnStartAt = Date.now();
-  games[gameId].ended = false;
+  // Réinitialisation complète de l'état de la partie
+  games[gameId] = {
+    timer: null,
+    turnStartAt: Date.now(),
+    ended: false,
+    finished: false,
+    duration: duration
+  };
 
   games[gameId].timer = setInterval(() => {
     if (games[gameId].finished) {
       clearInterval(games[gameId].timer);
+      delete games[gameId]; 
       return;
     }
 
     const elapsed = Date.now() - games[gameId].turnStartAt;
-    const timeLeft = Math.max(0, Math.ceil(duration - elapsed / 1000));
+    const timeLeft = Math.max(0, Math.ceil(games[gameId].duration - elapsed / 1000));
 
-    io.to(gameId).emit("turn-timer", { timeLeft });
+    io.to(String(gameId)).emit("turn-timer", { timeLeft });
 
     if (timeLeft <= 0 && !games[gameId].ended) {
       games[gameId].ended = true;
+      
+      console.log(`⌛ Fin du tour pour la partie ${gameId}`);
+      io.to(String(gameId)).emit("turn-ended", { reason: "timeout" });
 
-      // 🔥 TOUS les joueurs tirent maintenant
-      io.to(gameId).emit("turn-ended", { reason: "timeout" });
-
-      // Nouveau tour
-      games[gameId].turnStartAt = Date.now();
-      games[gameId].ended = false;
+      // Petit délai pour laisser le temps aux tirs de se résoudre
+      setTimeout(() => {
+        if (games[gameId] && !games[gameId].finished) {
+          games[gameId].turnStartAt = Date.now();
+          games[gameId].ended = false;
+        }
+      }, 1500); 
     }
   }, 1000);
 }
-
-
-
 
 /* ==========================
    SOCKET.IO EVENTS
 ========================== */
 
 io.on("connection", (socket) => {
-  console.log("🟢 Client connecté", socket.id);
-
-  socket.on("join-game", ({ gameId, playerId }) => {
-    console.log(`🎮 Joueur ${playerId} rejoint ${gameId}`);
-    socket.join(gameId);
-
-    const room = io.sockets.adapter.rooms.get(gameId);
-    const count = room?.size || 0;
-
-    console.log(`👥 Joueurs dans ${gameId}: ${count}`);
-
-    if (count === 2 && !games[gameId]?.timer) {
-      console.log("⏱️ Démarrage du chrono");
-      startTurn(gameId);
-    }
+  // 1. Le joueur rejoint la room
+  socket.on("join-game", ({ gameId }) => {
+    socket.join(String(gameId));
   });
+
+  // 2. Le joueur confirme qu'il est chargé et prêt à voir le chrono
+  socket.on("player-ready", async ({ gameId, playerId }) => {
+    const sId = String(gameId);
+  
+    // 1. On vérifie en BDD qui a validé sa grille
+    const [players] = await db.query(
+        "SELECT player_id FROM player_boards WHERE game_id = ? AND validated = 1", 
+        [sId]
+    );
+
+
+    const readyCount = players.length;
+
+    // 2. On récupère le nombre total de joueurs inscrits dans la partie
+    const [totalRows] = await db.query(
+        "SELECT count(*) as count FROM game_players WHERE id_game = ?", 
+        [sId]
+    );
+    const totalExpected = totalRows[0].count;
+
+    console.log(`📢 Joueur ${playerId} est sur l'écran de combat. Grilles validées : ${readyCount}/${totalExpected}`);
+
+    // 3. On ne lance le jeu que si le nombre de grilles validées == nombre de joueurs
+    if (readyCount >= totalExpected) {
+        if (!games[sId] || !games[sId].timer) {
+            console.log("🚀 Toutes les grilles sont validées ! Lancement.");
+            if (!games[sId]) games[sId] = {};
+            startTurn(sId);
+        }
+    } else {
+        io.to(sId).emit("waiting-for-players", { 
+            ready: readyCount, 
+            total: totalExpected 
+        });
+    }
+});
 });
 
 /* ==========================

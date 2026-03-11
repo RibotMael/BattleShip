@@ -3,7 +3,7 @@
     <div class="game-mode-card">
       <h1>⚓ Paramètres de la partie</h1>
 
-      <!-- Choix de la langue -->
+      <!-- Choix du mode -->
       <div class="form-group">
         <label for="language">🌍 Langue :</label>
         <select id="language" v-model="language">
@@ -92,7 +92,7 @@ export default {
         case "4v4":
           return 4;
         case "battle-royale":
-          return null; // Battle Royale n'a pas de FK
+          return null;
         default:
           throw new Error(`Mode inconnu : ${gameType}`);
       }
@@ -114,23 +114,23 @@ export default {
         // Calcul du totalPlayers pour la partie
         let totalPlayers;
         if (this.mode === "battle-royale") {
-          totalPlayers = 2; // minimum, mais côté serveur tu peux gérer le max
+          totalPlayers = 2;
         } else if (this.isPrivate) {
           totalPlayers = this.totalPlayers;
         } else {
-          totalPlayers = teamModeId * 2; // 1v1 → 2, 2v2 → 4, etc.
+          totalPlayers = teamModeId * 2;
         }
 
         const payload = {
           hostId: Number(this.user.id),
-          id_game_mode: this.isPrivate ? 2 : 1, // privé/public
-          id_game_type: this.mode === "battle-royale" ? 1 : 2, // type BattleRoyal = 1, Team = 2
+          id_game_mode: this.isPrivate ? 2 : 1,
+          id_game_type: this.mode === "battle-royale" ? 1 : 2,
           id_team_mode: teamModeId,
           id_version: this.language === "fr" ? 1 : 2,
           totalPlayers,
         };
 
-        const res = await fetch("http://localhost:8080/api/games/create", {
+        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -211,18 +211,17 @@ label {
   margin-bottom: 0.3rem;
 }
 
-/* 🔹 Correction du fond et du texte des selects et inputs */
 select,
 input[type="number"] {
   width: 100%;
   padding: 0.6rem;
-  background-color: rgba(0, 51, 77, 0.8); /* bleu foncé transparent */
+  background-color: rgba(0, 51, 77, 0.8);
   color: #fff;
   border: 1px solid rgba(0, 180, 255, 0.5);
   border-radius: 8px;
   outline: none;
   transition: all 0.2s ease;
-  appearance: none; /* Supprime le style natif */
+  appearance: none;
 }
 
 select:focus,
@@ -231,7 +230,6 @@ input[type="number"]:focus {
   box-shadow: 0 0 10px rgba(0, 180, 255, 0.6);
 }
 
-/* Option lisible dans le menu déroulant */
 select option {
   background-color: #00263d;
   color: #fff;
