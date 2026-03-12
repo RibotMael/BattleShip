@@ -1,35 +1,48 @@
 <!--PlaceShips.vue-->
 <template>
   <div class="place-ships-container">
-    <h1>🚢 Placement des bateaux</h1>
-
-    <div class="top-info">
-      <p>Partie ID : {{ game.ID_Game }} (Mode: {{ isFrenchMode ? "Français" : "Belge" }})</p>
-      <p>Joueurs prêts : {{ readyCount }} / {{ game.TotalPlayers }}</p>
-    </div>
+    <header class="header">
+      <h1>🚢 Placement</h1>
+      <div class="top-info">
+        <span>Partie: {{ game.ID_Game }}</span>
+        <span>Prêts: {{ readyCount }}/{{ game.TotalPlayers }}</span>
+      </div>
+    </header>
 
     <div class="main-layout">
-      <div class="player-grid">
-        <h2>Votre grille</h2>
-        <div class="grid" @mouseleave="hoverCells = []">
-          <div
-            v-for="(cell, index) in grid"
-            :key="index"
-            class="cell"
-            :class="getCellClass(index)"
-            @mouseenter="previewShip(index)"
-            @click="placeOrRemoveShip(index)"
-          ></div>
+      <section class="player-grid">
+        <div class="grid-container">
+          <div class="grid" @mouseleave="hoverCells = []">
+            <div
+              v-for="(cell, index) in grid"
+              :key="index"
+              class="cell"
+              :class="getCellClass(index)"
+              @mouseenter="previewShip(index)"
+              @click="placeOrRemoveShip(index)"
+            ></div>
+          </div>
         </div>
-        <button class="validate-btn" :disabled="!canValidate" @click="validatePlacement">
-          ✅ Valider mes bateaux
-        </button>
-        <button class="random-btn" @click="placeShipsRandomly">🎲 Placer aléatoirement</button>
-      </div>
 
-      <div class="side-panel">
-        <h2>Flotte</h2>
-        <div class="fleet-list">
+        <div class="action-buttons">
+          <button class="random-btn" @click="placeShipsRandomly">🎲 Aléatoire</button>
+          <button class="validate-btn" :disabled="!canValidate" @click="validatePlacement">
+            ✅ Valider
+          </button>
+        </div>
+      </section>
+
+      <aside class="side-panel">
+        <div class="panel-header">
+          <h2>Votre Flotte</h2>
+          <div class="orientation-box">
+            <button @click="toggleOrientation" class="toggle-btn">
+              {{ orientation === "horizontal" ? "➡️ Horiz." : "⬇️ Vert." }}
+            </button>
+          </div>
+        </div>
+
+        <div class="fleet-list custom-scroll">
           <div
             v-for="(ship, i) in fleet"
             :key="i"
@@ -37,25 +50,18 @@
             :class="{ selected: selectedShipIndex === i, placed: ship.placed }"
             @click="selectShip(i)"
           >
-            <div class="ship-header">
-              <span>{{ ship.name }}</span>
-              <span v-if="ship.placed" class="status">✅</span>
+            <div class="ship-info">
+              <span class="ship-name">{{ ship.name }}</span>
+              <div class="ship-size">
+                <span v-for="n in ship.size" :key="n" class="size-block"></span>
+              </div>
             </div>
-            <div class="ship-size">
-              <span v-for="n in ship.size" :key="n" class="size-block"></span>
-            </div>
+            <span v-if="ship.placed" class="status-icon">✅</span>
           </div>
         </div>
 
-        <div class="orientation-toggle">
-          <label>Orientation :</label>
-          <button @click="toggleOrientation">
-            {{ orientation === "horizontal" ? "➡️ Horizontale" : "⬇️ Verticale" }}
-          </button>
-        </div>
-
         <p class="ships-left">🛳️ Restants : {{ remainingShips }}</p>
-      </div>
+      </aside>
     </div>
   </div>
 </template>
@@ -313,126 +319,210 @@ export default {
 </script>
 
 <style scoped>
+/* STRUCTURE DE BASE */
 .place-ships-container {
-  text-align: center;
-  background: linear-gradient(to bottom, #002f4b, #005f8e);
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(to bottom, #001f33, #004066);
   color: white;
   min-height: 100vh;
-  padding: 15px;
+  padding: 10px;
+  overflow-x: hidden;
 }
 
+.header h1 {
+  font-size: 1.4rem;
+  margin: 5px 0;
+}
 .top-info {
   display: flex;
   justify-content: center;
-  gap: 30px;
-  font-size: 1.1em;
+  gap: 15px;
+  font-size: 0.85rem;
+  opacity: 0.9;
+  margin-bottom: 10px;
 }
 
+/* LAYOUT RESPONSIVE */
 .main-layout {
   display: flex;
+  flex-direction: row;
   justify-content: center;
-  align-items: flex-start;
-  gap: 40px;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-/* 🎯 Grille */
+/* GRILLE RESPONSIVE */
+.grid-container {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
 .grid {
   display: grid;
-  grid-template-columns: repeat(10, 30px);
-  grid-template-rows: repeat(10, 30px);
-  gap: 2px;
-}
-.cell {
-  width: 30px;
-  height: 30px;
-  border: 1px solid #333;
-  background-color: #87ceeb;
-  cursor: pointer;
-  transition: 0.2s;
-}
-.cell.preview {
-  background-color: #4caf50 !important;
-}
-.cell.ship {
-  background-color: #2c3e50;
+  grid-template-columns: repeat(10, 35px);
+  grid-template-rows: repeat(10, 35px);
+  gap: 1px;
+  border: 2px solid #1a3a4a;
 }
 
-/* ⚓ Panneau latéral */
+.cell {
+  width: 35px;
+  height: 35px;
+  background-color: #5dade2;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+}
+
+/* PANNEAU LATÉRAL / FLOTTE */
 .side-panel {
-  width: 25%;
-  background: rgba(0, 0, 0, 0.25);
+  width: 300px;
+  background: rgba(0, 0, 0, 0.3);
   padding: 15px;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
+  margin-bottom: 15px;
 }
 
 .fleet-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  width: 100%;
+  gap: 8px;
 }
 
 .ship-card {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 8px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: 0.2s;
-}
-.ship-card:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-.ship-card.selected {
-  background: #f1c40f;
-  color: black;
-  font-weight: bold;
-}
-.ship-card.placed {
-  opacity: 0.6;
-}
-
-.ship-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 10px;
+  border-radius: 8px;
+  border: 2px solid transparent;
 }
-.ship-size {
-  display: flex;
-  gap: 4px;
-  margin-top: 4px;
-  justify-content: center;
+
+.ship-card.selected {
+  border-color: #f1c40f;
+  background: rgba(241, 196, 15, 0.2);
 }
+
 .size-block {
-  width: 15px;
-  height: 10px;
+  width: 12px;
+  height: 8px;
   background: #3498db;
-  border-radius: 2px;
+  display: inline-block;
+  margin-right: 2px;
+  border-radius: 1px;
 }
 
-.orientation-toggle {
+/* BOUTONS D'ACTION */
+.action-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
   margin-top: 15px;
 }
 
-.validate-btn {
-  margin-top: 15px;
-  background: #16a085;
-  color: white;
+button {
+  padding: 12px;
+  border-radius: 6px;
+  border: none;
   font-weight: bold;
+  cursor: pointer;
 }
 
+.toggle-btn {
+  background: #34495e;
+  color: white;
+  width: 100%;
+}
+.validate-btn {
+  background: #27ae60;
+  color: white;
+}
+.random-btn {
+  background: #e67e22;
+  color: white;
+}
+.validate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ETATS GRILLE */
+.cell.preview {
+  background-color: #2ecc71 !important;
+}
 .cell.preview.invalid {
   background-color: #e74c3c !important;
 }
-.cell.preview {
-  background-color: #4caf50 !important;
+.cell.ship {
+  background-color: #2c3e50;
+  border: 1px solid #bdc3c7;
 }
 
-.random-btn {
-  margin-top: 10px;
-  background: #f39c12;
-  color: white;
-  font-weight: bold;
+/* 📱 ADAPTATION MOBILE (ÉCRANS < 768px) */
+@media (max-width: 768px) {
+  .main-layout {
+    flex-direction: column; /* On empile tout verticalement */
+    align-items: center;
+    width: 100%;
+  }
+
+  /* Ajustement taille grille pour mobile */
+  .grid {
+    grid-template-columns: repeat(10, 8.5vw); /* Cellules basées sur la largeur écran */
+    grid-template-rows: repeat(10, 8.5vw);
+  }
+
+  .cell {
+    width: 8.5vw;
+    height: 8.5vw;
+  }
+
+  .side-panel {
+    width: 100%;
+    margin-top: 10px;
+  }
+
+  /* La flotte passe en défilement horizontal sur mobile pour gagner de la hauteur */
+  .fleet-list {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 10px;
+  }
+
+  .ship-card {
+    min-width: 120px;
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .ship-info {
+    margin-bottom: 5px;
+  }
+
+  .ship-name {
+    font-size: 0.8rem;
+  }
+}
+
+/* SCROLLBARS */
+.custom-scroll::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
 }
 </style>

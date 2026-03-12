@@ -82,6 +82,350 @@
   </div>
 </template>
 
+<style scoped>
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+  /* Optionnel : empêche le rebond élastique sur iOS */
+  position: relative;
+}
+/* CONTENEUR PRINCIPAL */
+.battle-container {
+  width: 100%;
+  min-height: 100vh;
+  background: radial-gradient(circle at center, #1b2735 0%, #090a0f 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80px 10px 40px 10px;
+  color: white;
+  font-family: "Orbitron", sans-serif;
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* GESTION DU BOUTON ABANDONNER (PC) */
+.header-actions {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 100;
+}
+
+.btn-abandon {
+  width: auto;
+  min-width: 140px;
+  padding: 10px 20px;
+  background: rgba(198, 40, 40, 0.1);
+  border: 1px solid #ff4444;
+  border-radius: 5px;
+  color: #ff4444;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-abandon:hover {
+  background: #c62828;
+  color: white;
+  box-shadow: 0 0 15px rgba(198, 40, 40, 0.5);
+}
+
+.btn-icon {
+  display: none;
+}
+
+/* WRAPPER DES GRILLES */
+.grids-wrapper {
+  display: flex;
+  gap: 40px;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+  justify-content: center;
+  flex-wrap: wrap; /* Important pour le passage à la ligne sur mobile */
+  overflow: hidden;
+}
+
+.grid-section {
+  flex: 1 1 300px; /* Permet de réduire la section si nécessaire */
+  width: 100%;
+  max-width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.grid-title {
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  color: #00d4ff;
+  text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+}
+
+/* LA GRILLE */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  grid-template-rows: repeat(10, 1fr); /* 👈 AJOUT ICI */
+  gap: 2px;
+  background: rgba(0, 212, 255, 0.15);
+  padding: 4px;
+  border: 1px solid rgba(0, 212, 255, 0.4);
+  border-radius: 4px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  box-sizing: border-box;
+}
+/* LES CELLULES */
+.cell {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1 / 1; /* 👈 REMETS CECI ICI */
+  background: rgba(10, 25, 47, 0.85);
+  border: 1px solid rgba(0, 212, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  /* Optionnel mais recommandé pour empêcher le contenu de déborder : */
+  overflow: hidden;
+}
+
+/* ETATS DES CELLULES */
+.player-grid .cell.ship {
+  background: #1e3a5f;
+  border: 1px solid #00d4ff;
+  box-shadow: inset 0 0 8px rgba(0, 212, 255, 0.3);
+}
+
+.cell.hit {
+  background: radial-gradient(circle, #ff4444 30%, #7f0000 100%) !important;
+  box-shadow: 0 0 12px #ff4444;
+  z-index: 1;
+}
+
+.cell.miss::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+}
+
+.cell.sunk {
+  background: #1a1a1a !important;
+  border: 1px solid #444;
+}
+
+.cell.sunk::after {
+  content: "✕";
+  color: #ff4444;
+  font-size: 1.1rem;
+  font-weight: bold;
+  opacity: 0.7;
+}
+
+.cell.selected {
+  background: rgba(255, 235, 59, 0.2) !important;
+  outline: 2px solid #ffeb3b;
+  z-index: 2;
+}
+
+/* TIMER / CHRONO */
+.timer-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+}
+
+.timer-circle {
+  width: 100px;
+  height: 100px;
+  position: relative;
+}
+
+.progress-ring {
+  transform: rotate(-90deg);
+}
+
+.timer-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: white;
+}
+
+/* DROP DOWN ADVERSAIRE */
+.opponent-dropdown {
+  background: #0a192f;
+  color: #00d4ff;
+  border: 1px solid #00d4ff;
+  padding: 4px 8px;
+  font-family: "Orbitron";
+  font-size: 0.8rem;
+  border-radius: 4px;
+  margin-left: 10px;
+}
+
+/* RESPONSIVE (MOBILE & TABLETTE) */
+@media (max-width: 850px) {
+  .battle-container {
+    padding-top: 80px; /* Espace pour le bouton en haut */
+  }
+
+  /* Bouton devient un cercle en haut à droite */
+  .header-actions {
+    top: 15px;
+    right: 15px;
+  }
+
+  .btn-abandon {
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .btn-text {
+    display: none;
+  }
+  .btn-icon {
+    display: block;
+    font-size: 1.4rem;
+    font-weight: bold;
+  }
+
+  /* RE-ORGANISATION DES ELEMENTS SUR MOBILE */
+  .grids-wrapper {
+    flex-direction: column;
+    gap: 10px; /* Réduit l'espace entre les éléments pour gagner de la place */
+    padding: 0 5px;
+  }
+
+  .grid-title {
+    font-size: 0.9rem; /* Titre un peu plus petit sur mobile */
+    margin-bottom: 8px;
+  }
+
+  .player-section {
+    order: 1; /* Notre flotte en premier */
+  }
+
+  .timer-container {
+    order: 2;
+    margin: 5px 0;
+    /* On réduit un peu le chrono sur mobile pour laisser la place aux grilles */
+    transform: scale(0.85);
+  }
+
+  .opponent-section {
+    order: 3; /* L'adversaire en dernier */
+  }
+
+  .grid-section {
+    /* La grille prend 92% de la largeur du téléphone */
+    max-width: 92vw;
+    margin: 0 auto;
+  }
+}
+
+/* POPUP DE FIN */
+.end-popup {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.popup-overlay {
+  position: fixed; /* Crucial : détache la popup du flux normal */
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85); /* Fond noir semi-transparent */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000; /* Doit être supérieur à tout le reste (grilles, timer) */
+  backdrop-filter: blur(5px); /* Optionnel : floute le jeu derrière */
+}
+
+.popup-content {
+  background: #0a192f;
+  padding: 40px;
+  border: 2px solid #00d4ff;
+  border-radius: 15px;
+  text-align: center;
+  max-width: 400px;
+  width: 90%; /* Évite de déborder sur mobile */
+  box-shadow: 0 0 50px rgba(0, 212, 255, 0.4);
+}
+
+.btn-home {
+  margin-top: 25px;
+  padding: 12px 30px;
+  background: #00d4ff;
+  border: none;
+  border-radius: 5px;
+  color: #0a192f;
+  font-weight: bold;
+  cursor: pointer;
+  font-family: "Orbitron";
+  text-transform: uppercase;
+  transition: transform 0.2s;
+}
+
+.btn-home:hover {
+  transform: scale(1.05);
+}
+
+/* --- Modifie ces classes dans ton style existant --- */
+
+.progress-ring {
+  transform: rotate(-90deg);
+  /* Optionnel : ajoute une transition fluide pour que le cercle ne saute pas */
+  transition: stroke-dashoffset 0.3s linear;
+}
+
+.progress-ring__circle {
+  /* La circonférence pour un rayon de 45 est 2 * PI * 45 ≈ 282.7 */
+  stroke-dasharray: 282.7;
+  stroke-dashoffset: 0; /* 0 = cercle complet */
+  stroke-linecap: round;
+  transition:
+    stroke-dashoffset 1s linear,
+    stroke 0.3s;
+}
+
+/* Optionnel : change la couleur en rouge quand il reste peu de temps */
+.timer-low {
+  stroke: #ff4444 !important;
+  filter: drop-shadow(0 0 5px #ff4444);
+}
+</style>
+
 <script>
 import socket from "../services/socket.js";
 
@@ -534,333 +878,3 @@ export default {
   },
 };
 </script>
-
-<style scoped>
-html,
-body {
-  max-width: 100%;
-  overflow-x: hidden;
-  /* Optionnel : empêche le rebond élastique sur iOS */
-  position: relative;
-}
-/* CONTENEUR PRINCIPAL */
-.battle-container {
-  width: 100%;
-  min-height: 100vh;
-  background: radial-gradient(circle at center, #1b2735 0%, #090a0f 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 80px 10px 40px 10px;
-  color: white;
-  font-family: "Orbitron", sans-serif;
-  box-sizing: border-box;
-  position: relative;
-}
-
-/* GESTION DU BOUTON ABANDONNER (PC) */
-.header-actions {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 100;
-}
-
-.btn-abandon {
-  width: auto;
-  min-width: 140px;
-  padding: 10px 20px;
-  background: rgba(198, 40, 40, 0.1);
-  border: 1px solid #ff4444;
-  border-radius: 5px;
-  color: #ff4444;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-transform: uppercase;
-  font-size: 0.8rem;
-  letter-spacing: 1px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-abandon:hover {
-  background: #c62828;
-  color: white;
-  box-shadow: 0 0 15px rgba(198, 40, 40, 0.5);
-}
-
-.btn-icon {
-  display: none;
-}
-
-/* WRAPPER DES GRILLES */
-.grids-wrapper {
-  display: flex;
-  gap: 40px;
-  align-items: center;
-  width: 100%;
-  max-width: 1200px;
-  justify-content: center;
-  flex-wrap: wrap; /* Important pour le passage à la ligne sur mobile */
-  overflow: hidden;
-}
-
-.grid-section {
-  flex: 1 1 300px; /* Permet de réduire la section si nécessaire */
-  width: 100%;
-  max-width: 100%;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.grid-title {
-  font-size: 1.1rem;
-  margin-bottom: 15px;
-  text-transform: uppercase;
-  color: #00d4ff;
-  text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
-}
-
-/* LA GRILLE */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  grid-template-rows: repeat(10, 1fr); /* 👈 AJOUT ICI */
-  gap: 2px;
-  background: rgba(0, 212, 255, 0.15);
-  padding: 4px;
-  border: 1px solid rgba(0, 212, 255, 0.4);
-  border-radius: 4px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  box-sizing: border-box;
-}
-/* LES CELLULES */
-.cell {
-  width: 100%;
-  height: 100%;
-  aspect-ratio: 1 / 1; /* 👈 REMETS CECI ICI */
-  background: rgba(10, 25, 47, 0.85);
-  border: 1px solid rgba(0, 212, 255, 0.05);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  /* Optionnel mais recommandé pour empêcher le contenu de déborder : */
-  overflow: hidden;
-}
-
-/* ETATS DES CELLULES */
-.player-grid .cell.ship {
-  background: #1e3a5f;
-  border: 1px solid #00d4ff;
-  box-shadow: inset 0 0 8px rgba(0, 212, 255, 0.3);
-}
-
-.cell.hit {
-  background: radial-gradient(circle, #ff4444 30%, #7f0000 100%) !important;
-  box-shadow: 0 0 12px #ff4444;
-  z-index: 1;
-}
-
-.cell.miss::after {
-  content: "";
-  width: 6px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.4);
-  border-radius: 50%;
-}
-
-.cell.sunk {
-  background: #1a1a1a !important;
-  border: 1px solid #444;
-}
-
-.cell.sunk::after {
-  content: "✕";
-  color: #ff4444;
-  font-size: 1.1rem;
-  font-weight: bold;
-  opacity: 0.7;
-}
-
-.cell.selected {
-  background: rgba(255, 235, 59, 0.2) !important;
-  outline: 2px solid #ffeb3b;
-  z-index: 2;
-}
-
-/* TIMER / CHRONO */
-.timer-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 120px;
-}
-
-.timer-circle {
-  width: 100px;
-  height: 100px;
-  position: relative;
-}
-
-.progress-ring {
-  transform: rotate(-90deg);
-}
-
-.timer-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: white;
-}
-
-/* DROP DOWN ADVERSAIRE */
-.opponent-dropdown {
-  background: #0a192f;
-  color: #00d4ff;
-  border: 1px solid #00d4ff;
-  padding: 4px 8px;
-  font-family: "Orbitron";
-  font-size: 0.8rem;
-  border-radius: 4px;
-  margin-left: 10px;
-}
-
-/* RESPONSIVE (MOBILE & TABLETTE) */
-@media (max-width: 850px) {
-  .battle-container {
-    padding-top: 80px; /* Espace pour le bouton en haut */
-  }
-
-  /* Bouton devient un cercle en haut à droite */
-  .header-actions {
-    top: 15px;
-    right: 15px;
-  }
-
-  .btn-abandon {
-    width: 46px;
-    height: 46px;
-    min-width: 46px;
-    padding: 0;
-    border-radius: 50%;
-  }
-
-  .btn-text {
-    display: none;
-  }
-  .btn-icon {
-    display: block;
-    font-size: 1.4rem;
-    font-weight: bold;
-  }
-
-  /* RE-ORGANISATION DES ELEMENTS SUR MOBILE */
-  .grids-wrapper {
-    flex-direction: column;
-    gap: 10px; /* Réduit l'espace entre les éléments pour gagner de la place */
-    padding: 0 5px;
-  }
-
-  .grid-title {
-    font-size: 0.9rem; /* Titre un peu plus petit sur mobile */
-    margin-bottom: 8px;
-  }
-
-  .player-section {
-    order: 1; /* Notre flotte en premier */
-  }
-
-  .timer-container {
-    order: 2;
-    margin: 5px 0;
-    /* On réduit un peu le chrono sur mobile pour laisser la place aux grilles */
-    transform: scale(0.85);
-  }
-
-  .opponent-section {
-    order: 3; /* L'adversaire en dernier */
-  }
-
-  .grid-section {
-    /* La grille prend 92% de la largeur du téléphone */
-    max-width: 92vw;
-    margin: 0 auto;
-  }
-}
-
-/* POPUP DE FIN */
-.end-popup {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  padding: 20px;
-}
-
-.popup-content {
-  background: #0a192f;
-  padding: 40px;
-  border: 2px solid #00d4ff;
-  border-radius: 15px;
-  text-align: center;
-  max-width: 400px;
-  width: 100%;
-  box-shadow: 0 0 40px rgba(0, 212, 255, 0.3);
-}
-
-.btn-home {
-  margin-top: 25px;
-  padding: 12px 30px;
-  background: #00d4ff;
-  border: none;
-  border-radius: 5px;
-  color: #0a192f;
-  font-weight: bold;
-  cursor: pointer;
-  font-family: "Orbitron";
-  text-transform: uppercase;
-  transition: transform 0.2s;
-}
-
-.btn-home:hover {
-  transform: scale(1.05);
-}
-
-/* --- Modifie ces classes dans ton style existant --- */
-
-.progress-ring {
-  transform: rotate(-90deg);
-  /* Optionnel : ajoute une transition fluide pour que le cercle ne saute pas */
-  transition: stroke-dashoffset 0.3s linear;
-}
-
-.progress-ring__circle {
-  /* La circonférence pour un rayon de 45 est 2 * PI * 45 ≈ 282.7 */
-  stroke-dasharray: 282.7;
-  stroke-dashoffset: 0; /* 0 = cercle complet */
-  stroke-linecap: round;
-  transition:
-    stroke-dashoffset 1s linear,
-    stroke 0.3s;
-}
-
-/* Optionnel : change la couleur en rouge quand il reste peu de temps */
-.timer-low {
-  stroke: #ff4444 !important;
-  filter: drop-shadow(0 0 5px #ff4444);
-}
-</style>
