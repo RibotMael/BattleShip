@@ -17,19 +17,126 @@ import invitationsRouter from "./routes/invitations.js";
 import gamesRouter from "./routes/games.js";
 
 const app = express();
+const server = http.createServer(app);
 
 /* ==========================
-   MIDDLEWARE
+   MIDDLEWARE CORS (FIXED)
 ========================== */
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "https://battle-ship-seven.vercel.app"
+];
 
-app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
+app.use(cors({
+  origin: function (origin, callback) {
+    // 1. Allow internal requests or tools like Postman (no origin)
+    if (!origin) return callback(null, true);
+
+    // 2. Check if the origin is in our list
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      return callback(null, true);
+    } else {
+      // 3. Optional: Fallback for subdomains or dynamic localhosts
+      const isLocalhost = origin.includes("localhost") || origin.includes("127.0.0.1");
+      if (isLocalhost) {
+        return callback(null, true);
+      }
+      
+      return callback(new Error("Accès refusé par CORS"), false);
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 /* ==========================
+   SOCKET.IO CONFIGURATION
+========================== */
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
+
+// Rendre io accessible globalement de manière propre
+app.set("io", io);
+
+/* ==========================
+   TIMER SERVEUR (LOGIQUE)
+========================== */
+const games = {};
+
+/**
+ * Démarre ou réinitialise le tour d'une partie
+ */
+function startTurn(gameId, duration = 7) {
+  const sId = String(gameId);
+
+  // Nettoyage si un timer existe déjà
+  if (games[sId]?.timer) {
+    clearInterval(games[sId].timer);
+  }
+
+  if (!games[sId]) {
+    games[sId] = { turnNumber: 0 };
+  }
+
+  games[sId].turnStartAt = Date.now();
+  games[sId].duration = duration;
+  games[sId].ended = false;
+  games[sId].finished = false;
+  games[sId].turnNumber++;
+
+  const interval = setInterval(() => {
+    if (!games[sId] || games[sId].finished) {
+      clearInterval(interval);
+      return;
+    }
+
+    const elapsed = (Date.now() - games[sId].turnStartAt) / 1000;
+    const timeLeft = Math.max(0, Math.ceil(duration - elapsed));
+
+    // Diffusion du temps restant
+    io.to(sId).emit("turn-timer", { timeLeft, gameId: sId });
+
+    if (timeLeft <= 0 && !games[sId].ended) {
+      games[sId].ended = true;
+      clearInterval(interval);
+
+      io.to(sId).emit("turn-ended", { reason: "timeout", gameId: sId });
+
+      // Délai avant le prochain tour pour laisser le front respirer
+      setTimeout(() => {
+        if (games[sId] && !games[sId].finished) {
+          startTurn(sId, duration);
+        }
+      }, 1500);
+    }
+  }, 1000);
+
+  games[sId].timer = interval;
+}
+
+function stopGameTimer(gameId) {
+  const sId = String(gameId);
+  if (games[sId]) {
+    clearInterval(games[sId].timer);
+    games[sId].finished = true;
+    delete games[sId];
+    console.log(`🛑 Timer arrêté : ${sId}`);
+  }
+}
+
+/* ==========================
    ROUTES API
 ========================== */
-
 app.use("/api", authRoutes);
 app.use("/api/users", userProfileRoutes);
 app.use("/api", checkPseudoRoute);
@@ -43,131 +150,65 @@ app.get("/", (req, res) => {
 });
 
 /* ==========================
-   SERVER + SOCKET.IO
-========================== */
-
-const server = http.createServer(app);
-
-const io = new Server(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL,
-    methods: ["GET", "POST"],
-    credentials: true,
-  },
-});
-
-/* ==========================
-   TIMER SERVEUR
-========================== */
-const games = {};
-
-function startTurn(gameId, duration = 7) {
-  if (games[gameId] && games[gameId].timer) {
-    clearInterval(games[gameId].timer);
-    console.log(`🧹 Ancien timer nettoyé pour la partie ${gameId}`);
-  }
-
-  // Réinitialisation complète de l'état de la partie
-  games[gameId] = {
-    timer: null,
-    turnStartAt: Date.now(),
-    ended: false,
-    finished: false,
-    duration: duration
-  };
-
-  games[gameId].timer = setInterval(() => {
-    if (games[gameId].finished) {
-      clearInterval(games[gameId].timer);
-      delete games[gameId]; 
-      return;
-    }
-
-    const elapsed = Date.now() - games[gameId].turnStartAt;
-    const timeLeft = Math.max(0, Math.ceil(games[gameId].duration - elapsed / 1000));
-
-    io.to(String(gameId)).emit("turn-timer", { timeLeft });
-
-    if (timeLeft <= 0 && !games[gameId].ended) {
-      games[gameId].ended = true;
-      
-      console.log(`⌛ Fin du tour pour la partie ${gameId}`);
-      io.to(String(gameId)).emit("turn-ended", { reason: "timeout" });
-
-      // Petit délai pour laisser le temps aux tirs de se résoudre
-      setTimeout(() => {
-        if (games[gameId] && !games[gameId].finished) {
-          games[gameId].turnStartAt = Date.now();
-          games[gameId].ended = false;
-        }
-      }, 1500); 
-    }
-  }, 1000);
-}
-
-/* ==========================
    SOCKET.IO EVENTS
 ========================== */
-
 io.on("connection", (socket) => {
-  // 1. Le joueur rejoint la room
+  console.log(`🔌 Connecté : ${socket.id}`);
+
   socket.on("join-game", ({ gameId }) => {
-    socket.join(String(gameId));
+    if (!gameId) return;
+    const room = String(gameId);
+    socket.join(room);
+    console.log(`👤 Joueur ${socket.id} -> Room ${room}`);
   });
 
-  // 2. Le joueur confirme qu'il est chargé et prêt à voir le chrono
   socket.on("player-ready", async ({ gameId, playerId }) => {
     const sId = String(gameId);
-  
-    // 1. On vérifie en BDD qui a validé sa grille
-    const [players] = await db.query(
+    try {
+      // Vérifier l'état des grilles en DB
+      const [players] = await db.query(
         "SELECT player_id FROM player_boards WHERE game_id = ? AND validated = 1", 
         [sId]
-    );
-
-
-    const readyCount = players.length;
-
-    // 2. On récupère le nombre total de joueurs inscrits dans la partie
-    const [totalRows] = await db.query(
-        "SELECT count(*) as count FROM game_players WHERE id_game = ?", 
+      );
+      
+      const [totalRows] = await db.query(
+        "SELECT COUNT(*) AS count FROM game_players WHERE id_game = ?", 
         [sId]
-    );
-    const totalExpected = totalRows[0].count;
+      );
 
-    console.log(`📢 Joueur ${playerId} est sur l'écran de combat. Grilles validées : ${readyCount}/${totalExpected}`);
+      const readyCount = players.length;
+      const totalExpected = totalRows[0].count;
 
-    // 3. On ne lance le jeu que si le nombre de grilles validées == nombre de joueurs
-    if (readyCount >= totalExpected) {
+      if (readyCount >= totalExpected && totalExpected > 0) {
+        // On ne lance le timer que s'il n'est pas déjà actif
         if (!games[sId] || !games[sId].timer) {
-            console.log("🚀 Toutes les grilles sont validées ! Lancement.");
-            if (!games[sId]) games[sId] = {};
-            startTurn(sId);
+          console.log(`🚀 Lancement partie ${sId}`);
+          io.to(sId).emit("game-started", { timeLeft: 7 });
+          startTurn(sId);
         }
-    } else {
-        io.to(sId).emit("waiting-for-players", { 
-            ready: readyCount, 
-            total: totalExpected 
-        });
+      } else {
+        io.to(sId).emit("waiting-for-players", { ready: readyCount, total: totalExpected });
+      }
+    } catch (err) {
+      console.error("❌ Erreur player-ready:", err);
     }
-});
+  });
+
+  socket.on("disconnect", () => {
+    console.log("🚫 Déconnexion socket");
+  });
 });
 
 /* ==========================
-   404
+   LANCEMENT
 ========================== */
-
 app.use((req, res) => {
   res.status(404).json({ success: false, message: "Route introuvable" });
 });
 
-/* ==========================
-   START
-========================== */
-
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
-  console.log(`🚀 Backend Battleship en ligne sur http://localhost:${PORT}`);
+  console.log(`🚀 Backend BattleShip sur le port ${PORT}`);
 });
 
-export { io };
+export { io, games, startTurn, stopGameTimer };

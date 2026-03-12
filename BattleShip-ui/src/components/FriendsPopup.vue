@@ -94,6 +94,7 @@
 
 <script>
 import { invitationStore, removeInvitation } from "@/eventBus";
+import api from "@/api/api.js"; // Import de ton instance magique
 import defaultAvatar from "@/assets/images/ppHomme.png";
 
 export default {
@@ -104,6 +105,7 @@ export default {
       requests: [],
       identifier: "",
       defaultAvatar,
+      refreshInterval: null,
     };
   },
   computed: {
@@ -116,20 +118,22 @@ export default {
   },
   mounted() {
     this.fetchAll();
+    // On garde le rafraîchissement automatique
     this.refreshInterval = setInterval(this.fetchAll, 3000);
   },
   beforeUnmount() {
-    clearInterval(this.refreshInterval);
+    if (this.refreshInterval) clearInterval(this.refreshInterval);
   },
   methods: {
     async fetchAll() {
+      // Promise.all est parfait ici pour charger tout en même temps
       await Promise.all([this.fetchFriends(), this.fetchRequests(), this.fetchInvitations()]);
     },
 
     async fetchFriends() {
       try {
-        const res = await fetch(`http://localhost:8080/api/friends/list/${this.userId}`);
-        const data = await res.json();
+        const res = await api.get(`/friends/list/${this.userId}`);
+        const data = res.data; // Avec Axios, les données sont dans .data
         this.friends = (data || []).map((f) => ({
           ID_Users: f.ID_Users ?? f.id,
           Pseudo: f.Pseudo ?? f.pseudo,
@@ -143,8 +147,8 @@ export default {
 
     async fetchRequests() {
       try {
-        const res = await fetch(`http://localhost:8080/api/friends/requests/${this.userId}`);
-        const data = await res.json();
+        const res = await api.get(`/friends/requests/${this.userId}`);
+        const data = res.data;
         this.requests = (data || []).map((r) => ({
           ID_Users: r.ID_Users,
           Pseudo: r.Pseudo,
@@ -158,9 +162,10 @@ export default {
 
     async fetchInvitations() {
       try {
-        const res = await fetch(`http://localhost:8080/api/invitation/${this.userId}`);
-        const data = await res.json();
-        invitationStore.invitations = Array.isArray(data.invitations) ? data.invitations : [];
+        const res = await api.get(`/invitation/${this.userId}`);
+        invitationStore.invitations = Array.isArray(res.data.invitations)
+          ? res.data.invitations
+          : [];
       } catch (err) {
         console.error("❌ Erreur récupération invitations :", err);
         invitationStore.invitations = [];
@@ -170,38 +175,35 @@ export default {
     async addFriend() {
       if (!this.identifier.trim()) return alert("Pseudo requis");
       try {
-        await fetch("http://localhost:8080/api/friends/add", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: this.userId, identifier: this.identifier }),
+        // Syntaxe Axios POST : api.post(url, body)
+        await api.post("/friends/add", {
+          userId: this.userId,
+          identifier: this.identifier,
         });
         this.identifier = "";
         this.fetchFriends();
       } catch (err) {
         console.error("❌ Erreur addFriend :", err);
+        alert("Utilisateur introuvable ou déjà ajouté.");
       }
     },
 
     async acceptInvitation(inv) {
       try {
-        const res = await fetch("http://localhost:8080/api/invitation/respond", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: this.userId,
-            inviteId: inv.ID,
-            gameId: inv.id_game,
-            senderId: inv.sender_id,
-            accept: true,
-          }),
+        const res = await api.post("/invitation/respond", {
+          userId: this.userId,
+          inviteId: inv.ID,
+          gameId: inv.id_game,
+          senderId: inv.sender_id,
+          accept: true,
         });
-        const data = await res.json();
-        if (data.success) {
+
+        if (res.data.success) {
           removeInvitation(inv.ID);
-          await fetch("http://localhost:8080/api/games/join", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ gameId: inv.id_game, playerId: this.userId }),
+          // Rejoindre la partie officiellement
+          await api.post("/games/join", {
+            gameId: inv.id_game,
+            playerId: this.userId,
           });
           this.$router.push(`/waiting-room/${inv.id_game}`);
         }
@@ -212,16 +214,12 @@ export default {
 
     async refuseInvitation(inv) {
       try {
-        await fetch("http://localhost:8080/api/invitation/respond", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: this.userId,
-            inviteId: inv.ID,
-            gameId: inv.id_game,
-            senderId: inv.sender_id,
-            accept: false,
-          }),
+        await api.post("/invitation/respond", {
+          userId: this.userId,
+          inviteId: inv.ID,
+          gameId: inv.id_game,
+          senderId: inv.sender_id,
+          accept: false,
         });
         removeInvitation(inv.ID);
       } catch (err) {
@@ -231,10 +229,9 @@ export default {
 
     async acceptRequest(friendId) {
       try {
-        await fetch("http://localhost:8080/api/friends/accept", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: this.userId, friendId }),
+        await api.post("/friends/accept", {
+          userId: this.userId,
+          friendId,
         });
         this.fetchFriends();
         this.fetchRequests();
@@ -246,10 +243,9 @@ export default {
     async removeFriend(friendId) {
       if (!confirm("Voulez-vous vraiment supprimer cet ami ?")) return;
       try {
-        await fetch("http://localhost:8080/api/friends/remove", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: this.userId, friendId }),
+        await api.post("/friends/remove", {
+          userId: this.userId,
+          friendId,
         });
         this.fetchFriends();
         this.fetchRequests();

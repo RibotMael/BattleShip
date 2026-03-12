@@ -57,6 +57,8 @@
 </template>
 
 <script>
+import api from "@/api/api.js";
+
 export default {
   data() {
     return {
@@ -70,9 +72,7 @@ export default {
   },
   computed: {
     canStart() {
-      // Battle Royale : minimum 2 joueurs
       if (this.mode === "battle-royale") return this.user;
-      // Partie privée classique : pair >= 2
       if (this.isPrivate) return this.user && this.totalPlayers >= 2 && this.totalPlayers % 2 === 0;
       return this.user;
     },
@@ -111,14 +111,14 @@ export default {
           ? Math.floor(this.totalPlayers / 2)
           : this.getTeamModeFromSelection(this.mode);
 
-        // Calcul du totalPlayers pour la partie
-        let totalPlayers;
+        // Calcul du totalPlayers
+        let calcTotalPlayers;
         if (this.mode === "battle-royale") {
-          totalPlayers = 2;
+          calcTotalPlayers = 2;
         } else if (this.isPrivate) {
-          totalPlayers = this.totalPlayers;
+          calcTotalPlayers = this.totalPlayers;
         } else {
-          totalPlayers = teamModeId * 2;
+          calcTotalPlayers = teamModeId * 2;
         }
 
         const payload = {
@@ -127,16 +127,13 @@ export default {
           id_game_type: this.mode === "battle-royale" ? 1 : 2,
           id_team_mode: teamModeId,
           id_version: this.language === "fr" ? 1 : 2,
-          totalPlayers,
+          totalPlayers: calcTotalPlayers,
         };
 
-        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/create", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+        // --- CORRECTION ICI : Utilisation de ton instance Axios ---
+        const response = await api.post("/games/create", payload);
+        const data = response.data;
 
-        const data = await res.json();
         if (!data.success) {
           alert(data.message || "Erreur lors de la création de la partie.");
           return;
@@ -145,21 +142,23 @@ export default {
         const normalizedGame = {
           ID_Game: data.game.ID_Game || data.game.id_game || data.game.id,
           ID_Creator: data.game.ID_Creator || data.game.id_creator || data.game.creatorId,
-          TotalPlayers: data.game.TotalPlayers || totalPlayers,
+          TotalPlayers: data.game.TotalPlayers || calcTotalPlayers,
           Status: data.game.Status || "preparation",
         };
 
+        // Stockage local
         localStorage.setItem("currentGame", JSON.stringify(normalizedGame));
         localStorage.setItem("currentLanguage", this.language);
-        localStorage.setItem("user", JSON.stringify(this.user));
 
+        // Redirection
         this.$router.push({
           name: "WaitingRoom",
           params: { gameId: normalizedGame.ID_Game },
         });
       } catch (err) {
         console.error("❌ Erreur dans startGame:", err);
-        alert("Impossible de contacter le serveur.");
+        const errorMsg = err.response?.data?.message || "Impossible de contacter le serveur.";
+        alert(errorMsg);
       } finally {
         this.loading = false;
       }

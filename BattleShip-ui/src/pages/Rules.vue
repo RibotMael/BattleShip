@@ -103,7 +103,7 @@
           </li>
           <li>
             <strong>Tour de jeu (Timer) :</strong> Vous avez
-            <strong class="highlight">8 secondes</strong> pour tirer. Passé ce délai, un tir
+            <strong class="highlight">7 secondes</strong> pour tirer. Passé ce délai, un tir
             aléatoire est effectué !
           </li>
           <li>

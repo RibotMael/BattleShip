@@ -6,14 +6,26 @@
       <div class="friends-column">
         <h3>Invitez vos amis :</h3>
         <ul>
-          <li v-if="friends.length === 0">Vous n'avez pas encore d'amis à inviter.</li>
-          <li v-for="friend in friends" :key="friend.ID_Users">
-            {{ friend.Pseudo }}
+          <li v-if="friends.length === 0" class="info-text">
+            Vous n'avez pas encore d'amis à inviter.
+          </li>
+          <li v-for="friend in friends" :key="getUserId(friend)">
+            <div class="friend-info">
+              <span class="status-dot" :class="{ 'is-online': friend.isOnline }"></span>
+              {{ friend.Pseudo || friend.pseudo }}
+            </div>
+
             <button
-              @click="inviteFriend(friend.ID_Users)"
-              :disabled="!game?.ID_Game || !friend.ID_Users || isPlayerInGame(friend.ID_Users)"
+              @click="inviteFriend(getUserId(friend))"
+              :disabled="!game?.ID_Game || !friend.isOnline || isPlayerInGame(getUserId(friend))"
             >
-              {{ isPlayerInGame(friend.ID_Users) ? "Déjà présent" : "Inviter" }}
+              {{
+                isPlayerInGame(getUserId(friend))
+                  ? "Présent"
+                  : friend.isOnline
+                    ? "Inviter"
+                    : "Hors-ligne"
+              }}
             </button>
           </li>
         </ul>
@@ -21,8 +33,9 @@
           v-if="friends.length > 0 && isHost"
           @click="inviteAllFriends"
           :disabled="!game?.ID_Game"
+          class="btn-invite-all"
         >
-          Inviter tous mes amis
+          Inviter tous les amis en ligne
         </button>
       </div>
 
@@ -30,12 +43,14 @@
         <div v-if="game?.mode === 'battle_royale'">
           <h2>Joueurs :</h2>
           <ul>
-            <li v-for="player in playersWithMe" :key="player.ID_Users">
-              {{ player.Pseudo }}
-              <span class="online-dot" :class="{ online: isPlayerOnline(player.ID_Users) }"></span>
+            <li v-for="player in playersWithMe" :key="getUserId(player)">
+              <div class="player-info">
+                {{ player.Pseudo || player.pseudo }}
+                <span class="online-dot online"></span>
+              </div>
               <button
-                v-if="isHost && player.ID_Users !== userId"
-                @click="kickPlayer(player.ID_Users)"
+                v-if="isHost && getUserId(player) !== userId"
+                @click="kickPlayer(getUserId(player))"
                 class="btn-kick"
               >
                 ❌
@@ -50,24 +65,24 @@
           <div class="unassigned-players" v-if="unassignedPlayers.length > 0">
             <h3>En attente d'assignation</h3>
             <ul>
-              <li v-for="player in unassignedPlayers" :key="player.ID_Users">
-                {{ player.Pseudo }}
+              <li v-for="player in unassignedPlayers" :key="getUserId(player)">
+                {{ player.Pseudo || player.pseudo }}
                 <div class="actions">
                   <button
-                    v-if="isHost || player.ID_Users === userId"
-                    @click="assignTeam(player.ID_Users, 1)"
+                    v-if="isHost || getUserId(player) === userId"
+                    @click="assignTeam(getUserId(player), 1)"
                   >
-                    Rejoindre Eq. 1
+                    ➡️ Eq. 1
                   </button>
                   <button
-                    v-if="isHost || player.ID_Users === userId"
-                    @click="assignTeam(player.ID_Users, 2)"
+                    v-if="isHost || getUserId(player) === userId"
+                    @click="assignTeam(getUserId(player), 2)"
                   >
-                    Rejoindre Eq. 2
+                    ➡️ Eq. 2
                   </button>
                   <button
-                    v-if="isHost && player.ID_Users !== userId"
-                    @click="kickPlayer(player.ID_Users)"
+                    v-if="isHost && getUserId(player) !== userId"
+                    @click="kickPlayer(getUserId(player))"
                     class="btn-kick"
                   >
                     ❌
@@ -81,28 +96,21 @@
             <div class="team-box" :class="{ 'team-full': team1Players.length > playersPerTeam }">
               <h3>Équipe 1 ({{ team1Players.length }}/{{ playersPerTeam }})</h3>
               <ul>
-                <li v-for="player in team1Players" :key="player.ID_Users">
-                  {{ player.Pseudo }}
+                <li v-for="player in team1Players" :key="getUserId(player)">
+                  {{ player.Pseudo || player.pseudo }}
                   <div class="actions">
                     <button
-                      v-if="isHost || player.ID_Users === userId"
-                      @click="assignTeam(player.ID_Users, 2)"
+                      v-if="isHost || getUserId(player) === userId"
+                      @click="assignTeam(getUserId(player), 2)"
                     >
                       ➡️ Eq. 2
                     </button>
                     <button
-                      v-if="isHost || player.ID_Users === userId"
-                      @click="assignTeam(player.ID_Users, null)"
+                      v-if="isHost || getUserId(player) === userId"
+                      @click="assignTeam(getUserId(player), null)"
                       class="btn-remove"
                     >
                       Sortir
-                    </button>
-                    <button
-                      v-if="isHost && player.ID_Users !== userId"
-                      @click="kickPlayer(player.ID_Users)"
-                      class="btn-kick"
-                    >
-                      ❌
                     </button>
                   </div>
                 </li>
@@ -112,28 +120,21 @@
             <div class="team-box" :class="{ 'team-full': team2Players.length > playersPerTeam }">
               <h3>Équipe 2 ({{ team2Players.length }}/{{ playersPerTeam }})</h3>
               <ul>
-                <li v-for="player in team2Players" :key="player.ID_Users">
-                  {{ player.Pseudo }}
+                <li v-for="player in team2Players" :key="getUserId(player)">
+                  {{ player.Pseudo || player.pseudo }}
                   <div class="actions">
                     <button
-                      v-if="isHost || player.ID_Users === userId"
-                      @click="assignTeam(player.ID_Users, 1)"
+                      v-if="isHost || getUserId(player) === userId"
+                      @click="assignTeam(getUserId(player), 1)"
                     >
                       ⬅️ Eq. 1
                     </button>
                     <button
-                      v-if="isHost || player.ID_Users === userId"
-                      @click="assignTeam(player.ID_Users, null)"
+                      v-if="isHost || getUserId(player) === userId"
+                      @click="assignTeam(getUserId(player), null)"
                       class="btn-remove"
                     >
                       Sortir
-                    </button>
-                    <button
-                      v-if="isHost && player.ID_Users !== userId"
-                      @click="kickPlayer(player.ID_Users)"
-                      class="btn-kick"
-                    >
-                      ❌
                     </button>
                   </div>
                 </li>
@@ -153,19 +154,16 @@
           >
             🚀 Démarrer la partie
           </button>
-
           <p v-if="!canStartGame && isHost" class="info-text warning">
             {{
               game?.mode === "battle_royale"
                 ? "Attente de joueurs..."
-                : `Équilibrez les équipes (${playersPerTeam} vs ${playersPerTeam}) pour lancer.`
+                : "Équilibrez les équipes pour lancer."
             }}
           </p>
-
-          <button @click="leaveRoom" :disabled="!game?.ID_Game" class="leave-btn">
+          <button @click="leaveRoom" class="leave-btn">
             {{ isHost ? "🗑️ Supprimer la partie" : "❌ Quitter la partie" }}
           </button>
-
           <p v-if="errorMsg" class="error-text">{{ errorMsg }}</p>
         </div>
       </div>
@@ -174,6 +172,7 @@
 </template>
 
 <script>
+import api from "@/api/api.js";
 import socket from "../services/socket.js";
 
 export default {
@@ -183,35 +182,20 @@ export default {
       localGameId: null,
       game: null,
       players: [],
-      onlinePlayers: [],
       user: JSON.parse(localStorage.getItem("user")) || { id: 999, pseudo: "TestUser" },
       userId: 0,
       friends: [],
       isHost: false,
       polling: null,
-      totalPlayers: null,
       errorMsg: "",
-      invitationsList: [],
-      teamAssignments: {}, // Stocke l'équipe de chaque joueur { ID_Users: 1 ou 2 }
+      teamAssignments: {},
     };
   },
   computed: {
-    invitations() {
-      return this.invitationsList;
-    },
     playersWithMe() {
-      // On s'assure que this.players est toujours un tableau
       const allPlayers = Array.isArray(this.players) ? this.players : [];
-
-      // Si on veut vraiment forcer l'affichage de soi-même au début :
       if (allPlayers.length === 0 && this.userId) {
-        return [
-          {
-            ID_Users: this.userId,
-            Pseudo: this.user?.pseudo || "Moi",
-            avatar: this.user?.avatar || null,
-          },
-        ];
+        return [{ ID_Users: this.userId, Pseudo: this.user?.pseudo || "Moi" }];
       }
       return allPlayers;
     },
@@ -219,340 +203,148 @@ export default {
       return this.game?.TotalPlayers ? this.game.TotalPlayers / 2 : 0;
     },
     unassignedPlayers() {
-      return this.playersWithMe.filter((p) => !this.teamAssignments[p.ID_Users]);
+      return this.playersWithMe.filter((p) => !this.teamAssignments[this.getUserId(p)]);
     },
     team1Players() {
-      return this.playersWithMe.filter((p) => this.teamAssignments[p.ID_Users] === 1);
+      return this.playersWithMe.filter((p) => this.teamAssignments[this.getUserId(p)] === 1);
     },
     team2Players() {
-      return this.playersWithMe.filter((p) => this.teamAssignments[p.ID_Users] === 2);
+      return this.playersWithMe.filter((p) => this.teamAssignments[this.getUserId(p)] === 2);
     },
     canStartGame() {
       if (!this.game || !this.isHost) return false;
-      if (Number(this.userId) !== Number(this.game.id_creator)) return false;
-
-      // Battle Royale : minimum 2 joueurs
-      if (this.game.mode === "battle_royale") {
-        return this.playersWithMe.length >= 2;
-      }
-
-      // Modes classiques : les équipes doivent être pleines et égales
-      const required = this.playersPerTeam;
-
-      if (this.playersWithMe.length !== required * 2) return false;
-      return (
-        this.team1Players.length === required &&
-        this.team2Players.length === required &&
-        this.unassignedPlayers.length === 0
-      );
-    },
-  },
-  watch: {
-    "game.status"(newStatus) {
-      if (newStatus === "placement") {
-        this.$router.replace({
-          name: "PlaceShips",
-          params: { gameId: String(this.game?.ID_Game) },
-        });
-      } else if (newStatus === "in_progress") {
-        // Si on arrive et que c'est déjà en cours, on saute le placement
-        this.$router.replace({
-          name: "GameBoard",
-          params: {
-            gameId: String(this.game?.ID_Game),
-            gameType: this.game.mode === "battle_royale" ? "BattleRoyal" : "1v1",
-          },
-        });
-      }
+      if (this.game.mode === "battle_royale") return this.playersWithMe.length >= 2;
+      const req = this.playersPerTeam;
+      return this.team1Players.length === req && this.team2Players.length === req;
     },
   },
   async created() {
-    this.userId = Number(this.user.id || 999);
+    this.userId = Number(this.user.id || this.user.ID_Users || 999);
     this.localGameId = this.gameId || this.$route.params.gameId;
-    const storedGame = JSON.parse(localStorage.getItem("currentGame") || "null");
-
-    if (!this.localGameId && storedGame?.ID_Game) this.localGameId = storedGame.ID_Game;
-
-    if (storedGame) {
-      this.game = {
-        ID_Game: storedGame.ID_Game ?? storedGame.id_game ?? storedGame.id_Game,
-        id_creator: storedGame.id_creator ?? storedGame.ID_Creator ?? storedGame.ID_Creator,
-        TotalPlayers: storedGame.TotalPlayers ?? null,
-        status: storedGame.status ?? "waiting",
-      };
-    }
-
-    if (!this.localGameId) {
-      this.errorMsg = "Impossible de récupérer l'ID de la partie.";
-      return;
-    }
 
     await this.initRoom();
+
+    // 📡 SOCKETS
+    socket.emit("user_online", this.userId);
+    socket.on("update_friends_status", (onlineIds) => {
+      this.friends = this.friends.map((f) => ({
+        ...f,
+        isOnline: onlineIds.includes(Number(this.getUserId(f))),
+      }));
+    });
   },
   beforeUnmount() {
+    if (this.fetchInterval) {
+      clearInterval(this.fetchInterval);
+      this.fetchInterval = null;
+    }
     clearInterval(this.polling);
+    socket.off("update_friends_status");
   },
   methods: {
-    async assignTeam(playerId, teamNumber) {
-      // 1. Mise à jour locale immédiate (Optimistic UI) pour que ce soit fluide pour l'host
-      this.teamAssignments = {
-        ...this.teamAssignments,
-        [playerId]: teamNumber,
-      };
-
-      if (teamNumber === null) {
-        delete this.teamAssignments[playerId];
-      }
-
-      // 2. Envoi de l'information au serveur pour que les autres joueurs la reçoivent
+    getUserId(obj) {
+      return obj.ID_Users || obj.id_users || obj.id || obj.ID;
+    },
+    isPlayerInGame(id) {
+      return this.playersWithMe.some((p) => Number(this.getUserId(p)) === Number(id));
+    },
+    async fetchFriends() {
       try {
-        await fetch("https://battleship-api-i276.onrender.com/api/games/assign-team", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            gameId: this.game.ID_Game,
-            playerId: playerId,
-            team: teamNumber, // 1, 2, ou null
-          }),
-        });
+        const res = await api.get(`/friends/list/${this.userId}`);
+        const data = Array.isArray(res.data) ? res.data : res.data.friends || [];
+        this.friends = data.map((f) => ({ ...f, isOnline: false }));
+        socket.emit("get_online_friends");
       } catch (err) {
-        console.error("[ASSIGN TEAM] Erreur :", err);
-        this.errorMsg = "Erreur lors de l'assignation de l'équipe.";
+        this.friends = [];
       }
     },
-    async inviteFriend(friendId) {
-      if (!this.game?.ID_Game) {
-        this.errorMsg = "Impossible d’inviter : aucune partie active.";
-        return;
-      }
-      if (!friendId) {
-        this.errorMsg = "Impossible d’inviter : ID ami invalide.";
-        return;
-      }
-      try {
-        const res = await fetch("https://battleship-api-i276.onrender.com/api/invitation", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            gameId: this.game.ID_Game,
-            senderId: this.userId,
-            receiverId: friendId,
-          }),
-        });
-        const data = await res.json();
-        if (!data.success) {
-          this.errorMsg = "Impossible d’envoyer l’invitation : " + data.message;
-          return;
-        }
-        this.fetchInvitations();
-      } catch (err) {
-        this.errorMsg = "Erreur lors de l’envoi de l’invitation : " + err.message;
-      }
-    },
-    async initRoom() {
-      const gameOk = await this.fetchGame();
-      if (!gameOk) {
-        this.errorMsg = "Impossible de récupérer la partie depuis le serveur.";
-        return false;
-      }
-      await this.fetchFriends();
-      await this.joinGameIfNeeded();
-      this.setupPolling();
-      return true;
-    },
-    setupPolling() {
-      if (this.polling) clearInterval(this.polling);
-      this.polling = setInterval(async () => {
-        const prevStatus = this.game?.status;
-        await this.fetchGame();
-        await this.fetchInvitations();
-        if (prevStatus !== this.game?.status && this.game.status === "placement") {
-          this.$router.replace({ name: "PlaceShips", params: { gameId: this.game.ID_Game } });
-        }
-      }, 2000);
-    },
-
-    async kickPlayer(playerId) {
-      if (!confirm("Voulez-vous vraiment éjecter ce joueur ?")) return;
-
-      try {
-        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/kick", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            gameId: this.game.ID_Game,
-            hostId: this.userId,
-            targetPlayerId: playerId,
-          }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          await this.fetchGame();
-        }
-      } catch (err) {
-        this.errorMsg = "Erreur lors de l'expulsion du joueur.";
-      }
-    },
-
     async fetchGame() {
       try {
-        const res = await fetch(
-          `https://battleship-api-i276.onrender.com/api/games/${this.localGameId}`,
-        );
-
-        // 1. Si la route renvoie 404, la partie a été supprimée par l'Host
-        if (res.status === 404) {
-          this.exitDueToClosure("La salle d'attente a été fermée par l'hôte.");
-          return false;
-        }
-
-        const data = await res.json();
-
-        // 2. Si le succès est faux, on redirige également
+        const res = await api.get(`/games/${this.localGameId}`);
+        const data = res.data;
         if (!data.success) {
           this.exitDueToClosure();
           return false;
         }
 
-        // 3. Mise à jour des données de jeu
-        const isBattleRoyale = data.game.id_game_type === 1;
         this.game = {
-          ID_Game: data.game.id_Game,
-          id_creator: data.game.id_creator,
-          TotalPlayers: isBattleRoyale ? null : (data.game.TotalPlayers ?? null),
+          ID_Game: data.game.id_Game || data.game.ID_Game,
+          id_creator: data.game.id_creator || data.game.ID_Creator,
           status: data.game.status,
-          mode: isBattleRoyale ? "battle_royale" : "classic",
+          mode: data.game.id_game_type === 1 ? "battle_royale" : "classic",
+          TotalPlayers: data.game.TotalPlayers,
         };
 
-        // 4. Mise à jour de la liste des joueurs
         this.players = Array.isArray(data.players) ? data.players : [];
-        this.onlinePlayers = Array.isArray(data.onlinePlayers) ? data.onlinePlayers : [];
         this.isHost = Number(this.userId) === Number(this.game.id_creator);
 
-        // 5. DÉTECTION D'EXPULSION : Si je ne suis pas l'host et que je ne suis plus dans la liste
-        const isMeInGame = this.players.some((p) => Number(p.ID_Users) === Number(this.userId));
-        if (!isMeInGame && !this.isHost) {
-          this.exitDueToClosure("Vous avez été éjecté de la partie.");
-          return false;
-        }
-
-        // 6. Synchronisation des équipes
-        const newAssignments = {};
+        // Sync des équipes
+        const newAssign = {};
         this.players.forEach((p) => {
-          if (p.team !== undefined && p.team !== null) {
-            newAssignments[p.ID_Users] = p.team;
-          }
+          if (p.team) newAssign[this.getUserId(p)] = p.team;
         });
-        this.teamAssignments = newAssignments;
+        this.teamAssignments = newAssign;
 
+        // Auto-redirection si la partie commence
+        if (this.game.status === "placement") {
+          this.$router.replace({ name: "PlaceShips", params: { gameId: this.game.ID_Game } });
+        }
         return true;
       } catch (err) {
-        console.error("[FETCH] Erreur fetchGame :", err);
         return false;
       }
     },
-
-    // Méthode utilitaire à ajouter dans "methods" pour centraliser la sortie
-    exitDueToClosure(reason = "La partie n'existe plus.") {
-      clearInterval(this.polling);
-      localStorage.removeItem("currentGame");
-
-      if (this.errorMsg !== reason) {
-        this.errorMsg = reason;
-        alert(reason);
-      }
-
-      this.$router.push("/gamemode");
+    async initRoom() {
+      await this.fetchGame();
+      await this.fetchFriends();
+      this.setupPolling();
     },
-    async fetchFriends() {
+    setupPolling() {
+      if (this.polling) clearInterval(this.polling);
+      this.polling = setInterval(() => this.fetchGame(), 3000);
+    },
+    async inviteFriend(friendId) {
       try {
-        const res = await fetch(
-          `https://battleship-api-i276.onrender.com/api/friends/list/${this.userId}`,
-        );
-        const data = await res.json();
-        this.friends = Array.isArray(data) ? data : [];
-      } catch {
-        this.friends = [];
-      }
-    },
-    async fetchInvitations() {
-      try {
-        const res = await fetch(
-          `https://battleship-api-i276.onrender.com/api/invitation/${this.userId}`,
-        );
-        const data = await res.json();
-        this.invitationsList =
-          data.success && Array.isArray(data.invitations) ? data.invitations : [];
-      } catch {
-        this.invitationsList = [];
-      }
-    },
-    async joinGameIfNeeded() {
-      if (!this.game?.ID_Game) return;
-      await this.joinGame();
-    },
-    async joinGame() {
-      try {
-        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/join", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ gameId: this.localGameId, playerId: this.userId }),
+        await api.post("/invitation", {
+          gameId: this.game.ID_Game,
+          senderId: this.userId,
+          receiverId: friendId,
         });
-        const data = await res.json();
-        if (!data.success) return;
-        this.players = Array.isArray(data.players) ? data.players : this.players;
       } catch (err) {
-        console.error("[JOIN] Erreur joinGame :", err);
+        this.errorMsg = "Erreur invitation.";
       }
     },
-    isPlayerInGame(playerId) {
-      return this.players.some((p) => Number(p.ID_Users) === Number(playerId));
-    },
-    isPlayerOnline(playerId) {
-      return this.onlinePlayers.includes(playerId);
+    async assignTeam(playerId, team) {
+      try {
+        await api.post("/games/assign-team", { gameId: this.game.ID_Game, playerId, team });
+        this.fetchGame();
+      } catch (err) {
+        console.error(err);
+      }
     },
     async leaveRoom() {
-      if (!this.game?.ID_Game) return;
       try {
-        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/leave", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ gameId: this.game.ID_Game, playerId: this.userId }),
-        });
-        const data = await res.json();
-        if (!data.success) return;
-
-        localStorage.removeItem("currentGame");
-        clearInterval(this.polling);
+        await api.post("/games/leave", { gameId: this.game.ID_Game, playerId: this.userId });
         this.$router.push("/gamemode");
-        this.game = null;
-        this.players = [];
-        this.onlinePlayers = [];
-        this.isHost = false;
       } catch (err) {
-        console.error("[LEAVE ROOM] Erreur :", err);
+        console.error(err);
       }
     },
     async startGame() {
-      if (!this.canStartGame) return;
-
       try {
-        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/start", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            gameId: this.game.ID_Game,
-            userId: this.userId,
-            teams: this.teamAssignments,
-          }),
+        await api.post("/games/start", {
+          gameId: this.game.ID_Game,
+          userId: this.userId,
+          teams: this.teamAssignments,
         });
-        const data = await res.json();
-        if (!data.success) return;
-
-        this.game.status = "placement";
       } catch (err) {
-        console.error("[START GAME] Erreur:", err);
+        this.errorMsg = "Erreur démarrage.";
       }
+    },
+    exitDueToClosure(reason = "Salle fermée.") {
+      clearInterval(this.polling);
+      alert(reason);
+      this.$router.push("/gamemode");
     },
   },
 };
@@ -567,41 +359,54 @@ export default {
   background: linear-gradient(135deg, #001f33, #004466, #006699);
   color: white;
   padding: 2rem;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .waiting-room-container h1 {
-  margin-bottom: 1.5rem;
-  font-size: 2rem;
-  letter-spacing: 1px;
+  margin-bottom: 2rem;
+  font-size: 2.5rem;
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+  letter-spacing: 2px;
 }
 
 .room-columns {
   display: flex;
-  gap: 1.5rem;
+  gap: 2rem;
   width: 100%;
   max-width: 1200px;
   align-items: flex-start;
 }
 
-/* COLONNES */
+/* PANNEAUX (Colonnes) */
 .friends-column,
 .main-column {
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(6px);
-  padding: 1.5rem;
-  border-radius: 14px;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(12px);
+  padding: 2rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .friends-column {
   flex: 1;
+  min-width: 300px;
 }
 
 .main-column {
-  flex: 2;
+  flex: 2.5;
 }
 
-/* LISTES */
+h2,
+h3 {
+  margin-top: 0;
+  color: #00d4ff;
+  border-bottom: 2px solid rgba(0, 212, 255, 0.2);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.2rem;
+}
+
+/* LISTES D'AMIS ET JOUEURS */
 ul {
   list-style: none;
   padding: 0;
@@ -612,185 +417,196 @@ li {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  padding: 0.4rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.8rem;
+  margin-bottom: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  transition: transform 0.2s ease;
 }
 
-li:last-child {
-  border-bottom: none;
+li:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
-/* ACTIONS (boutons groupés proprement) */
-.actions {
+/* STATUTS (Points de connexion) */
+.friend-info,
+.player-info {
   display: flex;
-  gap: 0.3rem;
-  flex-wrap: wrap;
+  align-items: center;
+  font-weight: 500;
 }
 
-/* BOUTONS PLUS PETITS */
-button {
-  padding: 0.3rem 0.6rem;
-  font-size: 0.75rem;
-  border-radius: 6px;
-  border: none;
-  background: #2980b9;
-  color: white;
-  font-weight: 600;
-  cursor: pointer;
-  transition: 0.2s ease;
-  white-space: nowrap;
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #95a5a6; /* Hors ligne */
+  margin-right: 12px;
+  border: 2px solid rgba(0, 0, 0, 0.2);
 }
 
-button:hover {
-  background: #1f6691;
-  transform: translateY(-1px);
+.status-dot.is-online {
+  background-color: #2ecc71; /* En ligne */
+  box-shadow: 0 0 10px #2ecc71;
 }
 
-button:disabled {
-  background: #7f8c8d;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* Bouton kick */
-.btn-kick {
-  background: #e74c3c;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.7rem;
-}
-
-.btn-kick:hover {
-  background: #c0392b;
-}
-
-/* Bouton retirer */
-.btn-remove {
-  background: #f39c12;
-}
-
-.btn-remove:hover {
-  background: #d68910;
-}
-
-/* ÉQUIPES */
-.teams-system {
-  margin-top: 1rem;
-}
-
-.unassigned-players {
-  background: rgba(231, 76, 60, 0.15);
-  padding: 1rem;
-  border-radius: 10px;
-  margin-bottom: 1rem;
-}
-
-.teams-wrapper {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.team-box {
-  flex: 1;
-  min-width: 260px;
-  background: rgba(46, 204, 113, 0.15);
-  padding: 1rem;
-  border-radius: 12px;
-  transition: 0.3s ease;
-}
-
-.team-box.team-full {
-  box-shadow: 0 0 12px rgba(255, 0, 0, 0.4);
-}
-
-/* ONLINE DOT */
 .online-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  margin-left: 6px;
-  background-color: #7f8c8d;
-  transition: all 0.3s;
+  margin-left: 10px;
 }
 
 .online-dot.online {
   background-color: #2ecc71;
-  animation: pulse 1.5s infinite;
+  box-shadow: 0 0 8px #2ecc71;
+  animation: pulse 2s infinite;
 }
 
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.3);
-    opacity: 0.6;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+/* ACTIONS ET BOUTONS */
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  border: none;
+  background: #3498db;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+button:hover:not(:disabled) {
+  background: #2980b9;
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+}
+
+button:disabled {
+  background: #5a6b7d;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-invite-all {
+  margin-top: 1.5rem;
+  width: 100%;
+  background: #8e44ad;
+}
+
+.btn-kick {
+  background: #e74c3c;
+  padding: 0.4rem 0.6rem;
+}
+
+.btn-remove {
+  background: #f39c12;
+}
+
+/* SYSTÈME D'ÉQUIPES */
+.unassigned-players {
+  background: rgba(231, 76, 60, 0.1);
+  border: 1px dashed rgba(231, 76, 60, 0.4);
+  padding: 1rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.teams-wrapper {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.team-box {
+  flex: 1;
+  background: rgba(46, 204, 113, 0.05);
+  border: 1px solid rgba(46, 204, 113, 0.2);
+  padding: 1.5rem;
+  border-radius: 12px;
+}
+
+.team-box.team-full {
+  border-color: #f1c40f;
+  box-shadow: 0 0 15px rgba(241, 196, 15, 0.2);
 }
 
 /* FOOTER */
 .separator {
-  margin: 1.5rem 0;
+  margin: 2rem 0;
   border: none;
   height: 1px;
-  background: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.2), transparent);
 }
 
 .footer-actions {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
 }
 
 .start-game-button {
   width: 100%;
-  font-size: 1rem;
-  margin-top: 1rem;
-  background-color: #27ae60;
-  padding: 0.8rem;
-  border-radius: 10px;
-}
-
-.start-game-button:hover {
-  background-color: #219150;
-}
-
-.start-game-button:disabled {
-  background-color: #95a5a6;
+  max-width: 400px;
+  font-size: 1.2rem;
+  padding: 1rem;
+  background: #27ae60;
+  box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
 }
 
 .leave-btn {
-  margin-top: 1rem;
-  background-color: #c0392b;
+  background: transparent;
+  border: 1px solid #e74c3c;
+  color: #e74c3c;
 }
 
 .leave-btn:hover {
-  background-color: #a53125;
+  background: #e74c3c;
+  color: white;
 }
 
-.info-text {
+.info-text.warning {
   color: #f1c40f;
-  margin-top: 0.5rem;
-  font-size: 0.85rem;
+  font-style: italic;
 }
 
 .error-text {
-  color: #ff6b6b;
-  margin-top: 0.5rem;
+  color: #ff4757;
   font-weight: bold;
+  background: rgba(255, 71, 87, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* RESPONSIVE */
-@media (max-width: 900px) {
+@media (max-width: 950px) {
   .room-columns {
     flex-direction: column;
   }
-
+  .friends-column,
+  .main-column {
+    width: 100%;
+  }
   .teams-wrapper {
     flex-direction: column;
   }

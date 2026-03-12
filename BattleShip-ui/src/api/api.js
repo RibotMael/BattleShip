@@ -1,8 +1,13 @@
 import axios from "axios";
 import router from "@/router";
 
+// Détection dynamique de l'URL de base
+const API_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+  ? "http://localhost:8080/api"           // URL pour le développement local
+  : "https://battleship-api-i276.onrender.com/api"; // URL pour la production (Render)
+
 const api = axios.create({
-  baseURL: "https://battleship-api-i276.onrender.com/api",
+  baseURL: API_URL,
   withCredentials: true
 });
 
@@ -20,4 +25,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-

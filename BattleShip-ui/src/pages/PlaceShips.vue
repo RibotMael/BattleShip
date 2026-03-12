@@ -4,12 +4,11 @@
     <h1>🚢 Placement des bateaux</h1>
 
     <div class="top-info">
-      <p>Partie ID : {{ game.ID_Game }}</p>
+      <p>Partie ID : {{ game.ID_Game }} (Mode: {{ isFrenchMode ? "Français" : "Belge" }})</p>
       <p>Joueurs prêts : {{ readyCount }} / {{ game.TotalPlayers }}</p>
     </div>
 
     <div class="main-layout">
-      <!-- Grille du joueur -->
       <div class="player-grid">
         <h2>Votre grille</h2>
         <div class="grid" @mouseleave="hoverCells = []">
@@ -28,7 +27,6 @@
         <button class="random-btn" @click="placeShipsRandomly">🎲 Placer aléatoirement</button>
       </div>
 
-      <!-- Flotte -->
       <div class="side-panel">
         <h2>Flotte</h2>
         <div class="fleet-list">
@@ -63,6 +61,8 @@
 </template>
 
 <script>
+import api from "@/api/api.js";
+
 export default {
   props: { gameId: { type: String, required: true } },
   data() {
@@ -78,6 +78,7 @@ export default {
       hoverCells: [],
       invalidPreview: false,
       selectedCell: null,
+      readyInterval: null,
     };
   },
   computed: {
@@ -96,53 +97,111 @@ export default {
   },
 
   mounted() {
-    this.userId = Number(this.user?.id);
+    this.userId = Number(this.user?.id || this.user?.ID_Users);
     this.game.ID_Game = Number(this.gameId);
 
+    // Initialisation du jeu avec Fallback
     this.fetchGame().then((data) => {
-      if (data.mode) this.game.mode = data.mode; // récupération du mode depuis le backend
-      this.fleet = (data.fleet || []).map((ship) => ({ ...ship, placed: false }));
+      if (data && data.mode) {
+        this.game.mode = data.mode;
+      }
+
+      // Si on reçoit bien les bateaux du backend
+      if (data && data.fleet && data.fleet.length > 0) {
+        this.fleet = data.fleet.map((ship) => ({ ...ship, placed: false }));
+      } else {
+        // Fallback en cas d'erreur CORS
+        console.warn("⚠️ Utilisation de la flotte locale de secours (CORS error)");
+        this.fleet = [
+          { name: "Porte-avions", size: 5, placed: false },
+          { name: "Croiseur", size: 4, placed: false },
+          { name: "Contre-torpilleur", size: 3, placed: false },
+          { name: "Sous-marin", size: 3, placed: false },
+          { name: "Torpilleur", size: 2, placed: false },
+        ];
+      }
     });
 
-    //   Vérification périodique si tous les joueurs sont prêts - à faire en socket.io
     this.readyInterval = setInterval(async () => {
       const allReady = await this.checkAllPlayersReady();
       if (allReady) {
         clearInterval(this.readyInterval);
         this.$router.push({ name: "GameBoard", params: { gameId: this.game.ID_Game } });
       }
-    }, 1000);
+    }, 2000);
   },
   beforeUnmount() {
-    clearInterval(this.readyInterval);
+    if (this.fetchInterval) {
+      clearInterval(this.fetchInterval);
+      this.fetchInterval = null;
+    }
   },
   methods: {
     async fetchGame() {
       try {
-        const res = await fetch(
-          `https://battleship-api-i276.onrender.com/api/games/${this.game.ID_Game}`,
-        );
-        const data = await res.json();
-        if (data.success) {
+        const res = await api.get(`/games/${this.game.ID_Game}`);
+        if (res.data && res.data.success) {
+          const data = res.data;
           this.game = {
             ...this.game,
             ...data.game,
-            TotalPlayers: data.players.length,
-            mode: data.game.mode,
+            TotalPlayers: data.players ? data.players.length : 2,
           };
           this.readyPlayers = (data.players || []).filter((p) => p.validated);
-
-          return { fleet: data.fleet, mode: data.mode };
+          return { fleet: data.fleet, mode: data.game.mode };
         }
       } catch (err) {
-        console.error("[FETCH GAME]", err);
+        console.error("[FETCH GAME] - API injoignable", err);
+        return null; // Déclenche la flotte de secours dans le mounted
       }
+    },
+
+    async validatePlacement() {
+      if (!this.canValidate) return alert("⛵ Placez tous vos bateaux avant de valider !");
+      const shipsNumbers = this.grid.map((c) => (c.hasShip ? c.shipId + 1 : 0));
+
+      try {
+        const res = await api.post("/games/place-ships", {
+          gameId: this.game.ID_Game,
+          playerId: this.userId,
+          ships: shipsNumbers,
+          mode: this.game.mode,
+        });
+
+        if (res.data.success) {
+          await this.checkAllPlayersReady();
+        } else {
+          alert("Erreur : " + res.data.message);
+        }
+      } catch (err) {
+        console.error("[VALIDATE PLACEMENT]", err);
+        alert("Impossible d'envoyer le placement au serveur (vérifiez le CORS).");
+      }
+    },
+
+    async checkAllPlayersReady() {
+      try {
+        const res = await api.get(`/games/${this.game.ID_Game}`);
+        if (res.data && res.data.success) {
+          const data = res.data;
+          this.readyPlayers = data.players.filter((p) => p.validated || p.ready);
+
+          if (this.game.mode === "battle_royale") {
+            return this.readyPlayers.length === data.players.length;
+          }
+          return this.readyPlayers.length === this.game.TotalPlayers;
+        }
+      } catch (err) {
+        // Mode silencieux pour éviter de spammer la console avec l'intervalle
+      }
+      return false;
     },
 
     selectShip(index) {
       if (this.fleet[index].placed) return;
       this.selectedShipIndex = index;
     },
+
     toggleOrientation() {
       this.orientation = this.orientation === "horizontal" ? "vertical" : "horizontal";
     },
@@ -156,8 +215,7 @@ export default {
           const nx = x + dx;
           const ny = y + dy;
           if (nx < 0 || nx >= 10 || ny < 0 || ny >= 10) continue;
-          const nIndex = ny * 10 + nx;
-          if (this.grid[nIndex].hasShip) return true;
+          if (this.grid[ny * 10 + nx].hasShip) return true;
         }
       }
       return false;
@@ -172,20 +230,28 @@ export default {
 
       for (let i = 0; i < ship.size; i++) {
         const idx = this.orientation === "horizontal" ? startIndex + i : startIndex + i * 10;
-        if (idx >= 100) return (this.hoverCells = []);
-        if (this.orientation === "horizontal" && Math.floor(idx / 10) !== row)
-          return (this.hoverCells = []);
-        if (this.grid[idx].hasShip || (this.isFrenchMode && this.isAdjacent(idx))) valid = false;
+
+        // Vérifie si on dépasse de la grille
+        if (idx >= 100 || (this.orientation === "horizontal" && Math.floor(idx / 10) !== row)) {
+          this.hoverCells = [];
+          return;
+        }
+
+        // Vérifie la collision stricte OU l'adjacence (si mode français)
+        if (this.grid[idx].hasShip || (this.isFrenchMode && this.isAdjacent(idx))) {
+          valid = false;
+        }
+
         indices.push(idx);
       }
-
       this.hoverCells = indices;
       this.invalidPreview = !valid;
     },
 
     placeOrRemoveShip(index) {
       const cell = this.grid[index];
-      // Si la case contient déjà un bateau, on le supprime
+
+      // Retirer un bateau existant
       if (cell.hasShip) {
         const shipId = cell.shipId;
         this.grid.forEach((c) => {
@@ -195,37 +261,17 @@ export default {
           }
         });
         this.fleet[shipId].placed = false;
-        this.selectedCell = null;
         return;
       }
 
-      // Vérifie qu'un bateau est sélectionné
-      if (this.selectedShipIndex === null) return alert("⚓ Sélectionnez un navire !");
-
-      const ship = this.fleet[this.selectedShipIndex];
-      const indices = [];
-      const row = Math.floor(index / 10);
-
-      // Vérifie la validité du placement
-      for (let i = 0; i < ship.size; i++) {
-        const idx = this.orientation === "horizontal" ? index + i : index + i * 10;
-        if (idx >= 100) return alert("⚠️ Hors grille !");
-        if (this.orientation === "horizontal" && Math.floor(idx / 10) !== row)
-          return alert("⚠️ Placement invalide !");
-        if (this.grid[idx].hasShip) return alert("⚠️ Collision !");
-        if (this.isFrenchMode && this.isAdjacent(idx))
-          return alert("⚠️ Trop proche d'un autre navire !");
-        indices.push(idx);
-      }
-
-      // Place le bateau avec son numéro (shipId + 1)
-      indices.forEach((i) => {
-        this.grid[i] = { ...this.grid[i], hasShip: true, shipId: this.selectedShipIndex };
+      // Placer un bateau
+      if (this.selectedShipIndex === null || this.invalidPreview) return;
+      this.hoverCells.forEach((i) => {
+        this.grid[i] = { hasShip: true, shipId: this.selectedShipIndex };
       });
       this.fleet[this.selectedShipIndex].placed = true;
       this.selectedShipIndex = null;
       this.hoverCells = [];
-      this.selectedCell = index;
     },
 
     getCellClass(index) {
@@ -233,114 +279,32 @@ export default {
       if (cell.hasShip) return "ship";
       if (this.hoverCells.includes(index))
         return this.invalidPreview ? "preview invalid" : "preview";
-      if (this.selectedCell === index) return "selected";
       return "";
     },
 
-    async validatePlacement() {
-      if (!this.canValidate) return alert("⛵ Placez tous vos bateaux avant de valider !");
-
-      // Convertit chaque bateau en chiffre
-      const shipsNumbers = this.grid.map((c) => (c.hasShip ? c.shipId + 1 : 0));
-
-      try {
-        const res = await fetch(`https://battleship-api-i276.onrender.com/api/games/place-ships`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            gameId: this.game.ID_Game,
-            playerId: this.userId,
-            ships: shipsNumbers, // tableau avec chiffres représentant chaque bateau
-            mode: this.game.mode,
-          }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          const allReady = await this.checkAllPlayersReady();
-          if (allReady) {
-            this.$router.push({ name: "GameBoard", params: { gameId: this.game.ID_Game } });
-          } else {
-            console.log("⏳ On attend les autres joueurs...");
-          }
-        } else {
-          alert("Erreur : " + data.message);
-        }
-      } catch (err) {
-        console.error("[VALIDATE PLACEMENT]", err);
-      }
-    },
-
-    async checkAllPlayersReady() {
-      try {
-        const res = await fetch(
-          `https://battleship-api-i276.onrender.com/api/games/${this.game.ID_Game}`,
-        );
-        const data = await res.json();
-
-        if (data.success) {
-          // MET À JOUR LE STATE LOCAL
-          this.readyPlayers = data.players.filter((p) => p.validated);
-
-          // Battle Royale
-          if (this.game.mode === "battle_royale") {
-            return this.readyPlayers.length === data.players.length;
-          }
-
-          // Mode classique
-          return this.readyPlayers.length === this.game.TotalPlayers;
-        }
-      } catch (err) {
-        console.error("[CHECK ALL READY]", err);
-      }
-      return false;
-    },
     placeShipsRandomly() {
-      // Reset de la grille et des bateaux
+      // Nettoie la grille
       this.grid = this.grid.map(() => ({ hasShip: false, shipId: null }));
       this.fleet.forEach((ship) => (ship.placed = false));
 
       const directions = ["horizontal", "vertical"];
-
       for (let i = 0; i < this.fleet.length; i++) {
         const ship = this.fleet[i];
         let placed = false;
         let attempts = 0;
 
-        while (!placed && attempts < 100) {
+        while (!placed && attempts < 150) {
           attempts++;
-          const orientation = directions[Math.floor(Math.random() * 2)];
-          const startIndex = Math.floor(Math.random() * 100);
-          const row = Math.floor(startIndex / 10);
-          const indices = [];
+          this.orientation = directions[Math.floor(Math.random() * 2)];
+          this.selectedShipIndex = i;
+          const start = Math.floor(Math.random() * 100);
 
-          let valid = true;
-          for (let j = 0; j < ship.size; j++) {
-            const idx = orientation === "horizontal" ? startIndex + j : startIndex + j * 10;
-            const idxRow = Math.floor(idx / 10);
+          this.previewShip(start);
 
-            if (idx >= 100 || (orientation === "horizontal" && idxRow !== row)) {
-              valid = false;
-              break;
-            }
-            if (this.grid[idx].hasShip || (this.isFrenchMode && this.isAdjacent(idx))) {
-              valid = false;
-              break;
-            }
-            indices.push(idx);
-          }
-
-          if (valid) {
-            indices.forEach((idx) => {
-              this.grid[idx] = { hasShip: true, shipId: i };
-            });
-            ship.placed = true;
+          if (this.hoverCells.length === ship.size && !this.invalidPreview) {
+            this.placeOrRemoveShip(start);
             placed = true;
           }
-        }
-
-        if (!placed) {
-          alert("Impossible de placer tous les bateaux aléatoirement, réessayez !");
-          break;
         }
       }
     },

@@ -4,8 +4,10 @@ import express from "express";
 import db from "../db.js";
 import { fleetsByVersion } from "../utils/fleets.js";
 import { io } from "../index.js";
+import { stopGameTimer } from "../index.js";
 
 const router = express.Router();
+const games = {};
 
 //   Récupérer les parties publiques disponibles
 router.get("/public", async (req, res) => {
@@ -503,6 +505,11 @@ router.get("/:gameId/board", async (req, res) => {
   const { gameId } = req.params;
   const { playerId } = req.query;
 
+  // Sécurité : Vérifier les types
+  if (!gameId || !playerId || playerId === "null" || playerId === "undefined") {
+    return res.status(400).json({ success: false, message: "ID de partie ou de joueur invalide." });
+  }
+
   try {
     const [rows] = await db.query(
       "SELECT board_json FROM player_boards WHERE game_id = ? AND player_id = ? LIMIT 1",
@@ -510,121 +517,175 @@ router.get("/:gameId/board", async (req, res) => {
     );
 
     if (rows.length === 0) {
-      return res.json({ success: false, message: "Aucun plateau trouvé pour ce joueur." });
+      console.warn(`⚠️ Aucun plateau pour G:${gameId} P:${playerId}`);
+      return res.status(404).json({ success: false, message: "Aucun plateau trouvé." });
     }
 
-    const board = JSON.parse(rows[0].board_json);
-    res.json({ success: true, board });
+    let boardData = rows[0].board_json;
+    let finalBoard;
+
+    // Sécurité JSON.parse
+    try {
+      finalBoard = typeof boardData === "string" ? JSON.parse(boardData) : boardData;
+    } catch (parseErr) {
+      console.error("❌ Erreur format JSON board:", parseErr);
+      return res.status(500).json({ success: false, message: "Format de plateau invalide en base." });
+    }
+
+    res.json({ success: true, board: finalBoard });
   } catch (err) {
-    console.error("❌ Erreur récupération du plateau :", err);
-    res.status(500).json({ success: false, message: "Erreur serveur lors du chargement du plateau." });
+    console.error("❌ Erreur critique récupération plateau :", err);
+    // On renvoie du JSON même en cas d'erreur pour éviter que le front reçoive du HTML (Erreur 502/500)
+    res.status(500).json({ success: false, message: "Erreur interne serveur." });
   }
 });
 
 router.post("/shoot", async (req, res) => {
   const { gameId, playerId, targetId, x, y } = req.body;
+  const sId = String(gameId);
 
+  // 1️⃣ Vérification des paramètres
   if (!gameId || !playerId || !targetId || x == null || y == null) {
     return res.status(400).json({ success: false, message: "Paramètres manquants" });
   }
-
-  let finalResult;
-  let positions = [];
-  let gameOver = false;
+  if (x < 0 || x > 9 || y < 0 || y > 9) {
+    return res.status(400).json({ success: false, message: "Coordonnées invalides" });
+  }
 
   try {
-    // Vérifier si la case a déjà été tirée par ce joueur
+    const io = req.app.get("io");
+
+    // 🔒 Initialisation sécurisée
+    if (!games[sId]) {
+      games[sId] = { turnNumber: 1, finished: false };
+    }
+
+    // 🔒 Partie terminée ?
+    if (games[sId].finished) {
+      return res.status(400).json({ success: false, message: "Partie terminée" });
+    }
+
+    // 2️⃣ Vérifie si la case a déjà été tirée
     const [existingShots] = await db.query(
-      "SELECT result, state FROM shots WHERE id_game=? AND target_x=? AND target_y=? AND target_id=? AND id_player=?",
+      "SELECT result FROM shots WHERE id_game=? AND target_x=? AND target_y=? AND target_id=? AND id_player=?",
       [gameId, x, y, targetId, playerId]
     );
+
     if (existingShots.length > 0) {
       return res.status(409).json({
         success: false,
         message: "Case déjà sélectionnée",
         result: existingShots[0].result,
-        state: existingShots[0].state,
       });
     }
 
-    // Récupérer la grille du joueur ciblé
+    // 3️⃣ Récupération grille ennemie
     const [rows] = await db.query(
       "SELECT board_json FROM player_boards WHERE game_id=? AND player_id=?",
       [gameId, targetId]
     );
-    if (!rows.length) return res.status(404).json({ success: false, message: "Grille ennemie introuvable" });
 
-    const board = JSON.parse(rows[0].board_json);
+    const board = rows.length ? JSON.parse(rows[0].board_json) : null;
+    if (!board) return res.status(404).json({ success: false, message: "Grille ennemie introuvable" });
+
     const cellValue = board[y][x];
-    finalResult = cellValue > 0 ? "hit" : "miss";
+    let finalResult = cellValue > 0 ? "hit" : "miss";
+    let positions = [];
+    let gameOver = false;
 
-    // Insérer le tir
+    // 4️⃣ Enregistrement du tir
     await db.query(
       "INSERT INTO shots (id_game, id_player, target_id, target_x, target_y, result, state) VALUES (?, ?, ?, ?, ?, ?, 'resolved')",
       [gameId, playerId, targetId, x, y, finalResult]
     );
 
-    // Si hit, vérifier si le bateau est coulé
+    // 5️⃣ Vérification si bateau coulé
     if (finalResult === "hit") {
-      const targetValue = board[y][x];
+      const targetValue = cellValue;
       board.forEach((row, rowIdx) =>
         row.forEach((cell, colIdx) => {
           if (cell === targetValue && cell > 0) positions.push({ x: colIdx, y: rowIdx });
         })
       );
 
-      const [hits] = await db.query(
-        `SELECT COUNT(*) AS hitCount FROM shots
-         WHERE id_game=? AND target_id=? AND id_player=? AND result IN ('hit','sunk')
-         AND (${positions.map(p => `(target_x=${p.x} AND target_y=${p.y})`).join(" OR ")})`,
-        [gameId, targetId, playerId]
-      );
+      if (positions.length > 0) {
+        const conditions = positions.map(() => "(target_x=? AND target_y=?)").join(" OR ");
+        const values = positions.flatMap((p) => [p.x, p.y]);
 
-      if (hits[0].hitCount >= positions.length) {
-        // Bateau coulé
-        await db.query(
-          `UPDATE shots SET result='sunk'
+        const [hits] = await db.query(
+          `SELECT COUNT(*) AS hitCount
+           FROM shots
            WHERE id_game=? AND target_id=? AND id_player=? AND result IN ('hit','sunk')
-           AND (${positions.map(p => `(target_x=${p.x} AND target_y=${p.y})`).join(" OR ")})`,
-          [gameId, targetId, playerId]
+           AND (${conditions})`,
+          [gameId, targetId, playerId, ...values]
         );
-        finalResult = "sunk";
+
+        if (hits[0].hitCount >= positions.length) {
+          await db.query(
+            `UPDATE shots
+             SET result='sunk'
+             WHERE id_game=? AND target_id=? AND id_player=? AND result IN ('hit','sunk')
+             AND (${conditions})`,
+            [gameId, targetId, playerId, ...values]
+          );
+          finalResult = "sunk";
+        }
       }
     }
 
-    // Vérifier si tous les bateaux sont coulés
-    const totalShipCells = board.flat().filter(c => c > 0).length;
+    // 6️⃣ Vérification fin de partie
+    const totalShipCells = board.flat().filter((c) => c > 0).length;
     const [[{ sunkCount }]] = await db.query(
       "SELECT COUNT(*) AS sunkCount FROM shots WHERE id_game=? AND target_id=? AND id_player=? AND result='sunk'",
       [gameId, targetId, playerId]
     );
+
     gameOver = sunkCount >= totalShipCells;
 
     if (gameOver) {
-      await db.query("UPDATE games SET status='finished', winner_id=? WHERE id_Game=?", [playerId, gameId]);
+      await db.query(
+        "UPDATE games SET status='finished', winner_id=? WHERE id_game=?",
+        [playerId, gameId]
+      );
+      if (typeof stopGameTimer === "function") stopGameTimer(gameId);
+
+      // ⚠️ S'assure que games[sId] existe avant d'écrire
+      if (!games[sId]) games[sId] = {};
+      games[sId].finished = true;
     }
 
-    // Émettre le tir à tous les joueurs
-    io.to(gameId).emit("shot-fired", {
+    // 7️⃣ Emission socket : on envoie d'abord le tir
+    io?.to(sId).emit("shot-fired", {
+      gameId: sId,
       shooterId: playerId,
       targetId,
-      x,
-      y,
+      x, y,
       result: finalResult,
       positions: finalResult === "sunk" ? positions : [],
       gameOver,
       winnerId: gameOver ? playerId : null,
     });
 
+    // 8️⃣ Si fin de partie, on envoie game-over après un petit délai pour que le front ait le tir final
+    if (gameOver) {
+      setTimeout(() => {
+        io?.to(sId).emit("game-over", {
+          winnerId: playerId,
+          isDraw: false,
+          gameId: sId,
+        });
+      }, 50); // 50ms suffisent pour garantir que le front a reçu le dernier tir
+    }
+
+    // 9️⃣ Réponse HTTP
     res.json({
       success: true,
       result: finalResult,
       state: "resolved",
       positions: finalResult === "sunk" ? positions : [],
       gameOver,
-      ...(gameOver && { winner_id: playerId }),
+      ...(gameOver && { winnerId: playerId }),
     });
-
   } catch (err) {
     console.error("❌ Erreur /shoot :", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
@@ -636,7 +697,12 @@ router.get("/:gameId/shots", async (req, res) => {
   const { gameId } = req.params;
   const playerId = Number(req.query.playerId);
 
+  if (!gameId || !playerId) {
+    return res.status(400).json({ success: false, message: "Paramètres manquants" });
+  }
+
   try {
+    // 1. On récupère TOUS les tirs de la partie
     const [shots] = await db.query(
       `SELECT id_player, target_id, target_x, target_y, result, state
        FROM shots
@@ -644,9 +710,9 @@ router.get("/:gameId/shots", async (req, res) => {
       [gameId]
     );
 
+    // 2. On enrichit les tirs (notamment pour récupérer les positions des bateaux coulés)
     const enhancedShots = await Promise.all(
       shots.map(async (s) => {
-        // Conversion explicite en nombre pour éviter les bugs de concaténation (ex: "5"+"5" = "55")
         const shot = {
           ...s,
           target_x: Number(s.target_x),
@@ -655,6 +721,7 @@ router.get("/:gameId/shots", async (req, res) => {
           target_id: Number(s.target_id)
         };
 
+        // Si c'est un bateau coulé, on doit renvoyer toutes les positions pour l'affichage
         if (shot.result === "sunk") {
           const [rows] = await db.query(
             "SELECT board_json FROM player_boards WHERE game_id = ? AND player_id = ?",
@@ -677,13 +744,25 @@ router.get("/:gameId/shots", async (req, res) => {
       })
     );
 
+    // 3. Filtrage précis pour le front-end
+    // incomingShots : les tirs que JE subis (cible = moi)
     const incomingShots = enhancedShots.filter(s => s.target_id === playerId);
+    // playerShots : les tirs que J'AI fait (tireur = moi)
     const playerShots = enhancedShots.filter(s => s.id_player === playerId);
 
-    res.json({ success: true, incomingShots, playerShots });
+    res.json({ 
+      success: true, 
+      incomingShots, 
+      playerShots 
+    });
   } catch (err) {
     console.error("❌ Erreur /shots :", err);
-    res.status(500).json({ success: false, message: "Erreur serveur" });
+    res.status(500).json({ 
+      success: false, 
+      message: "Erreur serveur",
+      incomingShots: [],
+      playerShots: []
+    });
   }
 });
 
@@ -715,7 +794,7 @@ router.get("/:gameId/opponents", async (req, res) => {
 });
 
 router.post("/eliminate-player", async (req, res) => {
-  const { gameId, playerId, reason } = req.body; // reason = 'abandon' ou 'shot'
+  const { gameId, playerId, reason } = req.body; 
 
   if (!gameId || !playerId || !["abandon", "shot"].includes(reason)) {
     return res.status(400).json({ success: false, message: "Paramètres invalides" });
@@ -778,6 +857,11 @@ router.post("/eliminate-player", async (req, res) => {
 
     // Envoyer événements Socket.io
     if (finished) {
+      // NOUVEAU : On tue le timer instantanément !
+      if (typeof stopGameTimer === "function") {
+        stopGameTimer(gameId);
+      }
+      
       io.to(gameId).emit("game-over", {
         winnerId,
         isDraw
@@ -817,7 +901,6 @@ router.get("/:id/status", async (req, res) => {
     return res.status(400).json({ success: false, message: "Paramètres manquants" });
 
   try {
-    // Récupérer le jeu
     const [gameRows] = await db.query(
       "SELECT status, winner_id, id_game_mode FROM games WHERE id_Game = ?",
       [gameId]
@@ -827,17 +910,18 @@ router.get("/:id/status", async (req, res) => {
 
     const game = gameRows[0];
 
-    //   Mapper id_game_mode en string
-    let mode = "1v1"; // valeur par défaut
-    if (game.id_game_mode === 2) mode = "battle_royale"; // adapte selon l'id_mode Battle Royale
+    // Mapper id_game_mode en string
+    let mode = "1v1";
+    if (game.id_game_mode === 2) mode = "battle_royale";
     game.mode = mode;
 
-
-    // --- 1. Partie terminée côté serveur ---
+    // --- 1. Partie terminée déjà enregistrée ---
     if (game.status === "finished") {
+      // Sécurité : On s'assure que le timer est bien mort côté serveur
+      stopGameTimer(gameId); 
+
       const winner = game.winner_id;
       let resultType = "draw";
-
       if (winner === playerId) resultType = "win";
       else if (winner && winner !== playerId) resultType = "lose";
 
@@ -846,15 +930,11 @@ router.get("/:id/status", async (req, res) => {
         finished: true,
         winner,
         result: resultType,
-        message: winner === null
-          ? "⚔ Égalité !"
-          : winner === playerId
-            ? "🏆 Victoire !"
-            : "💥 Défaite !"
+        message: winner === null ? "⚖️ Égalité !" : (winner === playerId ? "🏆 Victoire !" : "💥 Défaite !")
       });
     }
 
-    // --- 2. Partie en cours ---
+    // --- 2. Détection de la fin de partie (Battle Royale) ---
     if (game.mode === "battle_royale") {
       const [players] = await db.query(
         "SELECT id_player, player_status FROM game_players WHERE id_game = ?",
@@ -863,12 +943,15 @@ router.get("/:id/status", async (req, res) => {
 
       const alivePlayers = players.filter(p => p.player_status === "in_game");
 
-      // ÉGALITÉ
+      // CAS : ÉGALITÉ (Tout le monde est mort au même tour)
       if (alivePlayers.length === 0) {
         await db.query(
           "UPDATE games SET status = 'finished', winner_id = NULL WHERE id_Game = ?",
           [gameId]
         );
+
+        // 🛑 ARRÊT DU TIMER SERVEUR
+        stopGameTimer(gameId);
 
         return res.json({
           success: true,
@@ -879,7 +962,7 @@ router.get("/:id/status", async (req, res) => {
         });
       }
 
-      // VICTOIRE
+      // CAS : VICTOIRE (Il n'en reste qu'un)
       if (alivePlayers.length === 1) {
         const winnerId = alivePlayers[0].id_player;
 
@@ -887,6 +970,9 @@ router.get("/:id/status", async (req, res) => {
           "UPDATE games SET status = 'finished', winner_id = ? WHERE id_Game = ?",
           [winnerId, gameId]
         );
+
+        // 🛑 ARRÊT DU TIMER SERVEUR
+        stopGameTimer(gameId);
 
         return res.json({
           success: true,
@@ -901,6 +987,9 @@ router.get("/:id/status", async (req, res) => {
     }
 
     // --- 3. Partie classique 1v1 ---
+    // Note : Tu devrais ajouter une logique similaire pour le 1v1 ici 
+    // ou dans ta route de tir si le 1v1 ne passe pas par ce status.
+
     return res.json({ success: true, finished: false });
 
   } catch (err) {

@@ -83,7 +83,8 @@
 </template>
 
 <script>
-import axios from "axios";
+// Changement ici : on utilise ton instance configurée
+import api from "@/api/api.js";
 
 export default {
   data() {
@@ -94,8 +95,8 @@ export default {
       confirmPassword: "",
       pseudo: "",
       birthDay: "",
-      avatars: [], // liste des avatars de la BDD
-      avatar: null, // ID de l'avatar choisi
+      avatars: [],
+      avatar: null,
       selectedBase64: "",
       selectedMime: "",
       errorMsg: "",
@@ -117,19 +118,6 @@ export default {
       this.errorMsg = "";
     },
 
-    onFileChange(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      event.target.value = null;
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        this.avatar = reader.result; // "data:image/png;base64,AAAA..."
-      };
-      reader.readAsDataURL(file);
-    },
-
     validateBirthDay() {
       const birth = new Date(this.birthDay);
       const today = new Date();
@@ -142,9 +130,8 @@ export default {
 
     async fetchAvatars() {
       try {
-        const res = await axios.get("https://battleship-api-i276.onrender.com/api/avatars");
-        console.log("Avatars reçus :", res.data);
-        // la BDD doit renvoyer [{ID_Avatar, Avatar, mime_type, Name}, ...]
+        // Utilisation de l'instance 'api'
+        const res = await api.get("/avatars");
         this.avatars = res.data.avatars;
       } catch (e) {
         console.error("Erreur récupération avatars :", e);
@@ -163,7 +150,7 @@ export default {
     async checkPseudo() {
       if (!this.pseudo.trim()) return;
       try {
-        const res = await axios.post("https://battleship-api-i276.onrender.com/api/check-pseudo", {
+        const res = await api.post("/check-pseudo", {
           pseudo: this.pseudo,
         });
         if (!res.data.available) {
@@ -179,6 +166,7 @@ export default {
     async handleSubmit() {
       this.errorMsg = "";
 
+      // Validations Regex
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(this.email)) {
         this.errorMsg = "Adresse email invalide.";
@@ -187,22 +175,13 @@ export default {
 
       const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
       if (!this.isLogin && !passwordRegex.test(this.password)) {
-        this.errorMsg = "Mot de passe trop faible.";
+        this.errorMsg = "Mot de passe trop faible (8 caractères, Maj, Min, Chiffre, Spécial).";
         return;
       }
 
       if (!this.isLogin && this.password !== this.confirmPassword) {
         this.errorMsg = "Les mots de passe ne correspondent pas.";
         return;
-      }
-
-      if (!this.isLogin) {
-        const birth = new Date(this.birthDay);
-        const today = new Date();
-        if (isNaN(birth.getTime()) || birth > today) {
-          this.errorMsg = "Date de naissance invalide.";
-          return;
-        }
       }
 
       const formData = {
@@ -213,12 +192,11 @@ export default {
         avatar: this.avatar || 1,
       };
 
-      const url = this.isLogin
-        ? "https://battleship-api-i276.onrender.com/api/login"
-        : "https://battleship-api-i276.onrender.com/api/register";
+      // Définition de la route relative
+      const endpoint = this.isLogin ? "/login" : "/register";
 
       try {
-        const response = await axios.post(url, formData);
+        const response = await api.post(endpoint, formData);
         const data = response.data;
 
         if (data.success) {
@@ -228,34 +206,23 @@ export default {
           } else {
             alert("Inscription réussie ! Connecte-toi maintenant.");
             this.isLogin = true;
-            this.email = "";
-            this.password = "";
-            this.confirmPassword = "";
-            this.pseudo = "";
-            this.birthDay = "";
-            this.avatar = null;
+            this.resetFields();
           }
         } else {
           this.errorMsg = data.message || "Une erreur est survenue.";
         }
       } catch (error) {
-        if (error.response && error.response.data && error.response.data.message) {
-          this.errorMsg = error.response.data.message;
-        } else {
-          this.errorMsg = "Erreur de communication avec le serveur.";
-        }
+        this.errorMsg = error.response?.data?.message || "Erreur de communication avec le serveur.";
       }
     },
 
-    async getBase64FromUrl(url) {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
+    resetFields() {
+      this.email = "";
+      this.password = "";
+      this.confirmPassword = "";
+      this.pseudo = "";
+      this.birthDay = "";
+      this.avatar = null;
     },
   },
   mounted() {

@@ -60,6 +60,8 @@
 </template>
 
 <script>
+import api from "@/api/api.js"; // Import de ton instance magique
+
 export default {
   data() {
     return {
@@ -74,113 +76,79 @@ export default {
   },
   computed: {
     filteredGames() {
-      //   Filtrer uniquement les parties en préparation et non-pleines
-      const filtered = this.publicGames
+      return this.publicGames
         .filter((game) => game.Status === "preparation")
         .filter((game) => game.TotalPlayers === null || game.CurrentPlayers < game.TotalPlayers)
         .filter((game) => !this.selectedLanguage || game.Language === this.selectedLanguage)
         .filter((game) => !this.selectedMode || game.TeamMode === this.selectedMode);
-
-      console.log("⚔️ filteredGames :", filtered);
-      return filtered;
     },
   },
   mounted() {
     this.user = JSON.parse(localStorage.getItem("user"));
     this.fetchPublicGames();
 
-    // 🔁 Rafraîchissement auto toutes les 5 secondes
-    this.refreshInterval = setInterval(() => {
-      this.refreshPublicGames();
-    }, 5000);
+    // 🔁 Rafraîchissement auto
+    this.refreshInterval = setInterval(this.refreshPublicGames, 5000);
   },
   beforeUnmount() {
     clearInterval(this.refreshInterval);
   },
   methods: {
-    async fetchPublicGames() {
-      this.loading = true;
+    // On peut fusionner la logique de chargement pour éviter la répétition
+    async fetchPublicGames(isRefresh = false) {
+      if (!isRefresh) this.loading = true;
+      else this.refreshing = true;
+
       try {
-        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/public");
-        const data = await res.json();
-        if (data.success) this.publicGames = data.games;
+        const res = await api.get("/games/public");
+        if (res.data.success) {
+          this.publicGames = res.data.games;
+        }
       } catch (err) {
-        console.error("❌ Erreur réseau :", err);
+        console.error("❌ Erreur récupération parties :", err);
       } finally {
         this.loading = false;
-      }
-    },
-
-    async refreshPublicGames() {
-      this.refreshing = true;
-      try {
-        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/public");
-        const data = await res.json();
-        if (data.success) this.publicGames = data.games;
-      } catch (err) {
-        console.error("❌ Erreur de mise à jour :", err);
-      } finally {
         setTimeout(() => (this.refreshing = false), 500);
       }
     },
 
-    applyFilters() {
-      // Rien à faire ici, le computed `filteredGames` s'occupe du filtrage
-      console.log("Filtres appliqués :", this.selectedLanguage, this.selectedMode);
-    },
-
-    formatMode(mode) {
-      switch (mode) {
-        case "1v1":
-          return "1 vs 1";
-        case "2v2":
-          return "2 vs 2";
-        case "3v3":
-          return "3 vs 3";
-        case "4v4":
-          return "4 vs 4";
-        case "battle-royale":
-          return "Battle Royale";
-        default:
-          return mode;
-      }
+    async refreshPublicGames() {
+      await this.fetchPublicGames(true);
     },
 
     async joinGame(gameId) {
-      const user = JSON.parse(localStorage.getItem("user"));
-      if (!user) {
+      if (!this.user) {
         alert("Vous devez être connecté pour rejoindre une partie.");
         return;
       }
 
-      const playerId = Number(user.ID_Users || user.id || user.userId);
-      if (!playerId) {
-        alert("Impossible de récupérer votre ID. Veuillez vous reconnecter.");
-        return;
-      }
+      const playerId = Number(this.user.ID_Users || this.user.id);
 
       try {
-        const res = await fetch(
-          `https://battleship-api-i276.onrender.com/api/games/join/${gameId}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerId }),
-          },
-        );
+        // Axios POST simplifié : pas de headers, pas de stringify
+        const res = await api.post(`/games/join/${gameId}`, { playerId });
 
-        const data = await res.json();
-        if (!data.success) {
-          alert(data.message || "Erreur lors de la tentative de rejoindre la partie.");
-          return;
+        if (res.data.success) {
+          localStorage.setItem("currentGame", JSON.stringify({ gameId, playerId }));
+          this.$router.push({ name: "WaitingRoom", params: { gameId } });
+        } else {
+          alert(res.data.message || "Impossible de rejoindre la partie.");
         }
-
-        localStorage.setItem("currentGame", JSON.stringify({ gameId, playerId }));
-        this.$router.push({ name: "WaitingRoom", params: { gameId } });
       } catch (err) {
-        console.error("❌ Erreur lors de la tentative :", err);
-        alert("Erreur réseau ou serveur. Veuillez réessayer plus tard.");
+        console.error("❌ Erreur joinGame :", err);
+        alert(err.response?.data?.message || "Erreur lors de la connexion.");
       }
+    },
+
+    formatMode(mode) {
+      const modes = {
+        "1v1": "1 vs 1",
+        "2v2": "2 vs 2",
+        "3v3": "3 vs 3",
+        "4v4": "4 vs 4",
+        "battle-royale": "Battle Royale",
+      };
+      return modes[mode] || mode;
     },
   },
 };

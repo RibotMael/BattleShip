@@ -59,7 +59,7 @@
 
 <script>
 import { userBus } from "@/eventBus.js";
-import axios from "axios";
+import api from "@/api/api.js"; // On centralise tout ici
 
 const defaultAvatar =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAHklEQVR42u3PAQ0AAAwCoNm/9HI4gAAAAAAAAAAAOBwG4cAAfNmS7sAAAAASUVORK5CYII=";
@@ -70,7 +70,7 @@ export default {
       pseudo: "",
       userId: null,
       avatars: [],
-      avatar: null,
+      avatar: null, // ID de l'avatar sélectionné
       avatarPreviewUrl: defaultAvatar,
     };
   },
@@ -87,39 +87,48 @@ export default {
   methods: {
     async fetchAvatars() {
       try {
-        const res = await axios.get("https://battleship-api-i276.onrender.com/api/avatars");
+        const res = await api.get("/avatars");
         this.avatars = res.data.avatars;
+
+        // Si l'utilisateur a déjà un avatar, on met à jour la preview
         if (this.avatar) {
-          const sel = this.avatars.find((a) => a.ID_Avatar === this.avatar);
-          if (sel) this.avatarPreviewUrl = `data:${sel.mime_type};base64,${sel.Avatar}`;
+          this.updatePreview(this.avatar);
         }
       } catch (e) {
         console.error("Erreur récupération avatars :", e);
       }
     },
+
     selectAvatar(id) {
       this.avatar = id;
-      const sel = this.avatars.find((a) => a.ID_Avatar === id);
-      if (sel) this.avatarPreviewUrl = `data:${sel.mime_type};base64,${sel.Avatar}`;
+      this.updatePreview(id);
     },
+
+    updatePreview(id) {
+      const sel = this.avatars.find((a) => a.ID_Avatar === id);
+      if (sel) {
+        this.avatarPreviewUrl = `data:${sel.mime_type};base64,${sel.Avatar}`;
+      }
+    },
+
     async saveProfile() {
       if (!this.userId) return;
-      const payload = { pseudo: this.pseudo };
-      if (this.avatar) payload.avatar = this.avatar;
+
+      const payload = {
+        pseudo: this.pseudo,
+        avatar: this.avatar, // ID envoyé au backend
+      };
 
       try {
-        const response = await fetch(
-          `https://battleship-api-i276.onrender.com/api/users/${this.userId}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          },
-        );
-        if (!response.ok) throw new Error(await response.text());
-        const updatedUser = await response.json();
+        // PUT simplifié avec Axios
+        const res = await api.put(`/users/${this.userId}`, payload);
+        const updatedUser = res.data;
+
+        // Mise à jour de l'UI
         this.avatarPreviewUrl = updatedUser.avatar || defaultAvatar;
         this.pseudo = updatedUser.pseudo;
+
+        // Sync avec le localStorage
         localStorage.setItem(
           "user",
           JSON.stringify({
@@ -129,30 +138,30 @@ export default {
             avatar: updatedUser.avatar,
           }),
         );
+
+        // Notification aux autres composants (ex: Navbar)
         userBus.userUpdated = !userBus.userUpdated;
         alert("Profil mis à jour !");
       } catch (err) {
-        console.error(err);
-        alert("Erreur lors de la mise à jour du profil.");
+        console.error("Erreur mise à jour :", err);
+        alert(err.response?.data?.message || "Erreur lors de la mise à jour.");
       }
     },
+
     async deleteAccount() {
-      if (!confirm("Êtes-vous sûr de vouloir supprimer votre compte ?")) return;
+      if (!confirm("⚠️ Cette action est irréversible. Supprimer votre compte ?")) return;
+
       try {
-        const response = await fetch(
-          `https://battleship-api-i276.onrender.com/api/users/${this.userId}`,
-          {
-            method: "DELETE",
-          },
-        );
-        if (!response.ok) throw new Error(await response.text());
+        // DELETE simplifié
+        await api.delete(`/users/${this.userId}`);
+
         localStorage.removeItem("user");
         userBus.userUpdated = !userBus.userUpdated;
-        alert("Compte supprimé !");
+        alert("Compte supprimé avec succès.");
         this.$router.push("/");
       } catch (err) {
-        console.error(err);
-        alert("Erreur lors de la suppression du compte.");
+        console.error("Erreur suppression :", err);
+        alert("Impossible de supprimer le compte.");
       }
     },
   },

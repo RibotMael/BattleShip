@@ -1,11 +1,15 @@
 <template>
   <div class="battle-container">
-    <button class="btn-abandon" @click="abandonGame">Abandonner</button>
+    <div class="header-actions">
+      <button class="btn-abandon" @click="abandonGame" title="Abandonner la partie">
+        <span class="btn-text">Abandonner</span>
+        <span class="btn-icon">✕</span>
+      </button>
+    </div>
 
     <div class="grids-wrapper">
-      <!-- Grille Joueur -->
-      <div class="grid-section">
-        <h2>Notre flotte</h2>
+      <div class="grid-section player-section">
+        <h2 class="grid-title">Notre flotte</h2>
         <div class="grid player-grid">
           <div
             v-for="(cell, index) in playerGrid"
@@ -17,31 +21,29 @@
               miss: cell.status === 'miss',
               sunk: cell.status === 'sunk',
             }"
-          >
-            <span v-if="cell.shipNumber">{{ cell.shipNumber }}</span>
-          </div>
+          ></div>
         </div>
       </div>
 
-      <!-- Chrono circulaire -->
-      <div class="timer-circle">
-        <svg class="progress-ring" width="120" height="120">
-          <circle
-            class="progress-ring__circle"
-            stroke="white"
-            stroke-width="8"
-            fill="transparent"
-            r="54"
-            cx="60"
-            cy="60"
-          />
-        </svg>
-        <div class="timer-text">{{ turnTimer }}s</div>
+      <div class="timer-container">
+        <div class="timer-circle">
+          <svg class="progress-ring" width="100" height="100">
+            <circle
+              class="progress-ring__circle"
+              stroke="white"
+              stroke-width="6"
+              fill="transparent"
+              r="45"
+              cx="50"
+              cy="50"
+            />
+          </svg>
+          <div class="timer-text">{{ turnTimer }}s</div>
+        </div>
       </div>
 
-      <!-- Grille Adversaire + Dropdown Battle Royale -->
-      <div class="grid-section">
-        <h2>
+      <div class="grid-section opponent-section">
+        <h2 class="grid-title">
           Adversaire
           <select
             v-if="opponents.length > 1"
@@ -70,12 +72,11 @@
         </div>
       </div>
     </div>
-
-    <!-- Popup fin de partie -->
-    <div v-if="endPopup" class="end-popup">
+    <div v-if="endPopup" class="popup-overlay">
       <div class="popup-content">
-        <h1>{{ popupMessage }}</h1>
-        <button @click="goHome">Retour à l'accueil</button>
+        <h2>Fin de la partie</h2>
+        <p>{{ popupMessage }}</p>
+        <button class="btn-home" @click="goHome">Retour à l'accueil</button>
       </div>
     </div>
   </div>
@@ -83,6 +84,9 @@
 
 <script>
 import socket from "../services/socket.js";
+
+// Centralisation de l'URL de l'API
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
   name: "GameBoard",
@@ -95,7 +99,7 @@ export default {
       playerGrid: Array.from({ length: 100 }, () => ({ shipNumber: 0, status: "" })),
       opponents: [],
       currentOpponentIndex: 0,
-      turnTimer: 8,
+      turnTimer: 7,
       gameOver: false,
       fetchInterval: null,
       turnInterval: null,
@@ -133,69 +137,74 @@ export default {
     socket.on("game-started", this.handleGameStarted);
 
     socket.onAny((eventName, ...args) => {
+      if (this.gameOver) return;
       console.log(`[SOCKET DEBUG] Reçu: ${eventName}`, args);
     });
   },
   beforeUnmount() {
-    // 1. Arrêter les appels API vers PHP
+    console.log("🧹 Destruction GameBoard");
     clearInterval(this.fetchInterval);
+    clearInterval(this.turnInterval);
+    this.removeSocketListeners();
 
-    // 2. Nettoyer TOUS les écouteurs de socket
-    socket.off("turn-timer");
-    socket.off("turn-ended");
-    socket.off("game-over");
-
-    // 3. Quitter la room sur le serveur
-    socket.emit("leave-game", { gameId: this.gameId });
+    window.removeEventListener("keydown", this.preventRefresh);
+    window.removeEventListener("popstate", this.preventBack);
+    window.removeEventListener("beforeunload", this.preventUnload);
   },
   methods: {
     removeSocketListeners() {
+      console.log("🧹 Nettoyage socket");
+      socket.emit("leave-game", { gameId: this.gameId });
+
       socket.off("turn-timer", this.socketTurnTimer);
       socket.off("turn-ended", this.endTurn);
       socket.off("shot-fired", this.onShotFired);
       socket.off("player-eliminated", this.onPlayerEliminated);
-      socket.off("game-over", this.handleGameOver); // Précis ici aussi
-      socket.off("connect"); // Optionnel mais propre
+      socket.off("game-over", this.handleGameOver);
+      socket.off("game-started", this.handleGameStarted);
       socket.offAny();
     },
+
     /* ----------------- Timer ----------------- */
     socketTurnTimer({ timeLeft }) {
-      if (timeLeft > this.turnTimer) {
+      if (this.gameOver) return;
+
+      if (timeLeft >= 7) {
         this.hasFiredThisTurn = false;
+        this.turnTimer = 7;
+      } else {
+        this.turnTimer = timeLeft;
       }
-
-      this.turnTimer = timeLeft;
-      this.updateCircle();
-
-      if (this.turnTimer <= 0) {
-        this.validateShot();
-      }
+      this.$nextTick(this.updateCircle);
     },
     endTurn() {
       if (this.gameOver) return;
       this.turnTimer = 0;
       this.updateCircle();
       this.validateShot();
+      this.hasFiredThisTurn = false;
     },
     updateCircle() {
       const circle = this.$el.querySelector(".progress-ring__circle");
       if (!circle) return;
-      const radius = 54;
+      const radius = 45;
       const circumference = 2 * Math.PI * radius;
       const ratio = Math.max(0, Math.min(this.turnTimer / 7, 1));
-      circle.style.strokeDashoffset = circumference - ratio * circumference;
+      const offset = circumference - ratio * circumference;
+      circle.style.transition = this.turnTimer === 7 ? "none" : "stroke-dashoffset 1s linear";
+      circle.style.strokeDashoffset = offset;
     },
 
     /* ----------------- Init & Reset ----------------- */
     handleGameStarted(data) {
-      console.log("🚀 La partie commence réellement !");
+      console.log("🚀 La partie commence !");
       this.resetGameState();
       this.turnTimer = data.timeLeft || 7;
       this.updateCircle();
     },
     resetGameState() {
-      if (this.turnInterval) clearInterval(this.turnInterval);
-      if (this.fetchInterval) clearInterval(this.fetchInterval);
+      clearInterval(this.turnInterval);
+      clearInterval(this.fetchInterval);
 
       this.fetchInterval = null;
       this.turnInterval = null;
@@ -205,19 +214,17 @@ export default {
       this.endPopup = false;
       this.popupMessage = "";
       this.playerStatus = "in_game";
+      this.hasFiredThisTurn = false;
     },
     async initGame() {
       console.log("🛠️ Initialisation du jeu...");
       this.resetGameState();
-      console.log("📡 Fetching data initial...");
       await this.fetchPlayerBoard();
+
       if (this.is1v1) await this.fetchOpponent();
       else await this.fetchOpponents();
-      console.log(`🏠 Rejoint la salle: ${this.gameId} en tant que ${this.user.id}`);
-      // 1. Rejoindre la salle
+
       socket.emit("join-game", { gameId: this.gameId, playerId: this.user.id });
-      console.log("✅ Envoi du signal 'player-ready'");
-      // 2. Signaler que le chargement est fini
       socket.emit("player-ready", { gameId: this.gameId, playerId: this.user.id });
 
       this.fetchInterval = setInterval(async () => {
@@ -230,7 +237,7 @@ export default {
     async fetchPlayerBoard() {
       try {
         const res = await fetch(
-          `https://battleship-api-i276.onrender.com/api/games/${this.gameId}/board?playerId=${this.user.id}`,
+          `${API_BASE_URL}/api/games/${this.gameId}/board?playerId=${this.user.id}`,
         );
         const data = await res.json();
         if (!data.success) return console.warn(data.message);
@@ -244,7 +251,7 @@ export default {
     async fetchOpponent() {
       try {
         const res = await fetch(
-          `https://battleship-api-i276.onrender.com/api/games/${this.gameId}/opponent?playerId=${this.user.id}`,
+          `${API_BASE_URL}/api/games/${this.gameId}/opponent?playerId=${this.user.id}`,
         );
         const data = await res.json();
         if (!data.success) return console.warn(data.message);
@@ -263,23 +270,17 @@ export default {
     async fetchOpponents() {
       try {
         const res = await fetch(
-          `https://battleship-api-i276.onrender.com/api/games/${this.gameId}/opponents?playerId=${this.user.id}`,
+          `${API_BASE_URL}/api/games/${this.gameId}/opponents?playerId=${this.user.id}`,
         );
         const data = await res.json();
         if (!data.success) return;
-
-        // On crée les grilles vides pour chaque adversaire
         this.opponents = data.opponents.map((o) => ({ ...o, grid: Array(100).fill("") }));
-
-        // Sélection automatique du premier adversaire
         this.currentOpponentIndex = 0;
       } catch (err) {
         console.error(err);
       }
     },
-
     updateGridCell(opponent, index, value) {
-      // clone la grille pour éviter la mutation directe
       const newGrid = [...opponent.grid];
       newGrid[index] = value;
       opponent.grid = newGrid;
@@ -287,28 +288,16 @@ export default {
 
     /* ----------------- Sélection & Tir ----------------- */
     selectCell(index) {
-      console.log(`[ACTION] Tentative de clic sur cellule ${index}`);
-      if (this.gameOver) {
-        console.warn("[ACTION BLOQUÉE] La partie est finie (gameOver: true)");
-        return;
-      }
+      if (this.gameOver) return;
       const val = this.currentOpponent.grid[index];
-      if (["hit", "miss", "sunk", "selected"].includes(val)) {
-        console.warn(`[ACTION BLOQUÉE] Cellule déjà occupée par: ${val}`);
-        return;
-      }
-      console.log(`[ACTION OK] Cellule ${index} sélectionnée`);
+      if (["hit", "miss", "sunk", "selected"].includes(val)) return;
       if (this.selectedCell !== null)
         this.updateGridCell(this.currentOpponent, this.selectedCell, "");
       this.selectedCell = index;
       this.updateGridCell(this.currentOpponent, index, "selected");
     },
     async validateShot() {
-      // On ajoute la vérification du verrou
       if (this.gameOver || this.hasFiredThisTurn) return;
-
-      console.log("[TURN ENDED] Validation du tir");
-
       let index = this.selectedCell;
       if (index === null) {
         const available = this.currentOpponent.grid
@@ -317,254 +306,202 @@ export default {
         if (!available.length) return;
         index = available[Math.floor(Math.random() * available.length)];
       }
-
-      // ON VERROUILLE AVANT L'ENVOI
       this.hasFiredThisTurn = true;
-
       this.updateGridCell(this.currentOpponent, index, "");
       this.selectedCell = null;
       await this.sendShoot(index);
+    },
+    onPlayerEliminated(data) {
+      console.log("💀 Joueur éliminé:", data);
+
+      // Si c'est MOI qui suis éliminé par le serveur (ex: déconnexion ou destruction)
+      if (data.playerId === this.user.id) {
+        this.playerStatus = "dead";
+        const msg =
+          data.reason === "abandon" ? "🏳️ Éliminé par abandon" : "💥 Tous vos navires ont coulé !";
+        this.showEndPopup(msg);
+        return;
+      }
+
+      this.opponents = this.opponents.filter((opp) => opp.id !== data.playerId);
+
+      if (this.currentOpponentIndex >= this.opponents.length) {
+        this.currentOpponentIndex = 0;
+      }
     },
     async sendShoot(index) {
       if (this.gameOver || this.playerStatus === "dead") return;
 
       const targetOpponent = this.opponents[this.currentOpponentIndex];
+      if (!targetOpponent?.id || index == null || index < 0 || index > 99) {
+        console.warn("Tir annulé : coordonnées ou cible invalides", { index, targetOpponent });
+        this.selectedCell = null;
+        return;
+      }
+
       const x = index % 10;
       const y = Math.floor(index / 10);
 
       try {
-        const res = await fetch("https://battleship-api-i276.onrender.com/api/games/shoot", {
+        const res = await fetch(`${API_BASE_URL}/api/games/shoot`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             gameId: this.gameId,
             playerId: this.user.id,
             targetId: targetOpponent.id,
-            x: x,
-            y: y,
+            x,
+            y,
           }),
         });
-        const data = await res.json();
 
-        if (data.success) {
-          this.applyShot(targetOpponent.id, x, y, data.result, data.positions);
-        }
+        const data = await res.json();
+        if (!data.success) return console.warn("Tir refusé :", data.message);
+
+        this.applyShot(targetOpponent.id, x, y, data.result, data.positions);
+        this.selectedCell = null;
       } catch (err) {
-        console.error("Erreur lors de l'envoi du tir:", err);
+        console.error(err);
+        this.selectedCell = null;
       }
     },
     applyShot(targetId, x, y, result, positions) {
       const idx = y * 10 + x;
       if (targetId === this.user.id) {
         this.playerGrid[idx].status = result;
-        if (positions) {
-          positions.forEach((p) => (this.playerGrid[p.y * 10 + p.x].status = "sunk"));
-        }
+        positions?.forEach((p) => (this.playerGrid[p.y * 10 + p.x].status = "sunk"));
       } else {
         const target = this.opponents.find((o) => o.id === targetId);
-        if (target) {
-          const newGrid = [...target.grid];
-          newGrid[idx] = result;
-          if (positions) {
-            positions.forEach((p) => (newGrid[p.y * 10 + p.x] = "sunk"));
-          }
-          target.grid = newGrid;
-        }
+        if (!target) return;
+        const newGrid = [...target.grid];
+        newGrid[idx] = result;
+        positions?.forEach((p) => (newGrid[p.y * 10 + p.x] = "sunk"));
+        target.grid = newGrid;
       }
     },
     onShotFired({ shooterId, targetId, x, y, result, positions }) {
       const idx = y * 10 + x;
-
-      // TIR SUR MOI
       if (targetId === this.user.id) {
         const newGrid = [...this.playerGrid];
         newGrid[idx].status = result;
-        if (positions?.length) {
-          positions.forEach((p) => {
-            newGrid[p.y * 10 + p.x].status = "sunk";
-          });
-        }
+        positions?.forEach((p) => (newGrid[p.y * 10 + p.x].status = "sunk"));
         this.playerGrid = newGrid;
-
-        // Vérifier si défaite
         this.checkDefeat();
         return;
       }
-
-      // TIR sur adversaire
-      const targetOpponent = this.opponents.find((o) => o.id === targetId);
-      if (!targetOpponent) return;
-      const newGrid = [...targetOpponent.grid];
+      const target = this.opponents.find((o) => o.id === targetId);
+      if (!target) return;
+      const newGrid = [...target.grid];
       newGrid[idx] = result;
-      if (positions?.length) {
-        positions.forEach((p) => {
-          newGrid[p.y * 10 + p.x] = "sunk";
-        });
-      }
-      targetOpponent.grid = newGrid;
+      positions?.forEach((p) => (newGrid[p.y * 10 + p.x] = "sunk"));
+      target.grid = newGrid;
     },
 
     /* ----------------- Enemy shots ----------------- */
     async fetchEnemyShots() {
       try {
         const res = await fetch(
-          `https://battleship-api-i276.onrender.com/api/games/${this.gameId}/shots?playerId=${this.user.id}&t=${Date.now()}`,
+          `${API_BASE_URL}/api/games/${this.gameId}/shots?playerId=${this.user.id}&t=${Date.now()}`,
         );
         const data = await res.json();
         if (!data.success) return;
 
-        // 1. MISE À JOUR DE MA GRILLE (Tirs subis venant du PHP ou Node)
         if (data.incomingShots) {
-          const newPlayerGrid = [...this.playerGrid];
+          const newGrid = [...this.playerGrid];
           data.incomingShots.forEach((s) => {
-            // IMPORTANT : Conversion coordonnées -> Index 0-99
             const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
-            if (newPlayerGrid[idx]) {
-              // On ne met à jour que si le tir est résolu (hit/miss/sunk)
-              newPlayerGrid[idx].status = s.result;
-            }
+            if (newGrid[idx]) newGrid[idx].status = s.result;
           });
-          this.playerGrid = newPlayerGrid;
+          this.playerGrid = newGrid;
         }
 
-        // 2. MISE À JOUR DES GRILLES ADVERSES (Mes tirs vers le PHP ou Node)
         if (data.playerShots) {
           data.playerShots.forEach((s) => {
             const target = this.opponents.find((o) => o.id === s.target_id);
-            if (target) {
-              const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
-              // Si le PHP a calculé le résultat, on l'affiche
-              if (s.result) {
-                const newOpponentGrid = [...target.grid];
-                newOpponentGrid[idx] = s.result;
-                target.grid = newOpponentGrid;
-              }
-            }
+            if (!target) return;
+            const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
+            target.grid[idx] = s.result;
           });
         }
 
-        // On vérifie si ces nouveaux tirs m'ont fait perdre
         this.checkDefeat();
       } catch (err) {
-        console.error("Erreur Sync Shots (PHP/Node):", err);
+        console.error("Erreur Sync Shots:", err.message);
       }
     },
 
+    /* ----------------- Game Over / Abandon ----------------- */
     handleGameOver(payload) {
-      console.log("🏁 Fin de partie reçue :", payload);
       if (this.gameOver) return;
-
-      this.gameOver = true; // On bloque les actions immédiatement
-      clearInterval(this.fetchInterval);
-      clearInterval(this.turnInterval);
-
-      let msg = "💥 Défaite !";
-
-      // Correction de la ReferenceError ici :
-      if (payload.isDraw) {
-        msg = "⚖️ Égalité parfaite !";
-      } else if (payload.winnerId === this.user.id) {
-        msg = "🏆 Victoire !";
-      }
-
-      this.showEndPopup(msg);
-    },
-
-    /* ----------------- Battle Royale ----------------- */
-    onPlayerEliminated({ playerId, aliveCount }) {
-      if (playerId === this.user.id) return;
-      this.opponents = this.opponents.filter((o) => o.id !== playerId);
-      this.addGameLog(`💀 Joueur éliminé (${aliveCount} restants)`);
-      if (this.currentOpponentIndex >= this.opponents.length) this.currentOpponentIndex = 0;
-    },
-
-    async checkGameStatus() {
-      try {
-        const res = await fetch(
-          `https://battleship-api-i276.onrender.com/api/games/${this.gameId}/status?playerId=${this.user.id}`,
-        );
-        const data = await res.json();
-        if (!data.success) return;
-        if (data.finished && !this.gameOver) {
-          this.gameOver = true;
-          clearInterval(this.fetchInterval);
-          let msg = "💥 Défaite !";
-
-          if (data.result === "draw") {
-            msg = "⚖️ Égalité parfaite !";
-          } else if (data.winner === this.user.id) {
-            msg = "🏆 Victoire !";
-          }
-
-          this.showEndPopup(msg);
-          await this.fetchEnemyShots();
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    },
-
-    /* ----------------- Fin / Abandon ----------------- */
-    showEndPopup(msg) {
-      this.popupMessage = msg;
-      this.endPopup = true;
       this.gameOver = true;
       clearInterval(this.fetchInterval);
       clearInterval(this.turnInterval);
-      this.turnTimer = 8;
-      this.updateCircle();
+      this.removeSocketListeners();
+
+      let msg = payload.isDraw
+        ? "⚖️ Égalité parfaite !"
+        : payload.winnerId === this.user.id
+          ? "🏆 Victoire !"
+          : "💥 Défaite !";
+
+      this.showEndPopup(msg);
     },
     async abandonGame() {
       if (!confirm("Voulez-vous vraiment abandonner ?")) return;
       try {
-        const res = await fetch(
-          "https://battleship-api-i276.onrender.com/api/games/eliminate-player",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              gameId: this.gameId,
-              playerId: this.user.id,
-              reason: "abandon",
-            }),
-          },
-        );
+        const res = await fetch(`${API_BASE_URL}/api/games/eliminate-player`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            gameId: this.gameId,
+            playerId: this.user.id,
+            reason: "abandon",
+          }),
+        });
         const data = await res.json();
-        if (!data.success) return console.warn(data.message);
-        clearInterval(this.fetchInterval);
-        this.showEndPopup(this.is1v1 ? "💥 Défaite par abandon" : "💀 Vous avez abandonné");
+
+        if (data.success) {
+          // ACTION IMMEDIATE : On marque le joueur comme mort et on affiche la popup
+          this.playerStatus = "dead";
+          this.showEndPopup("🏳️ Abandon confirmé. Vous avez quitté la partie.");
+        } else {
+          console.warn(data.message);
+        }
       } catch (err) {
         console.error(err);
       }
     },
+    showEndPopup(msg, force = false) {
+      this.popupMessage = msg;
+      this.endPopup = true;
+      if (!force) this.gameOver = true;
+
+      clearInterval(this.fetchInterval);
+      clearInterval(this.turnInterval);
+
+      if (!force) this.removeSocketListeners();
+
+      this.turnTimer = 7;
+      this.updateCircle();
+    },
+
     async checkDefeat() {
       if (this.playerStatus !== "in_game") return;
-
       const shipCells = this.playerGrid.filter((c) => c.shipNumber > 0);
       if (!shipCells.length) return;
-
       const allDestroyed = shipCells.every((c) => c.status === "hit" || c.status === "sunk");
       if (!allDestroyed) return;
 
       this.playerStatus = "dead";
-
       try {
-        const res = await fetch(
-          "https://battleship-api-i276.onrender.com/api/games/eliminate-player",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              gameId: this.gameId,
-              playerId: this.user.id,
-              reason: "shot",
-            }),
-          },
-        );
+        const res = await fetch(`${API_BASE_URL}/api/games/eliminate-player`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ gameId: this.gameId, playerId: this.user.id, reason: "shot" }),
+        });
         const data = await res.json();
         if (!data.success) return console.warn(data.message);
 
-        // Afficher popup si c'est la fin du jeu ou défaite
         if (data.finished) {
           const msg =
             data.winner_id === this.user.id
@@ -574,7 +511,6 @@ export default {
                 : "💥 Défaite !";
           this.showEndPopup(msg);
         } else {
-          // Joueur éliminé mais la partie continue
           this.showEndPopup("💥 Tous vos bateaux sont coulés !");
         }
       } catch (err) {
@@ -582,235 +518,349 @@ export default {
       }
     },
 
+    /* ----------------- Navigation ----------------- */
     goHome() {
       this.$router.push("/");
     },
-    addGameLog(msg) {
-      console.log(msg);
+    preventRefresh(e) {
+      e.preventDefault();
+    },
+    preventBack(e) {
+      e.preventDefault();
+    },
+    preventUnload(e) {
+      e.preventDefault();
     },
   },
 };
 </script>
 
-<style>
-/* --- CONTENEUR PRINCIPAL --- */
-.battle-container {
-  width: 100vw;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background: linear-gradient(to bottom, #002f4b, #005f8e);
-  /* On permet le scroll si le contenu dépasse la hauteur de l'écran (mobile) */
-  overflow-y: auto;
+<style scoped>
+html,
+body {
+  max-width: 100%;
   overflow-x: hidden;
-  padding: 20px 0;
+  /* Optionnel : empêche le rebond élastique sur iOS */
+  position: relative;
 }
-
-/* --- WRAPPER DES GRILLES --- */
-.grids-wrapper {
-  display: flex;
-  flex-direction: row; /* Côte à côte par défaut (PC) */
-  justify-content: center;
-  align-items: center;
-  gap: 60px; /* Réduit de 100px pour plus de flexibilité */
+/* CONTENEUR PRINCIPAL */
+.battle-container {
   width: 100%;
-}
-
-.grid-section {
+  min-height: 100vh;
+  background: radial-gradient(circle at center, #1b2735 0%, #090a0f 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
-}
-
-h2 {
-  margin-bottom: 15px;
-  font-size: 1.8rem;
+  padding: 80px 10px 40px 10px;
   color: white;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  font-family: "Orbitron", sans-serif;
+  box-sizing: border-box;
+  position: relative;
 }
 
-/* --- STRUCTURE DE LA GRILLE --- */
-.grid {
-  display: grid;
-  /* Utilise 45px sur PC, mais s'adapte sur mobile (voir media query) */
-  grid-template-columns: repeat(10, 45px);
-  gap: 2px;
-}
-
-.cell {
-  width: 100%;
-  aspect-ratio: 1 / 1; /* Garde la cellule carrée peu importe la largeur */
-  background: #eee;
-  border: 1px solid #9b9b9b;
-  cursor: pointer;
-  transition: transform 0.2s;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 0.8rem;
-}
-
-/* --- ETATS DES CELLULES --- */
-.cell.ship {
-  background-color: #1976d2;
-  border: 2px solid #90caf9;
-  box-shadow: inset 0 0 5px #2196f3;
-}
-.cell.hit {
-  background-color: #ff4444;
-}
-.cell.miss {
-  background-color: #00bcd4;
-}
-.cell.sunk {
-  background-color: #d32f2f;
-}
-.cell.selected {
-  background-color: rgba(255, 255, 0, 0.6);
-  border: 2px solid yellow;
-}
-
-.opponent-grid .cell:hover {
-  transform: scale(1.1) rotate(-2deg);
-  z-index: 10;
-}
-
-/* --- BOUTON ABANDON --- */
-.btn-abandon {
+/* GESTION DU BOUTON ABANDONNER (PC) */
+.header-actions {
   position: absolute;
   top: 20px;
   right: 20px;
-  padding: 10px 15px;
-  background-color: #ff4b2b;
-  color: white;
-  font-weight: bold;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
   z-index: 100;
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s;
+}
+
+.btn-abandon {
+  width: auto;
+  min-width: 140px;
+  padding: 10px 20px;
+  background: rgba(198, 40, 40, 0.1);
+  border: 1px solid #ff4444;
+  border-radius: 5px;
+  color: #ff4444;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-abandon:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  background: #c62828;
+  color: white;
+  box-shadow: 0 0 15px rgba(198, 40, 40, 0.5);
 }
 
-/* --- CHRONO --- */
-.timer-circle {
-  position: relative;
-  width: 120px;
-  height: 120px;
+.btn-icon {
+  display: none;
+}
+
+/* WRAPPER DES GRILLES */
+.grids-wrapper {
   display: flex;
-  justify-content: center;
+  gap: 40px;
   align-items: center;
+  width: 100%;
+  max-width: 1200px;
+  justify-content: center;
+  flex-wrap: wrap; /* Important pour le passage à la ligne sur mobile */
+  overflow: hidden;
+}
+
+.grid-section {
+  flex: 1 1 300px; /* Permet de réduire la section si nécessaire */
+  width: 100%;
+  max-width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.grid-title {
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  color: #00d4ff;
+  text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+}
+
+/* LA GRILLE */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  grid-template-rows: repeat(10, 1fr); /* 👈 AJOUT ICI */
+  gap: 2px;
+  background: rgba(0, 212, 255, 0.15);
+  padding: 4px;
+  border: 1px solid rgba(0, 212, 255, 0.4);
+  border-radius: 4px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  box-sizing: border-box;
+}
+/* LES CELLULES */
+.cell {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1 / 1; /* 👈 REMETS CECI ICI */
+  background: rgba(10, 25, 47, 0.85);
+  border: 1px solid rgba(0, 212, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  /* Optionnel mais recommandé pour empêcher le contenu de déborder : */
+  overflow: hidden;
+}
+
+/* ETATS DES CELLULES */
+.player-grid .cell.ship {
+  background: #1e3a5f;
+  border: 1px solid #00d4ff;
+  box-shadow: inset 0 0 8px rgba(0, 212, 255, 0.3);
+}
+
+.cell.hit {
+  background: radial-gradient(circle, #ff4444 30%, #7f0000 100%) !important;
+  box-shadow: 0 0 12px #ff4444;
+  z-index: 1;
+}
+
+.cell.miss::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+}
+
+.cell.sunk {
+  background: #1a1a1a !important;
+  border: 1px solid #444;
+}
+
+.cell.sunk::after {
+  content: "✕";
+  color: #ff4444;
+  font-size: 1.1rem;
+  font-weight: bold;
+  opacity: 0.7;
+}
+
+.cell.selected {
+  background: rgba(255, 235, 59, 0.2) !important;
+  outline: 2px solid #ffeb3b;
+  z-index: 2;
+}
+
+/* TIMER / CHRONO */
+.timer-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+}
+
+.timer-circle {
+  width: 100px;
+  height: 100px;
+  position: relative;
 }
 
 .progress-ring {
   transform: rotate(-90deg);
 }
 
-.progress-ring__circle {
-  stroke-dasharray: 339.292;
-  stroke-dashoffset: 0;
-  transition: stroke-dashoffset 1s linear;
-}
-
 .timer-text {
   position: absolute;
-  font-size: 1.5rem;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.2rem;
   font-weight: bold;
   color: white;
 }
 
-/* --- DROPDOWN BATTLE ROYALE --- */
+/* DROP DOWN ADVERSAIRE */
 .opponent-dropdown {
-  padding: 5px;
-  border-radius: 5px;
-  background: white;
-  font-size: 1rem;
+  background: #0a192f;
+  color: #00d4ff;
+  border: 1px solid #00d4ff;
+  padding: 4px 8px;
+  font-family: "Orbitron";
+  font-size: 0.8rem;
+  border-radius: 4px;
+  margin-left: 10px;
 }
 
-/* --- POPUP FIN DE PARTIE --- */
-.end-popup {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: rgba(0, 0, 0, 0.85);
-  z-index: 999;
-}
-
-.end-popup .popup-content {
-  background: white;
-  padding: 40px;
-  border-radius: 15px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-}
-
-.end-popup .popup-content h1 {
-  margin-bottom: 25px;
-  font-size: 2.5rem;
-  color: #333;
-}
-
-.end-popup button {
-  padding: 12px 30px;
-  border: none;
-  border-radius: 5px;
-  background: #1976d2;
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-/* --- MOBILE RESPONSIVE (écrans < 850px) --- */
+/* RESPONSIVE (MOBILE & TABLETTE) */
 @media (max-width: 850px) {
   .battle-container {
-    justify-content: flex-start; /* Permet de scroller naturellement vers le bas */
-    padding-top: 80px; /* Espace pour le bouton abandon */
+    padding-top: 80px; /* Espace pour le bouton en haut */
   }
 
-  .grids-wrapper {
-    flex-direction: column; /* On empile les grilles */
-    gap: 30px;
-  }
-
-  .grid {
-    /* Largeur dynamique : 90% de l'écran divisé par 10 colonnes */
-    grid-template-columns: repeat(10, 8.5vw);
-    max-width: 350px; /* Sécurité pour ne pas être trop gros sur tablettes */
-  }
-
-  h2 {
-    font-size: 1.4rem;
-  }
-
-  .timer-circle {
-    order: -1; /* Le chrono s'affiche en premier en haut */
-    transform: scale(0.8);
-    margin-bottom: 0;
+  /* Bouton devient un cercle en haut à droite */
+  .header-actions {
+    top: 15px;
+    right: 15px;
   }
 
   .btn-abandon {
-    position: fixed; /* Reste visible même en scrollant */
-    top: 10px;
-    right: 10px;
-    padding: 8px 12px;
-    font-size: 0.9rem;
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+    padding: 0;
+    border-radius: 50%;
   }
+
+  .btn-text {
+    display: none;
+  }
+  .btn-icon {
+    display: block;
+    font-size: 1.4rem;
+    font-weight: bold;
+  }
+
+  /* RE-ORGANISATION DES ELEMENTS SUR MOBILE */
+  .grids-wrapper {
+    flex-direction: column;
+    gap: 10px; /* Réduit l'espace entre les éléments pour gagner de la place */
+    padding: 0 5px;
+  }
+
+  .grid-title {
+    font-size: 0.9rem; /* Titre un peu plus petit sur mobile */
+    margin-bottom: 8px;
+  }
+
+  .player-section {
+    order: 1; /* Notre flotte en premier */
+  }
+
+  .timer-container {
+    order: 2;
+    margin: 5px 0;
+    /* On réduit un peu le chrono sur mobile pour laisser la place aux grilles */
+    transform: scale(0.85);
+  }
+
+  .opponent-section {
+    order: 3; /* L'adversaire en dernier */
+  }
+
+  .grid-section {
+    /* La grille prend 92% de la largeur du téléphone */
+    max-width: 92vw;
+    margin: 0 auto;
+  }
+}
+
+/* POPUP DE FIN */
+.end-popup {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.popup-content {
+  background: #0a192f;
+  padding: 40px;
+  border: 2px solid #00d4ff;
+  border-radius: 15px;
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 0 40px rgba(0, 212, 255, 0.3);
+}
+
+.btn-home {
+  margin-top: 25px;
+  padding: 12px 30px;
+  background: #00d4ff;
+  border: none;
+  border-radius: 5px;
+  color: #0a192f;
+  font-weight: bold;
+  cursor: pointer;
+  font-family: "Orbitron";
+  text-transform: uppercase;
+  transition: transform 0.2s;
+}
+
+.btn-home:hover {
+  transform: scale(1.05);
+}
+
+/* --- Modifie ces classes dans ton style existant --- */
+
+.progress-ring {
+  transform: rotate(-90deg);
+  /* Optionnel : ajoute une transition fluide pour que le cercle ne saute pas */
+  transition: stroke-dashoffset 0.3s linear;
+}
+
+.progress-ring__circle {
+  /* La circonférence pour un rayon de 45 est 2 * PI * 45 ≈ 282.7 */
+  stroke-dasharray: 282.7;
+  stroke-dashoffset: 0; /* 0 = cercle complet */
+  stroke-linecap: round;
+  transition:
+    stroke-dashoffset 1s linear,
+    stroke 0.3s;
+}
+
+/* Optionnel : change la couleur en rouge quand il reste peu de temps */
+.timer-low {
+  stroke: #ff4444 !important;
+  filter: drop-shadow(0 0 5px #ff4444);
 }
 </style>
