@@ -34,7 +34,7 @@ export function removeInvitationFromDB(inviteId) {
 }
 
 /**
- * Répondre à une invitation (accept/reject)
+ * Répondre à une invitation
  */
 export function respondInviteDB(inviteId, accept, receiverId) {
   const index = invitationStore.invitations.findIndex(

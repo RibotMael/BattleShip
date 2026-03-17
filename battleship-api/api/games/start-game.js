@@ -16,7 +16,7 @@ router.post("/:gameId", async (req, res) => {
   }
 
   try {
-    //   Récupérer la partie + team_size
+    // Récupérer la partie + taille d'équipe
     const [[game]] = await db.execute(
       `SELECT g.*, tm.team_size
        FROM games g
@@ -29,7 +29,7 @@ router.post("/:gameId", async (req, res) => {
       return res.status(404).json({ success: false, message: "Partie introuvable" });
     }
 
-    // 🔒 Seul l'hôte peut démarrer
+    // Seul l'hôte peut démarrer
     if (!userId || Number(userId) !== Number(game.id_creator)) {
       return res.status(403).json({
         success: false,
@@ -37,7 +37,7 @@ router.post("/:gameId", async (req, res) => {
       });
     }
 
-    // 👥 Nombre de joueurs actuellement dans la partie
+    // Nombre de joueurs actuellement dans la partie
     const [[{ count }]] = await db.execute(
       `SELECT COUNT(*) AS count
        FROM game_players
@@ -45,7 +45,7 @@ router.post("/:gameId", async (req, res) => {
       [gameId]
     );
 
-    // 🔢 Minimum requis (logique centralisée)
+    // Minimum requis
     const minPlayers = computeMinPlayers(game, game.team_size);
 
     if (count < minPlayers) {
@@ -55,7 +55,7 @@ router.post("/:gameId", async (req, res) => {
       });
     }
 
-    // 🚀 Lancer la phase de placement
+    // Lancer la phase de placement
     await db.execute(
       `UPDATE games SET status = 'placement' WHERE id_Game = ?`,
       [gameId]

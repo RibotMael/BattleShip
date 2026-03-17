@@ -30,14 +30,11 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // 1. Allow internal requests or tools like Postman (no origin)
     if (!origin) return callback(null, true);
 
-    // 2. Check if the origin is in our list
     if (allowedOrigins.indexOf(origin) !== -1) {
       return callback(null, true);
     } else {
-      // 3. Optional: Fallback for subdomains or dynamic localhosts
       const isLocalhost = origin.includes("localhost") || origin.includes("127.0.0.1");
       if (isLocalhost) {
         return callback(null, true);
@@ -65,7 +62,6 @@ const io = new Server(server, {
   },
 });
 
-// Rendre io accessible globalement de manière propre
 app.set("io", io);
 
 /* ==========================
@@ -112,7 +108,6 @@ function startTurn(gameId, duration = 7) {
 
       io.to(sId).emit("turn-ended", { reason: "timeout", gameId: sId });
 
-      // Délai avant le prochain tour pour laisser le front respirer
       setTimeout(() => {
         if (games[sId] && !games[sId].finished) {
           startTurn(sId, duration);
@@ -165,7 +160,6 @@ io.on("connection", (socket) => {
   socket.on("player-ready", async ({ gameId, playerId }) => {
     const sId = String(gameId);
     try {
-      // Vérifier l'état des grilles en DB
       const [players] = await db.query(
         "SELECT player_id FROM player_boards WHERE game_id = ? AND validated = 1", 
         [sId]

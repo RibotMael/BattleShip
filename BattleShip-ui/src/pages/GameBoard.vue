@@ -87,7 +87,6 @@ html,
 body {
   max-width: 100%;
   overflow-x: hidden;
-  /* Optionnel : empêche le rebond élastique sur iOS */
   position: relative;
 }
 /* CONTENEUR PRINCIPAL */
@@ -105,7 +104,7 @@ body {
   position: relative;
 }
 
-/* GESTION DU BOUTON ABANDONNER (PC) */
+/* BOUTON ABANDONNER */
 .header-actions {
   position: absolute;
   top: 20px;
@@ -149,12 +148,12 @@ body {
   width: 100%;
   max-width: 1200px;
   justify-content: center;
-  flex-wrap: wrap; /* Important pour le passage à la ligne sur mobile */
+  flex-wrap: wrap;
   overflow: hidden;
 }
 
 .grid-section {
-  flex: 1 1 300px; /* Permet de réduire la section si nécessaire */
+  flex: 1 1 300px;
   width: 100%;
   max-width: 100%;
   text-align: center;
@@ -191,14 +190,13 @@ body {
 .cell {
   width: 100%;
   height: 100%;
-  aspect-ratio: 1 / 1; /* 👈 REMETS CECI ICI */
+  aspect-ratio: 1 / 1;
   background: rgba(10, 25, 47, 0.85);
   border: 1px solid rgba(0, 212, 255, 0.05);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  /* Optionnel mais recommandé pour empêcher le contenu de déborder : */
   overflow: hidden;
 }
 
@@ -271,7 +269,6 @@ body {
   color: white;
 }
 
-/* DROP DOWN ADVERSAIRE */
 .opponent-dropdown {
   background: #0a192f;
   color: #00d4ff;
@@ -283,13 +280,11 @@ body {
   margin-left: 10px;
 }
 
-/* RESPONSIVE (MOBILE & TABLETTE) */
 @media (max-width: 850px) {
   .battle-container {
-    padding-top: 80px; /* Espace pour le bouton en haut */
+    padding-top: 80px;
   }
 
-  /* Bouton devient un cercle en haut à droite */
   .header-actions {
     top: 15px;
     right: 15px;
@@ -312,35 +307,33 @@ body {
     font-weight: bold;
   }
 
-  /* RE-ORGANISATION DES ELEMENTS SUR MOBILE */
+  /* RE-ORGANISATION SUR MOBILE */
   .grids-wrapper {
     flex-direction: column;
-    gap: 10px; /* Réduit l'espace entre les éléments pour gagner de la place */
+    gap: 10px;
     padding: 0 5px;
   }
 
   .grid-title {
-    font-size: 0.9rem; /* Titre un peu plus petit sur mobile */
+    font-size: 0.9rem;
     margin-bottom: 8px;
   }
 
   .player-section {
-    order: 1; /* Notre flotte en premier */
+    order: 1;
   }
 
   .timer-container {
     order: 2;
     margin: 5px 0;
-    /* On réduit un peu le chrono sur mobile pour laisser la place aux grilles */
     transform: scale(0.85);
   }
 
   .opponent-section {
-    order: 3; /* L'adversaire en dernier */
+    order: 3;
   }
 
   .grid-section {
-    /* La grille prend 92% de la largeur du téléphone */
     max-width: 92vw;
     margin: 0 auto;
   }
@@ -359,17 +352,17 @@ body {
 }
 
 .popup-overlay {
-  position: fixed; /* Crucial : détache la popup du flux normal */
+  position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.85); /* Fond noir semi-transparent */
+  background: rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000; /* Doit être supérieur à tout le reste (grilles, timer) */
-  backdrop-filter: blur(5px); /* Optionnel : floute le jeu derrière */
+  z-index: 10000;
+  backdrop-filter: blur(5px);
 }
 
 .popup-content {
@@ -379,7 +372,7 @@ body {
   border-radius: 15px;
   text-align: center;
   max-width: 400px;
-  width: 90%; /* Évite de déborder sur mobile */
+  width: 90%;
   box-shadow: 0 0 50px rgba(0, 212, 255, 0.4);
 }
 
@@ -401,25 +394,20 @@ body {
   transform: scale(1.05);
 }
 
-/* --- Modifie ces classes dans ton style existant --- */
-
 .progress-ring {
   transform: rotate(-90deg);
-  /* Optionnel : ajoute une transition fluide pour que le cercle ne saute pas */
   transition: stroke-dashoffset 0.3s linear;
 }
 
 .progress-ring__circle {
-  /* La circonférence pour un rayon de 45 est 2 * PI * 45 ≈ 282.7 */
   stroke-dasharray: 282.7;
-  stroke-dashoffset: 0; /* 0 = cercle complet */
+  stroke-dashoffset: 0;
   stroke-linecap: round;
   transition:
     stroke-dashoffset 1s linear,
     stroke 0.3s;
 }
 
-/* Optionnel : change la couleur en rouge quand il reste peu de temps */
 .timer-low {
   stroke: #ff4444 !important;
   filter: drop-shadow(0 0 5px #ff4444);
@@ -429,7 +417,6 @@ body {
 <script>
 import socket from "../services/socket.js";
 
-// Centralisation de l'URL de l'API
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
@@ -658,7 +645,6 @@ export default {
     onPlayerEliminated(data) {
       console.log("💀 Joueur éliminé:", data);
 
-      // Si c'est MOI qui suis éliminé par le serveur (ex: déconnexion ou destruction)
       if (data.playerId === this.user.id) {
         this.playerStatus = "dead";
         const msg =
@@ -805,7 +791,6 @@ export default {
         const data = await res.json();
 
         if (data.success) {
-          // ACTION IMMEDIATE : On marque le joueur comme mort et on affiche la popup
           this.playerStatus = "dead";
           this.showEndPopup("🏳️ Abandon confirmé. Vous avez quitté la partie.");
         } else {

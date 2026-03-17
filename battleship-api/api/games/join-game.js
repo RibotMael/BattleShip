@@ -19,7 +19,7 @@ router.post("/join", async (req, res) => {
   }
 
   try {
-    //   Récupérer la partie + team_size
+    //   Récupérer la partie + taille d'équipe
     const [[game]] = await db.execute(
       `SELECT g.*, tm.team_size
        FROM games g
@@ -35,10 +35,10 @@ router.post("/join", async (req, res) => {
       });
     }
 
-    //   Nombre total de joueurs autorisés
+    // Nombre total de joueurs autorisés
     const totalPlayers = computeTotalPlayers(game, game.team_size);
 
-    //   Vérifier si le joueur est déjà dans la partie
+    // Vérifier si le joueur est déjà dans la partie
     const [[existing]] = await db.execute(
       `SELECT *
        FROM game_players
@@ -47,7 +47,7 @@ router.post("/join", async (req, res) => {
     );
 
     if (existing) {
-      // 🔁 Réactiver le joueur s’il avait quitté
+      // Réactiver le joueur s’il avait quitté
       if (existing.player_status !== "in_game") {
         await db.execute(
           `UPDATE game_players
@@ -57,7 +57,7 @@ router.post("/join", async (req, res) => {
         );
       }
     } else {
-      //   Compter les joueurs actuellement en jeu
+      // Compter les joueurs actuellement en jeu
       const [[{ count }]] = await db.execute(
         `SELECT COUNT(*) AS count
          FROM game_players
@@ -65,7 +65,7 @@ router.post("/join", async (req, res) => {
         [gameId]
       );
 
-      // 🔒 Partie complète (sauf Battle Royale)
+      // Partie complète (sauf Battle Royale)
       if (totalPlayers !== null && count >= totalPlayers) {
         return res.status(403).json({
           success: false,
@@ -73,7 +73,7 @@ router.post("/join", async (req, res) => {
         });
       }
 
-      //   Déterminer le team_number
+      // Déterminer le team_number
       const teamNumber = count + 1;
 
       await db.execute(
@@ -83,7 +83,7 @@ router.post("/join", async (req, res) => {
         [gameId, playerId, teamNumber]
       );
 
-      //   Si la partie est maintenant complète → in_progress
+      // Si la partie est maintenant complète : in_progress 
       if (totalPlayers !== null && count + 1 >= totalPlayers) {
         await db.execute(
           `UPDATE games
@@ -94,13 +94,13 @@ router.post("/join", async (req, res) => {
       }
     }
 
-    //   Récupérer l’état final de la partie
+    // Récupérer l’état final de la partie
     const [[updatedGame]] = await db.execute(
       `SELECT status FROM games WHERE id_Game = ?`,
       [gameId]
     );
 
-    //   Récupérer la liste des joueurs
+    // Récupérer la liste des joueurs
     const [players] = await db.execute(
       `SELECT gp.id_player AS ID_Users,
               gp.player_status,

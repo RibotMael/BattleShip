@@ -13,7 +13,6 @@ const socket = io(SOCKET_URL, {
   autoConnect: true,
 });
 
-// Logs utiles en dev
 socket.on("connect", () => {
   console.log("⚡ Socket connecté :", socket.id);
 });

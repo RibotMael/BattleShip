@@ -124,7 +124,7 @@ router.get('/users/:id', async (req, res) => {
   }
 });
 
-// -------------------- CHECK USER (éviter les zombies) --------------------
+// -------------------- CHECK USER --------------------
 router.get('/check-user/:id', async (req, res) => {
   const userId = req.params.id;
 

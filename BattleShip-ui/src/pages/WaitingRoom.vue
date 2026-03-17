@@ -173,7 +173,7 @@ export default {
 
     await this.initRoom();
 
-    // 📡 SOCKETS
+    // SOCKETS
     socket.emit("user_online", this.userId);
     socket.on("update_friends_status", (onlineIds) => {
       this.friends = this.friends.map((f) => ({
@@ -309,7 +309,7 @@ export default {
   display: flex;
   justify-content: center;
   padding: 20px;
-  overflow-x: hidden; /* EMPÊCHE LE SCROLL HORIZONTAL GLOBAL */
+  overflow-x: hidden;
 }
 
 .room-wrapper {
@@ -358,7 +358,7 @@ export default {
   border-radius: 12px;
   display: flex;
   flex-direction: column;
-  min-width: 0; /* ANTI-DÉBORDEMENT FLEX */
+  min-width: 0;
 }
 
 .friends-panel {
@@ -393,7 +393,7 @@ export default {
 .name-truncate {
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis; /* TRONCATURE DU TEXTE */
+  text-overflow: ellipsis;
 }
 
 .dot {
@@ -450,23 +450,22 @@ export default {
   display: flex;
   align-items: center;
   gap: 10px;
-  max-width: 100%; /* S'ASSURE QUE LA PUCE NE DÉPASSE PAS */
+  max-width: 100%;
 }
 
 .chip-actions {
   display: flex;
-  gap: 6px; /* Espace entre les boutons */
-  margin-left: auto; /* Pousse les boutons à droite dans la puce */
+  gap: 6px;
+  margin-left: auto;
   padding-left: 10px;
   border-left: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Style commun pour les boutons d'équipe 1 et 2 */
 .btn-team {
-  background: #1e293b; /* Fond sombre pour trancher avec la puce */
+  background: #1e293b;
   color: #38bdf8;
   border: 1px solid #38bdf8;
-  border-radius: 4px; /* Carré légèrement arrondi */
+  border-radius: 4px;
   width: 24px;
   height: 24px;
   font-size: 0.75rem;
@@ -485,7 +484,6 @@ export default {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* Style pour le bouton Kick */
 .btn-kick {
   background: rgba(248, 113, 113, 0.1);
   color: #f87171;
@@ -519,7 +517,7 @@ export default {
   padding: 15px;
   border-radius: 8px;
   border: 1px solid #334155;
-  min-width: 0; /* IMPORTANT POUR GRID */
+  min-width: 0;
 }
 
 .team-row {

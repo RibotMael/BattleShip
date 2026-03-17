@@ -130,7 +130,6 @@ export default {
           totalPlayers: calcTotalPlayers,
         };
 
-        // --- CORRECTION ICI : Utilisation de ton instance Axios ---
         const response = await api.post("/games/create", payload);
         const data = response.data;
 
@@ -146,11 +145,9 @@ export default {
           Status: data.game.Status || "preparation",
         };
 
-        // Stockage local
         localStorage.setItem("currentGame", JSON.stringify(normalizedGame));
         localStorage.setItem("currentLanguage", this.language);
 
-        // Redirection
         this.$router.push({
           name: "WaitingRoom",
           params: { gameId: normalizedGame.ID_Game },

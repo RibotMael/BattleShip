@@ -94,7 +94,7 @@
 
 <script>
 import { invitationStore, removeInvitation } from "@/eventBus";
-import api from "@/api/api.js"; // Import de ton instance magique
+import api from "@/api/api.js";
 import defaultAvatar from "@/assets/images/ppHomme.png";
 
 export default {
@@ -258,7 +258,6 @@ export default {
 </script>
 
 <style scoped>
-/* Overlay avec flou gaussien */
 .popup-overlay {
   position: fixed;
   inset: 0;
@@ -271,7 +270,6 @@ export default {
   padding: 20px;
 }
 
-/* Container style "Cyber/Space" */
 .popup-content {
   background: #121c26;
   background: linear-gradient(160deg, #162431 0%, #0d141d 100%);
@@ -287,7 +285,6 @@ export default {
   overflow: hidden;
 }
 
-/* Header fixe */
 .popup-header {
   padding: 20px 25px;
   display: flex;
@@ -315,7 +312,6 @@ export default {
   color: #fff;
 }
 
-/* Barre de recherche / Ajout */
 .add-friend-wrapper {
   display: flex;
   background: rgba(0, 0, 0, 0.2);
@@ -350,7 +346,6 @@ export default {
   transform: scale(1.05);
 }
 
-/* Zone de scroll */
 .scroll-area {
   flex: 1;
   overflow-y: auto;
@@ -365,7 +360,6 @@ export default {
   border-radius: 10px;
 }
 
-/* Sections et Titres */
 .section {
   margin-bottom: 25px;
 }
@@ -390,7 +384,6 @@ export default {
   font-size: 0.75rem;
 }
 
-/* Cartes d'amis */
 .friend-card {
   display: flex;
   align-items: center;
@@ -412,7 +405,6 @@ export default {
   background: rgba(251, 191, 36, 0.05);
 }
 
-/* Avatars et Status */
 .avatar-container {
   position: relative;
 }
@@ -464,7 +456,6 @@ export default {
   color: #64748b;
 }
 
-/* Boutons d'action */
 .friend-right {
   display: flex;
   gap: 8px;

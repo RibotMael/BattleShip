@@ -58,14 +58,13 @@
 </template>
 
 <style scoped>
-/* 1. FIXE LA PAGE (EMPECHE LE SCROLL) */
 .background {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  overflow: hidden; /* Désactive tout défilement */
+  overflow: hidden;
   background-size: cover;
   background-position: center;
 }
@@ -83,7 +82,6 @@
   font-family: "Orbitron", sans-serif;
 }
 
-/* 2. TOP BAR AVEC ALIGNEMENT STRICT */
 .top-bar {
   display: flex;
   justify-content: space-between;
@@ -94,13 +92,13 @@
 }
 
 .left-section {
-  flex: 1; /* Prend l'espace à gauche */
+  flex: 1;
   display: flex;
   justify-content: flex-start;
 }
 
 .right-section {
-  flex: 1; /* Prend l'espace à droite */
+  flex: 1;
   display: flex;
   justify-content: flex-end;
   position: relative;
@@ -154,7 +152,6 @@
   object-fit: cover;
 }
 
-/* 3. MENU DROPDOWN */
 .user-dropdown {
   position: absolute;
   top: 65px;
@@ -192,7 +189,6 @@
   color: #ff4d4d !important;
 }
 
-/* 4. CONTENU CENTRAL */
 .menu-content {
   flex: 1;
   display: flex;
@@ -217,7 +213,6 @@
   max-width: 350px;
 }
 
-/* BOUTONS STYLE PC */
 .btn-main {
   width: 100%;
   padding: 1.3rem;
@@ -271,7 +266,6 @@
   box-shadow: none;
 }
 
-/* BADGE */
 .invite-count {
   background: #ff4444;
   color: white;
@@ -284,7 +278,6 @@
   border: 2px solid #000;
 }
 
-/* 5. RESPONSIVE SMARTPHONE */
 @media (max-width: 600px) {
   .top-bar {
     padding: 0.8rem 1rem;
@@ -294,7 +287,7 @@
   } /* On ne garde que le icône sur mobile */
   /*.pseudo {
     display: none;
-  }*/ /* Cache le nom si trop serré, l'avatar suffit */
+  }*/ /* Cache le nom si trop serré */
   .menu-logo {
     max-width: 500px;
     margin-bottom: 3rem;

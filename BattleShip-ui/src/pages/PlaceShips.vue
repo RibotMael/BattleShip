@@ -106,17 +106,14 @@ export default {
     this.userId = Number(this.user?.id || this.user?.ID_Users);
     this.game.ID_Game = Number(this.gameId);
 
-    // Initialisation du jeu avec Fallback
     this.fetchGame().then((data) => {
       if (data && data.mode) {
         this.game.mode = data.mode;
       }
 
-      // Si on reçoit bien les bateaux du backend
       if (data && data.fleet && data.fleet.length > 0) {
         this.fleet = data.fleet.map((ship) => ({ ...ship, placed: false }));
       } else {
-        // Fallback en cas d'erreur CORS
         console.warn("⚠️ Utilisation de la flotte locale de secours (CORS error)");
         this.fleet = [
           { name: "Porte-avions", size: 5, placed: false },
@@ -158,7 +155,7 @@ export default {
         }
       } catch (err) {
         console.error("[FETCH GAME] - API injoignable", err);
-        return null; // Déclenche la flotte de secours dans le mounted
+        return null;
       }
     },
 
@@ -319,7 +316,6 @@ export default {
 </script>
 
 <style scoped>
-/* STRUCTURE DE BASE */
 .place-ships-container {
   display: flex;
   flex-direction: column;
@@ -343,7 +339,6 @@ export default {
   margin-bottom: 10px;
 }
 
-/* LAYOUT RESPONSIVE */
 .main-layout {
   display: flex;
   flex-direction: row;
@@ -353,7 +348,6 @@ export default {
   margin: 0 auto;
 }
 
-/* GRILLE RESPONSIVE */
 .grid-container {
   background: rgba(255, 255, 255, 0.05);
   padding: 10px;
@@ -377,7 +371,6 @@ export default {
   cursor: pointer;
 }
 
-/* PANNEAU LATÉRAL / FLOTTE */
 .side-panel {
   width: 300px;
   background: rgba(0, 0, 0, 0.3);
@@ -424,7 +417,6 @@ export default {
   border-radius: 1px;
 }
 
-/* BOUTONS D'ACTION */
 .action-buttons {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -458,7 +450,6 @@ button {
   cursor: not-allowed;
 }
 
-/* ETATS GRILLE */
 .cell.preview {
   background-color: #2ecc71 !important;
 }
@@ -470,17 +461,15 @@ button {
   border: 1px solid #bdc3c7;
 }
 
-/* 📱 ADAPTATION MOBILE (ÉCRANS < 768px) */
 @media (max-width: 768px) {
   .main-layout {
-    flex-direction: column; /* On empile tout verticalement */
+    flex-direction: column;
     align-items: center;
     width: 100%;
   }
 
-  /* Ajustement taille grille pour mobile */
   .grid {
-    grid-template-columns: repeat(10, 8.5vw); /* Cellules basées sur la largeur écran */
+    grid-template-columns: repeat(10, 8.5vw);
     grid-template-rows: repeat(10, 8.5vw);
   }
 
@@ -494,7 +483,6 @@ button {
     margin-top: 10px;
   }
 
-  /* La flotte passe en défilement horizontal sur mobile pour gagner de la hauteur */
   .fleet-list {
     flex-direction: row;
     overflow-x: auto;
@@ -516,7 +504,6 @@ button {
   }
 }
 
-/* SCROLLBARS */
 .custom-scroll::-webkit-scrollbar {
   height: 4px;
   width: 4px;

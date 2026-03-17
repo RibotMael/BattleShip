@@ -54,7 +54,7 @@ export async function removeInvitationFromDB(inviteId) {
 }
 
 
-// Répondre à une invitation (accept/reject)
+// Répondre à une invitation 
 export async function respondInviteDB(inviteId, accept, receiverId) {
   const status = accept ? "Accepted" : "Rejected";
   const [result] = await db.execute(

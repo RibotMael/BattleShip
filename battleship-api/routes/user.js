@@ -6,7 +6,7 @@ import db from "../db.js";
 
 const router = Router();
 
-//   Récupérer un utilisateur avec son avatar
+// Récupérer un utilisateur avec son avatar
 router.get('/:id', async (req, res) => {
   const userId = req.params.id;
   const sql = `
@@ -44,7 +44,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-//   Récupérer la liste des amis
+// Récupérer la liste des amis
 router.get('/:id/list', async (req, res) => {
   const userId = req.params.id;
 
@@ -82,7 +82,7 @@ router.get('/:id/list', async (req, res) => {
   }
 });
 
-//   Modifier pseudo + avatar
+// Modifier pseudo + avatar
 router.put('/:id', async (req, res) => {
   const userId = req.params.id;
   const { pseudo, avatar, mimeType = "image/png" } = req.body;
@@ -96,14 +96,14 @@ router.put('/:id', async (req, res) => {
     const [[user]] = await query("SELECT Avatar FROM users WHERE ID_Users = ?", [userId]);
     const oldAvatarId = user?.Avatar || null;
 
-    // 🟢 Cas 1 : avatar est un nombre (ID_Avatar existant en BDD)
+    // avatar est un nombre (ID_Avatar existant en BDD)
     if (typeof avatar === "number") {
       newAvatarId = avatar;
 
       // Update uniquement le lien
       await query("UPDATE users SET Pseudo = ?, Avatar = ? WHERE ID_Users = ?", [pseudo, newAvatarId, userId]);
 
-    // 🟢 Cas 2 : avatar est une chaîne base64 → upload comme avant
+    //  avatar est une chaîne base64 : upload 
     } else if (avatar && typeof avatar === "string") {
       const buffer = Buffer.from(avatar, 'base64');
       const extension = mimeType.split('/')[1] || 'png';
@@ -116,18 +116,18 @@ router.put('/:id', async (req, res) => {
       // Mise à jour du user
       await query("UPDATE users SET Pseudo = ?, Avatar = ? WHERE ID_Users = ?", [pseudo, newAvatarId, userId]);
 
-      // Supprimer l’ancien avatar seulement si c'était un upload perso (⚠️ pas un avatar global de la BDD)
+      // Supprimer l’ancien avatar seulement si c'était un upload perso 
       if (oldAvatarId) {
         await query("DELETE FROM avatar WHERE ID_Avatar = ?", [oldAvatarId]);
       }
 
-    // 🟢 Cas 3 : pas d’avatar, juste pseudo
+    // pas d’avatar, juste pseudo
     } else {
       await query("UPDATE users SET Pseudo = ? WHERE ID_Users = ?", [pseudo, userId]);
       newAvatarId = oldAvatarId;
     }
 
-    //   Récupérer l’utilisateur mis à jour
+    // Récupérer l’utilisateur mis à jour
     const [rows] = await query(`
       SELECT u.ID_Users, u.Email, u.Pseudo, u.BirthDay, u.niveau,
              a.Avatar AS avatar_blob, a.mime_type, u.Avatar AS avatarId
@@ -150,7 +150,7 @@ router.put('/:id', async (req, res) => {
       birthDay: updatedUser.BirthDay,
       niveau: updatedUser.niveau,
       avatar: avatarUrl,
-      avatarId: updatedUser.avatarId   //   On renvoie aussi l'ID
+      avatarId: updatedUser.avatarId 
     });
 
   } catch (err) {
@@ -159,7 +159,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-//   Supprimer un utilisateur (+ son avatar lié)
+// Supprimer un utilisateur 
 router.delete('/:id', async (req, res) => {
   const userId = req.params.id;
 
@@ -176,7 +176,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 
-//   Vérifie si un utilisateur existe encore
+// Vérifie si un utilisateur existe encore
 router.get("/check-user/:id", async (req, res) => {
   try {
     const { id } = req.params;

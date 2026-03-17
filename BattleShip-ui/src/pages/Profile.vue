@@ -59,7 +59,7 @@
 
 <script>
 import { userBus } from "@/eventBus.js";
-import api from "@/api/api.js"; // On centralise tout ici
+import api from "@/api/api.js";
 
 const defaultAvatar =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAHklEQVR42u3PAQ0AAAwCoNm/9HI4gAAAAAAAAAAAOBwG4cAAfNmS7sAAAAASUVORK5CYII=";
@@ -70,7 +70,7 @@ export default {
       pseudo: "",
       userId: null,
       avatars: [],
-      avatar: null, // ID de l'avatar sélectionné
+      avatar: null,
       avatarPreviewUrl: defaultAvatar,
     };
   },
@@ -90,7 +90,6 @@ export default {
         const res = await api.get("/avatars");
         this.avatars = res.data.avatars;
 
-        // Si l'utilisateur a déjà un avatar, on met à jour la preview
         if (this.avatar) {
           this.updatePreview(this.avatar);
         }
@@ -116,19 +115,16 @@ export default {
 
       const payload = {
         pseudo: this.pseudo,
-        avatar: this.avatar, // ID envoyé au backend
+        avatar: this.avatar,
       };
 
       try {
-        // PUT simplifié avec Axios
         const res = await api.put(`/users/${this.userId}`, payload);
         const updatedUser = res.data;
 
-        // Mise à jour de l'UI
         this.avatarPreviewUrl = updatedUser.avatar || defaultAvatar;
         this.pseudo = updatedUser.pseudo;
 
-        // Sync avec le localStorage
         localStorage.setItem(
           "user",
           JSON.stringify({
@@ -139,7 +135,6 @@ export default {
           }),
         );
 
-        // Notification aux autres composants (ex: Navbar)
         userBus.userUpdated = !userBus.userUpdated;
         alert("Profil mis à jour !");
       } catch (err) {
@@ -152,7 +147,6 @@ export default {
       if (!confirm("⚠️ Cette action est irréversible. Supprimer votre compte ?")) return;
 
       try {
-        // DELETE simplifié
         await api.delete(`/users/${this.userId}`);
 
         localStorage.removeItem("user");
@@ -169,14 +163,13 @@ export default {
 </script>
 
 <style scoped>
-/* Conteneur principal figé */
 .profile-page {
   position: fixed;
   top: 0;
   left: 0;
   height: 100vh;
   width: 100vw;
-  overflow: hidden; /* Empêche tout scroll sur la page */
+  overflow: hidden;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -199,8 +192,8 @@ export default {
   padding: 30px;
   border-radius: 24px;
   width: 90%;
-  max-width: 500px; /* Légèrement réduit pour éviter le débordement */
-  max-height: 90vh; /* Empêche la carte de dépasser de l'écran */
+  max-width: 500px;
+  max-height: 90vh;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
   position: relative;
   display: flex;
@@ -219,10 +212,9 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  overflow: hidden; /* Verrouille le contenu interne */
+  overflow: hidden;
 }
 
-/* --- Avatar Section --- */
 .avatar-section {
   display: flex;
   flex-direction: column;
@@ -247,12 +239,11 @@ export default {
 
 .avatar-grid {
   display: flex;
-  overflow-x: auto; /* Seul le choix d'avatar peut défiler horizontalement */
+  overflow-x: auto;
   gap: 10px;
   padding: 5px;
 }
 
-/* Style de la scrollbar interne pour rester discret */
 .avatar-grid::-webkit-scrollbar {
   height: 4px;
 }
@@ -282,7 +273,6 @@ export default {
   object-fit: cover;
 }
 
-/* --- Info Section --- */
 input[type="text"] {
   width: 100%;
   background: rgba(0, 0, 0, 0.5);

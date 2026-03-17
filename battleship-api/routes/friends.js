@@ -3,7 +3,7 @@ import { query } from "../db.js";
 
 const router = express.Router();
 
-//   Ajouter un ami par pseudo ou email
+// Ajouter un ami par pseudo ou email
 router.post("/add", async (req, res) => {
   const { userId, identifier } = req.body;
   console.log("[FRIENDS] POST /add", req.body);
@@ -15,7 +15,7 @@ router.post("/add", async (req, res) => {
   const identifierTrimmed = identifier.trim();
 
   try {
-    // Recherche pseudo ou email (LIKE pour partiel, insensible à la casse)
+    // Recherche pseudo ou email 
     const [users] = await query(
       `SELECT ID_Users, Pseudo 
        FROM users 
@@ -66,7 +66,7 @@ router.post("/add", async (req, res) => {
   }
 });
 
-//   Accepter une demande
+// Accepter une demande
 router.post("/accept", async (req, res) => {
   const { userId, friendId } = req.body;
   console.log("[FRIENDS] POST /accept", req.body);
@@ -90,7 +90,7 @@ router.post("/accept", async (req, res) => {
   }
 });
 
-//   Liste des amis acceptés
+// Liste des amis acceptés
 router.get("/list/:userId", async (req, res) => {
   const { userId } = req.params;
 
@@ -129,7 +129,7 @@ router.get("/list/:userId", async (req, res) => {
   }
 });
 
-//   Liste des demandes reçues
+// Liste des demandes reçues
 router.get("/requests/:userId", async (req, res) => {
   const { userId } = req.params;
 
@@ -168,7 +168,7 @@ router.get("/requests/:userId", async (req, res) => {
   }
 });
 
-//   Supprimer un ami
+// Supprimer un ami
 router.post("/remove", async (req, res) => {
   const { userId, friendId } = req.body;
   console.log("[FRIENDS] POST /remove", req.body);

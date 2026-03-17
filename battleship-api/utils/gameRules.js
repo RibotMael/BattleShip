@@ -21,7 +21,7 @@ export function computeTotalPlayers(game, teamSize = null) {
 }
 
 export function computeMinPlayers(game, teamSize = null) {
-  if (game.id_game_type === 1) return 2; // Battle Royale
+  if (game.id_game_type === 1) return 2; 
   if (game.id_game_type === 3) return 2;
   if (teamSize) return teamSize * 2;
   return 2;

@@ -37,7 +37,7 @@ router.get("/:userId", async (req, res) => {
   }
 });
 
-// Supprimer une invitation (ex: après rejet ou annulation)
+// Supprimer une invitation
 router.post("/remove", async (req, res) => {
   const { inviteId } = req.body;
   try {
@@ -48,7 +48,7 @@ router.post("/remove", async (req, res) => {
   }
 });
 
-// Répondre à une invitation (accept/reject)
+// Répondre à une invitation
 router.post("/respond", async (req, res) => {
   const { inviteId, accept, userId } = req.body;
   if (!inviteId || accept === undefined || !userId) return res.json({ success: false, message: "Paramètres manquants" });

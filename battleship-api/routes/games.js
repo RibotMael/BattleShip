@@ -9,7 +9,7 @@ import { stopGameTimer } from "../index.js";
 const router = express.Router();
 const games = {};
 
-//   Récupérer les parties publiques disponibles
+// Récupérer les parties publiques disponibles
 router.get("/public", async (req, res) => {
   try {
     const [games] = await db.query(`
@@ -88,7 +88,7 @@ router.post("/create", async (req, res) => {
   }
 
   try {
-    //   Calcul du totalPlayers final selon le mode
+    // Calcul du totalPlayers final selon le mode
     let totalPlayersFinal;
     if (id_game_type === 1) {
       totalPlayersFinal = null;
@@ -102,7 +102,7 @@ router.post("/create", async (req, res) => {
       }
     }
 
-    //   Créer la partie
+    // Créer la partie
     const [result] = await db.execute(
       `INSERT INTO games (id_creator, id_game_mode, id_game_type, id_team_mode, id_version, status)
       VALUES (?, ?, ?, ?, ?, 'preparation')`,
@@ -110,7 +110,7 @@ router.post("/create", async (req, res) => {
     );
     const gameId = result.insertId;
 
-    //   Ajouter l’hôte à game_players avec player_status correct
+    // Ajouter l’hôte à game_players
     await db.execute(
       "INSERT INTO game_players (id_game, id_player, player_status) VALUES (?, ?, 'in_game')",
       [gameId, hostId]
@@ -148,7 +148,7 @@ router.post("/create", async (req, res) => {
   }
 });
 
-//   Rejoindre une partie
+// Rejoindre une partie
 router.post("/join", async (req, res) => {
   console.log("📩 Requête reçue sur /join :", req.body);
   const { gameId, playerId } = req.body;
@@ -182,7 +182,7 @@ router.post("/join", async (req, res) => {
   }
 });
 
-//   Récupérer une partie
+// Récupérer une partie
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -254,13 +254,13 @@ router.post("/kick", async (req, res) => {
   const { gameId, hostId, targetPlayerId } = req.body;
 
   try {
-    // 1. Vérifier que c'est bien l'host qui fait la demande
+    // Vérifier que c'est bien l'host qui fait la demande
     const [game] = await db.execute("SELECT id_creator FROM games WHERE id_Game = ?", [gameId]);
     if (!game.length || Number(game[0].id_creator) !== Number(hostId)) {
       return res.status(403).json({ success: false, message: "Action non autorisée" });
     }
 
-    // 2. Supprimer le joueur cible
+    // Supprimer le joueur
     await db.execute("DELETE FROM game_players WHERE id_game = ? AND id_player = ?", [gameId, targetPlayerId]);
 
     res.json({ success: true, message: "Joueur éjecté" });
@@ -269,12 +269,12 @@ router.post("/kick", async (req, res) => {
   }
 });
 
-// POST /api/games/assign-team
+// équipe
 router.post("/assign-team", async (req, res) => {
   const { gameId, playerId, team } = req.body;
 
   try {
-    // On met à jour le team_number dans la table game_players
+    // On met à jour le team_number
     await db.execute(
       "UPDATE game_players SET team_number = ? WHERE id_game = ? AND id_player = ?",
       [team, gameId, playerId]
@@ -287,7 +287,7 @@ router.post("/assign-team", async (req, res) => {
   }
 });
 
-//   Lancer la partie
+// Lancer la partie
 router.post("/start", async (req, res) => {
   const { gameId, userId } = req.body;
   try {
@@ -331,7 +331,7 @@ router.post("/start", async (req, res) => {
   }
 });
 
-//   Quitter ou supprimer la partie
+// Quitter ou supprimer la partie
 router.post("/leave", async (req, res) => {
   const { gameId, playerId } = req.body;
   if (!gameId || !playerId) return res.status(400).json({ success: false, message: "Paramètres manquants" });
@@ -400,7 +400,7 @@ router.post("/leave", async (req, res) => {
   }
 });
 
-//   Supprimer la partie (seul l’hôte)
+// Supprimer la partie (seul l’hôte)
 router.delete("/delete/:gameId", async (req, res) => {
   const { gameId } = req.params;
   const playerId = Number(req.query.playerId);
@@ -426,7 +426,7 @@ router.delete("/delete/:gameId", async (req, res) => {
   }
 });
 
-//   Enregistrer le placement des bateaux
+// Enregistrer le placement des bateaux
 router.post("/place-ships", async (req, res) => {
   console.log("🚀 Route /place-ships appelée", req.body);
   const { gameId, playerId, ships, mode } = req.body;
@@ -442,7 +442,7 @@ router.post("/place-ships", async (req, res) => {
     }
     const boardJson = JSON.stringify(board2D);
 
-    // 1. Sauvegarde du plateau
+    // Sauvegarde du plateau
     const [existing] = await db.execute(
       "SELECT id FROM player_boards WHERE game_id = ? AND player_id = ?",
       [gameId, playerId]
@@ -460,7 +460,7 @@ router.post("/place-ships", async (req, res) => {
       );
     }
 
-    // 2. NOUVEAU : Vérifier si c'est le dernier joueur à valider
+    // Vérifier si c'est le dernier joueur à valider
     const [readyRows] = await db.execute(
       "SELECT COUNT(DISTINCT player_id) as count FROM player_boards WHERE game_id = ? AND validated = 1",
       [gameId]
@@ -474,7 +474,7 @@ router.post("/place-ships", async (req, res) => {
     let totalPlayers = totalRows[0].count;
     if (totalPlayers < 2) totalPlayers = 2; // Sécurité
 
-    // 3. NOUVEAU : Si tout le monde est prêt, Node.js démarre officiellement la partie !
+    
     if (readyCount >= totalPlayers) {
       const now = Math.floor(Date.now() / 1000); // Timestamp UNIX comme en PHP
       
@@ -505,7 +505,6 @@ router.get("/:gameId/board", async (req, res) => {
   const { gameId } = req.params;
   const { playerId } = req.query;
 
-  // Sécurité : Vérifier les types
   if (!gameId || !playerId || playerId === "null" || playerId === "undefined") {
     return res.status(400).json({ success: false, message: "ID de partie ou de joueur invalide." });
   }
@@ -535,7 +534,6 @@ router.get("/:gameId/board", async (req, res) => {
     res.json({ success: true, board: finalBoard });
   } catch (err) {
     console.error("❌ Erreur critique récupération plateau :", err);
-    // On renvoie du JSON même en cas d'erreur pour éviter que le front reçoive du HTML (Erreur 502/500)
     res.status(500).json({ success: false, message: "Erreur interne serveur." });
   }
 });
@@ -544,7 +542,7 @@ router.post("/shoot", async (req, res) => {
   const { gameId, playerId, targetId, x, y } = req.body;
   const sId = String(gameId);
 
-  // 1️⃣ Vérification des paramètres
+  // Vérification des paramètres
   if (!gameId || !playerId || !targetId || x == null || y == null) {
     return res.status(400).json({ success: false, message: "Paramètres manquants" });
   }
@@ -555,17 +553,17 @@ router.post("/shoot", async (req, res) => {
   try {
     const io = req.app.get("io");
 
-    // 🔒 Initialisation sécurisée
+    // Initialisation sécurisée
     if (!games[sId]) {
       games[sId] = { turnNumber: 1, finished: false };
     }
 
-    // 🔒 Partie terminée ?
+    // Partie terminée ?
     if (games[sId].finished) {
       return res.status(400).json({ success: false, message: "Partie terminée" });
     }
 
-    // 2️⃣ Vérifie si la case a déjà été tirée
+    // Vérifie si la case a déjà été tirée
     const [existingShots] = await db.query(
       "SELECT result FROM shots WHERE id_game=? AND target_x=? AND target_y=? AND target_id=? AND id_player=?",
       [gameId, x, y, targetId, playerId]
@@ -579,7 +577,7 @@ router.post("/shoot", async (req, res) => {
       });
     }
 
-    // 3️⃣ Récupération grille ennemie
+    // Récupération grille ennemie
     const [rows] = await db.query(
       "SELECT board_json FROM player_boards WHERE game_id=? AND player_id=?",
       [gameId, targetId]
@@ -593,13 +591,13 @@ router.post("/shoot", async (req, res) => {
     let positions = [];
     let gameOver = false;
 
-    // 4️⃣ Enregistrement du tir
+    // Enregistrement du tir
     await db.query(
       "INSERT INTO shots (id_game, id_player, target_id, target_x, target_y, result, state) VALUES (?, ?, ?, ?, ?, ?, 'resolved')",
       [gameId, playerId, targetId, x, y, finalResult]
     );
 
-    // 5️⃣ Vérification si bateau coulé
+    // Vérification si bateau coulé
     if (finalResult === "hit") {
       const targetValue = cellValue;
       board.forEach((row, rowIdx) =>
@@ -633,7 +631,7 @@ router.post("/shoot", async (req, res) => {
       }
     }
 
-    // 6️⃣ Vérification fin de partie
+    // Vérification fin de partie
     const totalShipCells = board.flat().filter((c) => c > 0).length;
     const [[{ sunkCount }]] = await db.query(
       "SELECT COUNT(*) AS sunkCount FROM shots WHERE id_game=? AND target_id=? AND id_player=? AND result='sunk'",
@@ -648,13 +646,11 @@ router.post("/shoot", async (req, res) => {
         [playerId, gameId]
       );
       if (typeof stopGameTimer === "function") stopGameTimer(gameId);
-
-      // ⚠️ S'assure que games[sId] existe avant d'écrire
       if (!games[sId]) games[sId] = {};
       games[sId].finished = true;
     }
 
-    // 7️⃣ Emission socket : on envoie d'abord le tir
+    // Emission socket : on envoie d'abord le tir
     io?.to(sId).emit("shot-fired", {
       gameId: sId,
       shooterId: playerId,
@@ -666,7 +662,7 @@ router.post("/shoot", async (req, res) => {
       winnerId: gameOver ? playerId : null,
     });
 
-    // 8️⃣ Si fin de partie, on envoie game-over après un petit délai pour que le front ait le tir final
+    // fin de partie
     if (gameOver) {
       setTimeout(() => {
         io?.to(sId).emit("game-over", {
@@ -674,10 +670,10 @@ router.post("/shoot", async (req, res) => {
           isDraw: false,
           gameId: sId,
         });
-      }, 50); // 50ms suffisent pour garantir que le front a reçu le dernier tir
+      }, 50);
     }
 
-    // 9️⃣ Réponse HTTP
+    // Réponse HTTP
     res.json({
       success: true,
       result: finalResult,
@@ -702,7 +698,7 @@ router.get("/:gameId/shots", async (req, res) => {
   }
 
   try {
-    // 1. On récupère TOUS les tirs de la partie
+    // On récupère TOUS les tirs de la partie
     const [shots] = await db.query(
       `SELECT id_player, target_id, target_x, target_y, result, state
        FROM shots
@@ -710,7 +706,6 @@ router.get("/:gameId/shots", async (req, res) => {
       [gameId]
     );
 
-    // 2. On enrichit les tirs (notamment pour récupérer les positions des bateaux coulés)
     const enhancedShots = await Promise.all(
       shots.map(async (s) => {
         const shot = {
@@ -744,10 +739,7 @@ router.get("/:gameId/shots", async (req, res) => {
       })
     );
 
-    // 3. Filtrage précis pour le front-end
-    // incomingShots : les tirs que JE subis (cible = moi)
     const incomingShots = enhancedShots.filter(s => s.target_id === playerId);
-    // playerShots : les tirs que J'AI fait (tireur = moi)
     const playerShots = enhancedShots.filter(s => s.id_player === playerId);
 
     res.json({ 
@@ -857,7 +849,6 @@ router.post("/eliminate-player", async (req, res) => {
 
     // Envoyer événements Socket.io
     if (finished) {
-      // NOUVEAU : On tue le timer instantanément !
       if (typeof stopGameTimer === "function") {
         stopGameTimer(gameId);
       }
@@ -915,9 +906,8 @@ router.get("/:id/status", async (req, res) => {
     if (game.id_game_mode === 2) mode = "battle_royale";
     game.mode = mode;
 
-    // --- 1. Partie terminée déjà enregistrée ---
+    // Partie terminée déjà enregistrée 
     if (game.status === "finished") {
-      // Sécurité : On s'assure que le timer est bien mort côté serveur
       stopGameTimer(gameId); 
 
       const winner = game.winner_id;
@@ -934,7 +924,7 @@ router.get("/:id/status", async (req, res) => {
       });
     }
 
-    // --- 2. Détection de la fin de partie (Battle Royale) ---
+    // Détection de la fin de partie (Battle Royale) 
     if (game.mode === "battle_royale") {
       const [players] = await db.query(
         "SELECT id_player, player_status FROM game_players WHERE id_game = ?",
@@ -943,14 +933,14 @@ router.get("/:id/status", async (req, res) => {
 
       const alivePlayers = players.filter(p => p.player_status === "in_game");
 
-      // CAS : ÉGALITÉ (Tout le monde est mort au même tour)
+      // ÉGALITÉ 
       if (alivePlayers.length === 0) {
         await db.query(
           "UPDATE games SET status = 'finished', winner_id = NULL WHERE id_Game = ?",
           [gameId]
         );
 
-        // 🛑 ARRÊT DU TIMER SERVEUR
+        // ARRÊT DU TIMER SERVEUR
         stopGameTimer(gameId);
 
         return res.json({
@@ -962,7 +952,7 @@ router.get("/:id/status", async (req, res) => {
         });
       }
 
-      // CAS : VICTOIRE (Il n'en reste qu'un)
+      // VICTOIRE
       if (alivePlayers.length === 1) {
         const winnerId = alivePlayers[0].id_player;
 
@@ -971,7 +961,7 @@ router.get("/:id/status", async (req, res) => {
           [winnerId, gameId]
         );
 
-        // 🛑 ARRÊT DU TIMER SERVEUR
+        // ARRÊT DU TIMER SERVEUR
         stopGameTimer(gameId);
 
         return res.json({
@@ -986,10 +976,7 @@ router.get("/:id/status", async (req, res) => {
       return res.json({ success: true, finished: false });
     }
 
-    // --- 3. Partie classique 1v1 ---
-    // Note : Tu devrais ajouter une logique similaire pour le 1v1 ici 
-    // ou dans ta route de tir si le 1v1 ne passe pas par ce status.
-
+    // 1v1 
     return res.json({ success: true, finished: false });
 
   } catch (err) {
@@ -1032,13 +1019,13 @@ router.post("/join/:id", async (req, res) => {
         message: "Vous êtes déjà dans la partie",
         game: {
           ID_Game: game.id_Game,
-          status: game.status, //   garder le statut existant
+          status: game.status, 
           id_creator: game.id_creator
         }
       });
     }
 
-    //   Ajouter le joueur sans toucher au statut de la partie
+    // Ajouter le joueur sans toucher au statut de la partie
     await db.query(
       `INSERT INTO game_players (id_game, id_player, player_status) VALUES (?, ?, 'in_game')`,
       [gameId, playerId]
@@ -1051,7 +1038,7 @@ router.post("/join/:id", async (req, res) => {
       message: "Vous avez rejoint la partie avec succès !",
       game: {
         ID_Game: game.id_Game,
-        status: game.status, //   reste in_progress ou preparation
+        status: game.status,
         id_creator: game.id_creator
       }
     });

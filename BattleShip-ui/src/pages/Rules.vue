@@ -140,7 +140,6 @@
 </template>
 
 <style scoped>
-/* Conteneur principal */
 .rules-container {
   background: radial-gradient(circle at top, #0a2540 0%, #001220 100%);
   color: #e2e8f0;
@@ -164,7 +163,6 @@
   gap: 2rem;
 }
 
-/* En-tête */
 .rules-header {
   text-align: center;
   margin-bottom: 1rem;
@@ -183,7 +181,6 @@
   font-style: italic;
 }
 
-/* Typographie & Couleurs */
 h2 {
   font-size: 1.6rem;
   color: #38bdf8;
@@ -206,7 +203,6 @@ h4 {
   margin-bottom: 0.5rem;
 }
 
-/* Cartes (Glassmorphism) */
 .card {
   background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(12px);
@@ -226,7 +222,6 @@ h4 {
   background: rgba(255, 255, 255, 0.05);
 }
 
-/* Grilles de layout */
 .grid-2-cols {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -259,7 +254,6 @@ h4 {
   color: #94a3b8;
 }
 
-/* Listes */
 ul {
   list-style: none;
   padding: 0;
@@ -290,7 +284,6 @@ ul:not(.timeline-list) li::before {
   padding-bottom: 0;
 }
 
-/* Badges & Textes stylisés */
 .badge {
   background: rgba(56, 189, 248, 0.15);
   color: #38bdf8;
@@ -357,7 +350,6 @@ ul:not(.timeline-list) li::before {
   border: 1px solid #f87171;
 }
 
-/* Bouton Retour */
 .back-button {
   align-self: center;
   margin-top: 1rem;
@@ -382,7 +374,6 @@ ul:not(.timeline-list) li::before {
   background: linear-gradient(135deg, #38bdf8, #0ea5e9);
 }
 
-/* Responsive design */
 @media (max-width: 600px) {
   .rules-container {
     padding: 1.5rem 1rem;

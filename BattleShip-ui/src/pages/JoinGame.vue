@@ -60,7 +60,7 @@
 </template>
 
 <script>
-import api from "@/api/api.js"; // Import de ton instance magique
+import api from "@/api/api.js";
 
 export default {
   data() {
@@ -87,14 +87,12 @@ export default {
     this.user = JSON.parse(localStorage.getItem("user"));
     this.fetchPublicGames();
 
-    // 🔁 Rafraîchissement auto
     this.refreshInterval = setInterval(this.refreshPublicGames, 5000);
   },
   beforeUnmount() {
     clearInterval(this.refreshInterval);
   },
   methods: {
-    // On peut fusionner la logique de chargement pour éviter la répétition
     async fetchPublicGames(isRefresh = false) {
       if (!isRefresh) this.loading = true;
       else this.refreshing = true;
@@ -125,7 +123,6 @@ export default {
       const playerId = Number(this.user.ID_Users || this.user.id);
 
       try {
-        // Axios POST simplifié : pas de headers, pas de stringify
         const res = await api.post(`/games/join/${gameId}`, { playerId });
 
         if (res.data.success) {
@@ -164,7 +161,7 @@ export default {
   font-family: "Poppins", sans-serif;
 }
 
-/* 🔍 Titre */
+/* Titre */
 h1 {
   font-size: 2rem;
   font-weight: 700;
@@ -173,7 +170,7 @@ h1 {
   text-shadow: 0 0 8px rgba(88, 166, 255, 0.5);
 }
 
-/* 🎛️ Filtres */
+/* Filtres */
 .filters {
   display: flex;
   justify-content: center;
@@ -214,7 +211,7 @@ select:focus {
   box-shadow: 0 0 8px #58a6ff;
 }
 
-/* 🧩 Liste de parties */
+/*Liste de parties */
 .games-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -223,7 +220,7 @@ select:focus {
   padding: 0 1rem;
 }
 
-/* 🪪 Carte de partie */
+/*Carte de partie */
 .game-card {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -240,7 +237,7 @@ select:focus {
   box-shadow: 0 6px 18px rgba(88, 166, 255, 0.3);
 }
 
-/* 🧭 En-tête carte */
+/*En-tête carte */
 .game-header {
   display: flex;
   justify-content: center;
@@ -274,14 +271,14 @@ select:focus {
   }
 }
 
-/* 📜 Détails de la partie */
+/*Détails de la partie */
 p {
   margin: 0.3rem 0;
   font-size: 0.95rem;
   color: #c9d1d9;
 }
 
-/* 🚀 Bouton rejoindre */
+/*Bouton rejoindre */
 .join-btn {
   background: linear-gradient(135deg, #238636, #2ea043);
   border: none;
@@ -300,7 +297,7 @@ p {
   box-shadow: 0 0 12px rgba(46, 160, 67, 0.6);
 }
 
-/* ⬅️ Bouton retour */
+/*Bouton retour */
 .back-btn {
   margin-top: 2rem;
   background: none;
@@ -317,7 +314,7 @@ p {
   transform: scale(1.05);
 }
 
-/* 💾 États */
+/*États */
 .loading,
 .empty {
   margin-top: 2rem;

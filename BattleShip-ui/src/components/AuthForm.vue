@@ -83,7 +83,6 @@
 </template>
 
 <script>
-// Changement ici : on utilise ton instance configurée
 import api from "@/api/api.js";
 
 export default {
@@ -130,7 +129,6 @@ export default {
 
     async fetchAvatars() {
       try {
-        // Utilisation de l'instance 'api'
         const res = await api.get("/avatars");
         this.avatars = res.data.avatars;
       } catch (e) {
@@ -166,7 +164,6 @@ export default {
     async handleSubmit() {
       this.errorMsg = "";
 
-      // Validations Regex
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(this.email)) {
         this.errorMsg = "Adresse email invalide.";
@@ -377,7 +374,7 @@ button:hover {
 
 .password-wrapper input {
   width: 100%;
-  padding-right: 2rem; /* espace à droite pour l'icône */
+  padding-right: 2rem;
 }
 
 .toggle-visibility {

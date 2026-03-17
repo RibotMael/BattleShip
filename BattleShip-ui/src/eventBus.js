@@ -1,5 +1,5 @@
 import { reactive } from "vue";
-import api from "@/api/api.js"; // Importe ton instance Axios configurée
+import api from "@/api/api.js";
 
 export const userBus = reactive({
   userUpdated: false
@@ -9,7 +9,7 @@ export const invitationStore = reactive({
   invitations: [],
 });
 
-// Ajouter une invitation (Localement)
+// Ajouter une invitation
 export function sendInvite(invite) {
   const newId = invitationStore.invitations.length + 1;
   invitationStore.invitations.push({ id: newId, ...invite });
@@ -22,7 +22,7 @@ export function removeInvitation(inviteId) {
   );
 }
 
-// ✅ Normaliser un utilisateur
+// Normaliser un utilisateur
 export function normalizeUser(user) {
   return {
     ID_Users: user.ID_Users ?? user.id,
@@ -32,13 +32,11 @@ export function normalizeUser(user) {
   };
 }
 
-// ✅ Charger les invitations depuis le backend (LOCAL ou DISTANT automatique)
+// Charger les invitations depuis le backend 
 export async function fetchInvitations(userId) {
   try {
-    // On utilise l'instance 'api' qui sait si elle doit taper sur localhost ou Render
     const res = await api.get(`/games/invite/${userId}`);
     
-    // Avec Axios, les données sont directement dans res.data
     const data = res.data;
 
     if (data.success && Array.isArray(data.invitations)) {
