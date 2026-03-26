@@ -48,5 +48,3 @@ Fonctionnalités en cours / à venir :
 * 🔄 Correctifs de bugs (s'il y en a)
 
 ---
-
-Bon jeu et bonne chance capitaine ! ⚓🔥
