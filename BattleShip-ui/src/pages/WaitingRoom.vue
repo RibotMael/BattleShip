@@ -312,6 +312,10 @@ export default {
   overflow-x: hidden;
 }
 
+.panel-header {
+  margin-left: 1rem;
+}
+
 .room-wrapper {
   width: 100%;
   max-width: 1000px;
@@ -418,6 +422,7 @@ export default {
   font-weight: bold;
   cursor: pointer;
   flex-shrink: 0;
+  padding: 0rem;
 }
 
 .btn-all {

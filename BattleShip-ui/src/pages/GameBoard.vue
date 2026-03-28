@@ -66,6 +66,7 @@
               miss: cell === 'miss',
               sunk: cell === 'sunk',
               selected: cell === 'selected',
+              pending: cell === 'pending',
             }"
             @click="selectCell(index)"
           ></div>
@@ -81,6 +82,555 @@
     </div>
   </div>
 </template>
+
+<script>
+import socket from "../services/socket.js";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL;
+
+export default {
+  name: "GameBoard",
+  props: {
+    gameId: { type: String, required: true },
+    gameType: { type: String, required: true },
+  },
+  data() {
+    return {
+      playerGrid: Array.from({ length: 100 }, () => ({ shipNumber: 0, status: "" })),
+      opponents: [],
+      currentOpponentIndex: 0,
+      turnTimer: 7,
+      gameOver: false,
+      fetchInterval: null,
+      turnInterval: null,
+      user: JSON.parse(localStorage.getItem("user")) || { id: null, pseudo: "" },
+      selectedCell: null,
+      endPopup: false,
+      popupMessage: "",
+      playerStatus: "in_game",
+      hasFiredThisTurn: false,
+    };
+  },
+  computed: {
+    currentOpponent() {
+      return this.opponents[this.currentOpponentIndex] || { id: null, grid: Array(100).fill("") };
+    },
+    is1v1() {
+      return this.gameType === "1v1";
+    },
+  },
+  mounted() {
+    this.removeSocketListeners();
+    this.resetGameState();
+    this.initGame();
+
+    window.addEventListener("keydown", this.preventRefresh);
+    window.addEventListener("popstate", this.preventBack);
+    window.addEventListener("beforeunload", this.preventUnload);
+
+    socket.on("connect", () => console.log("⚡ Socket connecté", socket.id));
+    socket.on("turn-timer", (data) => {
+      if (data.timeLeft >= 7) {
+        this.clearPendingCells(); // Nettoyer le tour précédent
+      }
+      this.socketTurnTimer(data);
+    });
+    socket.on("turn-ended", this.endTurn);
+    socket.on("shot-fired", this.onShotFired);
+    socket.on("player-eliminated", this.onPlayerEliminated);
+    socket.on("game-over", this.handleGameOver);
+    socket.on("game-started", this.handleGameStarted);
+
+    socket.on("cell-pending", (data) => {
+      const { targetId, index, shooterId } = data; // Ajoute shooterId si le serveur l'envoie
+      console.log(`[LOCK] Le joueur ${shooterId} verrouille la case ${index} chez ${targetId}`);
+
+      const opponent = this.opponents.find((o) => o.id === targetId);
+      if (opponent) {
+        // Si c'est nous qui avons cliqué, on ignore l'event pour ne pas écraser "selected" par "pending"
+        if (shooterId !== this.user.id) {
+          this.updateGridCell(opponent, index, "pending");
+        }
+      }
+    });
+
+    socket.on("cell-unlocked", (data) => {
+      const { targetId, index } = data;
+      const opponent = this.opponents.find((o) => o.id === targetId);
+      if (opponent && opponent.grid[index] === "pending") {
+        this.updateGridCell(opponent, index, ""); // La case redevient cliquable
+      }
+    });
+
+    socket.onAny((eventName, ...args) => {
+      if (this.gameOver) return;
+      console.log(`[SOCKET DEBUG] Reçu: ${eventName}`, args);
+    });
+  },
+  beforeUnmount() {
+    console.log("🧹 Destruction GameBoard");
+    clearInterval(this.fetchInterval);
+    clearInterval(this.turnInterval);
+    this.removeSocketListeners();
+
+    window.removeEventListener("keydown", this.preventRefresh);
+    window.removeEventListener("popstate", this.preventBack);
+    window.removeEventListener("beforeunload", this.preventUnload);
+  },
+  methods: {
+    removeSocketListeners() {
+      console.log("🧹 Nettoyage socket");
+      socket.emit("leave-game", { gameId: this.gameId });
+
+      socket.off("turn-timer", this.socketTurnTimer);
+      socket.off("turn-ended", this.endTurn);
+      socket.off("shot-fired", this.onShotFired);
+      socket.off("player-eliminated", this.onPlayerEliminated);
+      socket.off("game-over", this.handleGameOver);
+      socket.off("game-started", this.handleGameStarted);
+      socket.offAny();
+    },
+
+    /* ----------------- Timer ----------------- */
+    socketTurnTimer({ timeLeft }) {
+      if (this.gameOver) return;
+
+      if (timeLeft >= 7) {
+        this.hasFiredThisTurn = false;
+        this.turnTimer = 7;
+      } else {
+        this.turnTimer = timeLeft;
+      }
+      this.$nextTick(this.updateCircle);
+    },
+    endTurn() {
+      if (this.gameOver) return;
+      this.turnTimer = 0;
+      this.updateCircle();
+      this.validateShot();
+      this.hasFiredThisTurn = false;
+    },
+    updateCircle() {
+      const circle = this.$el.querySelector(".progress-ring__circle");
+      if (!circle) return;
+      const radius = 45;
+      const circumference = 2 * Math.PI * radius;
+      const ratio = Math.max(0, Math.min(this.turnTimer / 7, 1));
+      const offset = circumference - ratio * circumference;
+      circle.style.transition = this.turnTimer === 7 ? "none" : "stroke-dashoffset 1s linear";
+      circle.style.strokeDashoffset = offset;
+    },
+
+    /* ----------------- Init & Reset ----------------- */
+    handleGameStarted(data) {
+      console.log("🚀 La partie commence !");
+      this.resetGameState();
+      this.turnTimer = data.timeLeft || 7;
+      this.updateCircle();
+    },
+    resetGameState() {
+      clearInterval(this.turnInterval);
+      clearInterval(this.fetchInterval);
+
+      this.fetchInterval = null;
+      this.turnInterval = null;
+      this.turnTimer = 7;
+      this.gameOver = false;
+      this.selectedCell = null;
+      this.endPopup = false;
+      this.popupMessage = "";
+      this.playerStatus = "in_game";
+      this.hasFiredThisTurn = false;
+    },
+    async initGame() {
+      console.log("🛠️ Initialisation du jeu...");
+      this.resetGameState();
+      await this.fetchPlayerBoard();
+
+      if (this.is1v1) await this.fetchOpponent();
+      else await this.fetchOpponents();
+
+      socket.emit("join-game", { gameId: this.gameId, playerId: this.user.id });
+      socket.emit("player-ready", { gameId: this.gameId, playerId: this.user.id });
+
+      this.fetchInterval = setInterval(async () => {
+        await this.fetchEnemyShots();
+        await this.checkGameStatus();
+      }, 2000);
+    },
+
+    /* ----------------- Grilles ----------------- */
+    async fetchPlayerBoard() {
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/games/${this.gameId}/board?playerId=${this.user.id}`,
+        );
+        const data = await res.json();
+        if (!data.success) return console.warn(data.message);
+        this.playerGrid = data.board
+          .flat()
+          .map((cell) => ({ shipNumber: cell > 0 ? cell : 0, status: "" }));
+      } catch (err) {
+        console.error("Erreur fetchPlayerBoard :", err);
+      }
+    },
+    async fetchOpponent() {
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/games/${this.gameId}/opponent?playerId=${this.user.id}`,
+        );
+        const data = await res.json();
+        if (!data.success) return console.warn(data.message);
+        this.opponents = [
+          {
+            id: data.opponentId,
+            pseudo: data.opponentPseudo || "Adversaire",
+            grid: Array(100).fill(""),
+          },
+        ];
+        this.currentOpponentIndex = 0;
+      } catch (err) {
+        console.error(err);
+      }
+    },
+    async fetchOpponents() {
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/games/${this.gameId}/opponents?playerId=${this.user.id}`,
+        );
+        const data = await res.json();
+        if (!data.success) return;
+
+        this.opponents = data.opponents.map((o) => ({ ...o, grid: Array(100).fill("") }));
+
+        if (this.opponents.length > 0) {
+          const allParticipantsIds = [...this.opponents.map((o) => o.id), this.user.id].sort();
+
+          const myIndex = allParticipantsIds.indexOf(this.user.id);
+
+          const targetId = allParticipantsIds[(myIndex + 1) % allParticipantsIds.length];
+
+          const finalIndex = this.opponents.findIndex((o) => o.id === targetId);
+
+          if (finalIndex !== -1) {
+            this.currentOpponentIndex = finalIndex;
+          } else {
+            this.currentOpponentIndex = 0;
+          }
+
+          console.log(
+            "🔄 Boucle validée : Je suis à la position",
+            myIndex,
+            "et je cible l'ID",
+            targetId,
+          );
+        }
+      } catch (err) {
+        console.error("Erreur boucle BR:", err);
+      }
+    },
+    updateGridCell(opponent, index, value) {
+      const newGrid = [...opponent.grid];
+      newGrid[index] = value;
+      opponent.grid = newGrid;
+    },
+
+    /* ----------------- Sélection & Tir ----------------- */
+    selectCell(index) {
+      // --- AJOUT IMPORTANT : on bloque si le joueur a déjà validé son tir ---
+      if (this.gameOver || this.playerStatus === "dead" || this.hasFiredThisTurn) return;
+
+      const val = this.currentOpponent.grid[index];
+
+      // Bloquer si déjà cliqué par un autre ou déjà tiré
+      if (["hit", "miss", "sunk", "pending"].includes(val)) return;
+      if (this.selectedCell === index) return;
+
+      // Libérer l'ancienne case avant d'en prendre une nouvelle
+      if (this.selectedCell !== null) {
+        const oldIndex = this.selectedCell;
+        this.updateGridCell(this.currentOpponent, oldIndex, "");
+        socket.emit("unlock-cell", {
+          gameId: this.gameId,
+          targetId: this.currentOpponent.id,
+          index: oldIndex,
+          shooterId: this.user.id,
+        });
+      }
+
+      // Verrouiller la nouvelle
+      this.selectedCell = index;
+      this.updateGridCell(this.currentOpponent, index, "selected");
+
+      socket.emit("lock-cell", {
+        gameId: this.gameId,
+        targetId: this.currentOpponent.id,
+        index: index,
+        shooterId: this.user.id,
+      });
+    },
+
+    clearPendingCells() {
+      this.opponents.forEach((opp) => {
+        opp.grid = opp.grid.map((cell) => (cell === "pending" || cell === "selected" ? "" : cell));
+      });
+      this.selectedCell = null;
+    },
+
+    async validateShot() {
+      if (this.gameOver || this.hasFiredThisTurn) return;
+      let index = this.selectedCell;
+
+      if (index === null) {
+        // Tir aléatoire si rien n'est sélectionné
+        const available = this.currentOpponent.grid
+          .map((v, i) => (v === "" ? i : null))
+          .filter((i) => i !== null);
+        if (!available.length) return;
+        index = available[Math.floor(Math.random() * available.length)];
+        this.selectedCell = index; // On l'assigne pour le lock visuel
+        this.updateGridCell(this.currentOpponent, index, "selected");
+      }
+
+      this.hasFiredThisTurn = true;
+      // ON NE SUPPRIME PAS L'ETAT VISUEL ICI ! On attend le retour du serveur.
+      // this.updateGridCell(this.currentOpponent, index, ""); <-- SUPPRIMER CELA
+
+      await this.sendShoot(index);
+    },
+
+    onPlayerEliminated(data) {
+      console.log("💀 Joueur éliminé:", data);
+
+      if (data.playerId === this.user.id) {
+        this.playerStatus = "dead";
+        const msg =
+          data.reason === "abandon" ? "🏳️ Éliminé par abandon" : "💥 Tous vos navires ont coulé !";
+        this.showEndPopup(msg);
+        return;
+      }
+
+      const isCurrentTarget = this.opponents[this.currentOpponentIndex]?.id === data.playerId;
+
+      this.opponents = this.opponents.filter((opp) => opp.id !== data.playerId);
+
+      if (isCurrentTarget || this.currentOpponentIndex >= this.opponents.length) {
+        this.currentOpponentIndex = 0;
+        this.selectedCell = null;
+      }
+    },
+    async sendShoot(index) {
+      if (this.gameOver || this.playerStatus === "dead") return;
+
+      const targetOpponent = this.opponents[this.currentOpponentIndex];
+      if (!targetOpponent?.id || index == null || index < 0 || index > 99) {
+        console.warn("Tir annulé : coordonnées ou cible invalides", { index, targetOpponent });
+        this.selectedCell = null;
+        return;
+      }
+
+      const x = index % 10;
+      const y = Math.floor(index / 10);
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/games/shoot`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            gameId: this.gameId,
+            playerId: this.user.id,
+            targetId: targetOpponent.id,
+            x,
+            y,
+          }),
+        });
+
+        const data = await res.json();
+        if (!data.success) return console.warn("Tir refusé :", data.message);
+
+        this.applyShot(targetOpponent.id, x, y, data.result, data.positions);
+        this.selectedCell = null;
+      } catch (err) {
+        console.error(err);
+        this.selectedCell = null;
+      }
+    },
+    applyShot(targetId, x, y, result, positions) {
+      const idx = y * 10 + x;
+      if (targetId === this.user.id) {
+        this.playerGrid[idx].status = result;
+        positions?.forEach((p) => (this.playerGrid[p.y * 10 + p.x].status = "sunk"));
+      } else {
+        const target = this.opponents.find((o) => o.id === targetId);
+        if (!target) return;
+        const newGrid = [...target.grid];
+        newGrid[idx] = result;
+        positions?.forEach((p) => (newGrid[p.y * 10 + p.x] = "sunk"));
+        target.grid = newGrid;
+      }
+    },
+    onShotFired(data) {
+      const { targetId, x, y, result } = data;
+      const idx = y * 10 + x;
+
+      if (targetId === this.user.id) {
+        const newGrid = [...this.playerGrid];
+        newGrid[idx].status = result;
+        positions?.forEach((p) => (newGrid[p.y * 10 + p.x].status = "sunk"));
+        this.playerGrid = newGrid;
+        this.checkDefeat();
+        return;
+      } else {
+        const target = this.opponents.find((o) => o.id === targetId);
+        if (target) {
+          // Le résultat du tir remplace l'état 'pending' ou 'selected'
+          this.updateGridCell(target, idx, result);
+        }
+      }
+      const target = this.opponents.find((o) => o.id === targetId);
+      if (!target) return;
+      const newGrid = [...target.grid];
+      newGrid[idx] = result;
+      positions?.forEach((p) => (newGrid[p.y * 10 + p.x] = "sunk"));
+      target.grid = newGrid;
+    },
+
+    /* ----------------- Enemy shots ----------------- */
+    async fetchEnemyShots() {
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/games/${this.gameId}/shots?playerId=${this.user.id}&t=${Date.now()}`,
+        );
+        const data = await res.json();
+        if (!data.success) return;
+
+        if (data.incomingShots) {
+          const newGrid = [...this.playerGrid];
+          data.incomingShots.forEach((s) => {
+            const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
+            if (newGrid[idx]) newGrid[idx].status = s.result;
+          });
+          this.playerGrid = newGrid;
+        }
+
+        if (data.playerShots) {
+          data.playerShots.forEach((s) => {
+            const target = this.opponents.find((o) => o.id === s.target_id);
+            if (!target) return;
+            const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
+            target.grid[idx] = s.result;
+          });
+        }
+
+        this.checkDefeat();
+      } catch (err) {
+        console.error("Erreur Sync Shots:", err.message);
+      }
+    },
+
+    /* ----------------- Game Over / Abandon ----------------- */
+    handleGameOver(payload) {
+      if (this.gameOver) return;
+      this.gameOver = true;
+      clearInterval(this.fetchInterval);
+      clearInterval(this.turnInterval);
+      this.removeSocketListeners();
+
+      let msg = payload.isDraw
+        ? "⚖️ Égalité parfaite !"
+        : payload.winnerId === this.user.id
+          ? "🏆 Victoire !"
+          : "💥 Défaite !";
+
+      this.showEndPopup(msg);
+    },
+    async abandonGame() {
+      if (!confirm("Voulez-vous vraiment abandonner ?")) return;
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/games/eliminate-player`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            gameId: this.gameId,
+            playerId: this.user.id,
+            reason: "abandon",
+          }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          this.playerStatus = "dead";
+          this.showEndPopup("🏳️ Abandon confirmé. Vous avez quitté la partie.");
+        } else {
+          console.warn(data.message);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    },
+    showEndPopup(msg, force = false) {
+      this.popupMessage = msg;
+      this.endPopup = true;
+      if (!force) this.gameOver = true;
+
+      clearInterval(this.fetchInterval);
+      clearInterval(this.turnInterval);
+
+      if (!force) this.removeSocketListeners();
+
+      this.turnTimer = 7;
+      this.updateCircle();
+    },
+
+    async checkDefeat() {
+      if (this.playerStatus !== "in_game") return;
+      const shipCells = this.playerGrid.filter((c) => c.shipNumber > 0);
+      if (!shipCells.length) return;
+      const allDestroyed = shipCells.every((c) => c.status === "hit" || c.status === "sunk");
+      if (!allDestroyed) return;
+
+      this.playerStatus = "dead";
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/games/eliminate-player`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ gameId: this.gameId, playerId: this.user.id, reason: "shot" }),
+        });
+        const data = await res.json();
+        if (!data.success) return console.warn(data.message);
+
+        if (data.finished) {
+          const msg =
+            data.winner_id === this.user.id
+              ? "🏆 Victoire !"
+              : data.winner_id === null
+                ? "⚖️ Égalité parfaite !"
+                : "💥 Défaite !";
+          this.showEndPopup(msg);
+        } else {
+          this.showEndPopup("💥 Tous vos bateaux sont coulés !");
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    },
+
+    /* ----------------- Navigation ----------------- */
+    goHome() {
+      this.$router.push("/");
+    },
+    preventRefresh(e) {
+      e.preventDefault();
+    },
+    preventBack(e) {
+      e.preventDefault();
+    },
+    preventUnload(e) {
+      e.preventDefault();
+    },
+  },
+};
+</script>
 
 <style scoped>
 html,
@@ -238,6 +788,21 @@ body {
   background: rgba(255, 235, 59, 0.2) !important;
   outline: 2px solid #ffeb3b;
   z-index: 2;
+}
+
+.cell.pending {
+  background-color: #f39c12 !important; /* Orange pour indiquer l'attente */
+  cursor: not-allowed;
+  opacity: 0.7;
+  position: relative;
+}
+.cell.pending::after {
+  content: "⏳";
+  position: absolute;
+  font-size: 10px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 /* TIMER / CHRONO */
@@ -413,453 +978,3 @@ body {
   filter: drop-shadow(0 0 5px #ff4444);
 }
 </style>
-
-<script>
-import socket from "../services/socket.js";
-
-const API_BASE_URL = import.meta.env.VITE_API_URL;
-
-export default {
-  name: "GameBoard",
-  props: {
-    gameId: { type: String, required: true },
-    gameType: { type: String, required: true },
-  },
-  data() {
-    return {
-      playerGrid: Array.from({ length: 100 }, () => ({ shipNumber: 0, status: "" })),
-      opponents: [],
-      currentOpponentIndex: 0,
-      turnTimer: 7,
-      gameOver: false,
-      fetchInterval: null,
-      turnInterval: null,
-      user: JSON.parse(localStorage.getItem("user")) || { id: null, pseudo: "" },
-      selectedCell: null,
-      endPopup: false,
-      popupMessage: "",
-      playerStatus: "in_game",
-      hasFiredThisTurn: false,
-    };
-  },
-  computed: {
-    currentOpponent() {
-      return this.opponents[this.currentOpponentIndex] || { id: null, grid: Array(100).fill("") };
-    },
-    is1v1() {
-      return this.gameType === "1v1";
-    },
-  },
-  mounted() {
-    this.removeSocketListeners();
-    this.resetGameState();
-    this.initGame();
-
-    window.addEventListener("keydown", this.preventRefresh);
-    window.addEventListener("popstate", this.preventBack);
-    window.addEventListener("beforeunload", this.preventUnload);
-
-    socket.on("connect", () => console.log("⚡ Socket connecté", socket.id));
-    socket.on("turn-timer", this.socketTurnTimer);
-    socket.on("turn-ended", this.endTurn);
-    socket.on("shot-fired", this.onShotFired);
-    socket.on("player-eliminated", this.onPlayerEliminated);
-    socket.on("game-over", this.handleGameOver);
-    socket.on("game-started", this.handleGameStarted);
-
-    socket.onAny((eventName, ...args) => {
-      if (this.gameOver) return;
-      console.log(`[SOCKET DEBUG] Reçu: ${eventName}`, args);
-    });
-  },
-  beforeUnmount() {
-    console.log("🧹 Destruction GameBoard");
-    clearInterval(this.fetchInterval);
-    clearInterval(this.turnInterval);
-    this.removeSocketListeners();
-
-    window.removeEventListener("keydown", this.preventRefresh);
-    window.removeEventListener("popstate", this.preventBack);
-    window.removeEventListener("beforeunload", this.preventUnload);
-  },
-  methods: {
-    removeSocketListeners() {
-      console.log("🧹 Nettoyage socket");
-      socket.emit("leave-game", { gameId: this.gameId });
-
-      socket.off("turn-timer", this.socketTurnTimer);
-      socket.off("turn-ended", this.endTurn);
-      socket.off("shot-fired", this.onShotFired);
-      socket.off("player-eliminated", this.onPlayerEliminated);
-      socket.off("game-over", this.handleGameOver);
-      socket.off("game-started", this.handleGameStarted);
-      socket.offAny();
-    },
-
-    /* ----------------- Timer ----------------- */
-    socketTurnTimer({ timeLeft }) {
-      if (this.gameOver) return;
-
-      if (timeLeft >= 7) {
-        this.hasFiredThisTurn = false;
-        this.turnTimer = 7;
-      } else {
-        this.turnTimer = timeLeft;
-      }
-      this.$nextTick(this.updateCircle);
-    },
-    endTurn() {
-      if (this.gameOver) return;
-      this.turnTimer = 0;
-      this.updateCircle();
-      this.validateShot();
-      this.hasFiredThisTurn = false;
-    },
-    updateCircle() {
-      const circle = this.$el.querySelector(".progress-ring__circle");
-      if (!circle) return;
-      const radius = 45;
-      const circumference = 2 * Math.PI * radius;
-      const ratio = Math.max(0, Math.min(this.turnTimer / 7, 1));
-      const offset = circumference - ratio * circumference;
-      circle.style.transition = this.turnTimer === 7 ? "none" : "stroke-dashoffset 1s linear";
-      circle.style.strokeDashoffset = offset;
-    },
-
-    /* ----------------- Init & Reset ----------------- */
-    handleGameStarted(data) {
-      console.log("🚀 La partie commence !");
-      this.resetGameState();
-      this.turnTimer = data.timeLeft || 7;
-      this.updateCircle();
-    },
-    resetGameState() {
-      clearInterval(this.turnInterval);
-      clearInterval(this.fetchInterval);
-
-      this.fetchInterval = null;
-      this.turnInterval = null;
-      this.turnTimer = 7;
-      this.gameOver = false;
-      this.selectedCell = null;
-      this.endPopup = false;
-      this.popupMessage = "";
-      this.playerStatus = "in_game";
-      this.hasFiredThisTurn = false;
-    },
-    async initGame() {
-      console.log("🛠️ Initialisation du jeu...");
-      this.resetGameState();
-      await this.fetchPlayerBoard();
-
-      if (this.is1v1) await this.fetchOpponent();
-      else await this.fetchOpponents();
-
-      socket.emit("join-game", { gameId: this.gameId, playerId: this.user.id });
-      socket.emit("player-ready", { gameId: this.gameId, playerId: this.user.id });
-
-      this.fetchInterval = setInterval(async () => {
-        await this.fetchEnemyShots();
-        await this.checkGameStatus();
-      }, 2000);
-    },
-
-    /* ----------------- Grilles ----------------- */
-    async fetchPlayerBoard() {
-      try {
-        const res = await fetch(
-          `${API_BASE_URL}/api/games/${this.gameId}/board?playerId=${this.user.id}`,
-        );
-        const data = await res.json();
-        if (!data.success) return console.warn(data.message);
-        this.playerGrid = data.board
-          .flat()
-          .map((cell) => ({ shipNumber: cell > 0 ? cell : 0, status: "" }));
-      } catch (err) {
-        console.error("Erreur fetchPlayerBoard :", err);
-      }
-    },
-    async fetchOpponent() {
-      try {
-        const res = await fetch(
-          `${API_BASE_URL}/api/games/${this.gameId}/opponent?playerId=${this.user.id}`,
-        );
-        const data = await res.json();
-        if (!data.success) return console.warn(data.message);
-        this.opponents = [
-          {
-            id: data.opponentId,
-            pseudo: data.opponentPseudo || "Adversaire",
-            grid: Array(100).fill(""),
-          },
-        ];
-        this.currentOpponentIndex = 0;
-      } catch (err) {
-        console.error(err);
-      }
-    },
-    async fetchOpponents() {
-      try {
-        const res = await fetch(
-          `${API_BASE_URL}/api/games/${this.gameId}/opponents?playerId=${this.user.id}`,
-        );
-        const data = await res.json();
-        if (!data.success) return;
-        this.opponents = data.opponents.map((o) => ({ ...o, grid: Array(100).fill("") }));
-        this.currentOpponentIndex = 0;
-      } catch (err) {
-        console.error(err);
-      }
-    },
-    updateGridCell(opponent, index, value) {
-      const newGrid = [...opponent.grid];
-      newGrid[index] = value;
-      opponent.grid = newGrid;
-    },
-
-    /* ----------------- Sélection & Tir ----------------- */
-    selectCell(index) {
-      if (this.gameOver) return;
-      const val = this.currentOpponent.grid[index];
-      if (["hit", "miss", "sunk", "selected"].includes(val)) return;
-      if (this.selectedCell !== null)
-        this.updateGridCell(this.currentOpponent, this.selectedCell, "");
-      this.selectedCell = index;
-      this.updateGridCell(this.currentOpponent, index, "selected");
-    },
-    async validateShot() {
-      if (this.gameOver || this.hasFiredThisTurn) return;
-      let index = this.selectedCell;
-      if (index === null) {
-        const available = this.currentOpponent.grid
-          .map((v, i) => (v === "" ? i : null))
-          .filter((i) => i !== null);
-        if (!available.length) return;
-        index = available[Math.floor(Math.random() * available.length)];
-      }
-      this.hasFiredThisTurn = true;
-      this.updateGridCell(this.currentOpponent, index, "");
-      this.selectedCell = null;
-      await this.sendShoot(index);
-    },
-    onPlayerEliminated(data) {
-      console.log("💀 Joueur éliminé:", data);
-
-      if (data.playerId === this.user.id) {
-        this.playerStatus = "dead";
-        const msg =
-          data.reason === "abandon" ? "🏳️ Éliminé par abandon" : "💥 Tous vos navires ont coulé !";
-        this.showEndPopup(msg);
-        return;
-      }
-
-      this.opponents = this.opponents.filter((opp) => opp.id !== data.playerId);
-
-      if (this.currentOpponentIndex >= this.opponents.length) {
-        this.currentOpponentIndex = 0;
-      }
-    },
-    async sendShoot(index) {
-      if (this.gameOver || this.playerStatus === "dead") return;
-
-      const targetOpponent = this.opponents[this.currentOpponentIndex];
-      if (!targetOpponent?.id || index == null || index < 0 || index > 99) {
-        console.warn("Tir annulé : coordonnées ou cible invalides", { index, targetOpponent });
-        this.selectedCell = null;
-        return;
-      }
-
-      const x = index % 10;
-      const y = Math.floor(index / 10);
-
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/games/shoot`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            gameId: this.gameId,
-            playerId: this.user.id,
-            targetId: targetOpponent.id,
-            x,
-            y,
-          }),
-        });
-
-        const data = await res.json();
-        if (!data.success) return console.warn("Tir refusé :", data.message);
-
-        this.applyShot(targetOpponent.id, x, y, data.result, data.positions);
-        this.selectedCell = null;
-      } catch (err) {
-        console.error(err);
-        this.selectedCell = null;
-      }
-    },
-    applyShot(targetId, x, y, result, positions) {
-      const idx = y * 10 + x;
-      if (targetId === this.user.id) {
-        this.playerGrid[idx].status = result;
-        positions?.forEach((p) => (this.playerGrid[p.y * 10 + p.x].status = "sunk"));
-      } else {
-        const target = this.opponents.find((o) => o.id === targetId);
-        if (!target) return;
-        const newGrid = [...target.grid];
-        newGrid[idx] = result;
-        positions?.forEach((p) => (newGrid[p.y * 10 + p.x] = "sunk"));
-        target.grid = newGrid;
-      }
-    },
-    onShotFired({ shooterId, targetId, x, y, result, positions }) {
-      const idx = y * 10 + x;
-      if (targetId === this.user.id) {
-        const newGrid = [...this.playerGrid];
-        newGrid[idx].status = result;
-        positions?.forEach((p) => (newGrid[p.y * 10 + p.x].status = "sunk"));
-        this.playerGrid = newGrid;
-        this.checkDefeat();
-        return;
-      }
-      const target = this.opponents.find((o) => o.id === targetId);
-      if (!target) return;
-      const newGrid = [...target.grid];
-      newGrid[idx] = result;
-      positions?.forEach((p) => (newGrid[p.y * 10 + p.x] = "sunk"));
-      target.grid = newGrid;
-    },
-
-    /* ----------------- Enemy shots ----------------- */
-    async fetchEnemyShots() {
-      try {
-        const res = await fetch(
-          `${API_BASE_URL}/api/games/${this.gameId}/shots?playerId=${this.user.id}&t=${Date.now()}`,
-        );
-        const data = await res.json();
-        if (!data.success) return;
-
-        if (data.incomingShots) {
-          const newGrid = [...this.playerGrid];
-          data.incomingShots.forEach((s) => {
-            const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
-            if (newGrid[idx]) newGrid[idx].status = s.result;
-          });
-          this.playerGrid = newGrid;
-        }
-
-        if (data.playerShots) {
-          data.playerShots.forEach((s) => {
-            const target = this.opponents.find((o) => o.id === s.target_id);
-            if (!target) return;
-            const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
-            target.grid[idx] = s.result;
-          });
-        }
-
-        this.checkDefeat();
-      } catch (err) {
-        console.error("Erreur Sync Shots:", err.message);
-      }
-    },
-
-    /* ----------------- Game Over / Abandon ----------------- */
-    handleGameOver(payload) {
-      if (this.gameOver) return;
-      this.gameOver = true;
-      clearInterval(this.fetchInterval);
-      clearInterval(this.turnInterval);
-      this.removeSocketListeners();
-
-      let msg = payload.isDraw
-        ? "⚖️ Égalité parfaite !"
-        : payload.winnerId === this.user.id
-          ? "🏆 Victoire !"
-          : "💥 Défaite !";
-
-      this.showEndPopup(msg);
-    },
-    async abandonGame() {
-      if (!confirm("Voulez-vous vraiment abandonner ?")) return;
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/games/eliminate-player`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            gameId: this.gameId,
-            playerId: this.user.id,
-            reason: "abandon",
-          }),
-        });
-        const data = await res.json();
-
-        if (data.success) {
-          this.playerStatus = "dead";
-          this.showEndPopup("🏳️ Abandon confirmé. Vous avez quitté la partie.");
-        } else {
-          console.warn(data.message);
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    },
-    showEndPopup(msg, force = false) {
-      this.popupMessage = msg;
-      this.endPopup = true;
-      if (!force) this.gameOver = true;
-
-      clearInterval(this.fetchInterval);
-      clearInterval(this.turnInterval);
-
-      if (!force) this.removeSocketListeners();
-
-      this.turnTimer = 7;
-      this.updateCircle();
-    },
-
-    async checkDefeat() {
-      if (this.playerStatus !== "in_game") return;
-      const shipCells = this.playerGrid.filter((c) => c.shipNumber > 0);
-      if (!shipCells.length) return;
-      const allDestroyed = shipCells.every((c) => c.status === "hit" || c.status === "sunk");
-      if (!allDestroyed) return;
-
-      this.playerStatus = "dead";
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/games/eliminate-player`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ gameId: this.gameId, playerId: this.user.id, reason: "shot" }),
-        });
-        const data = await res.json();
-        if (!data.success) return console.warn(data.message);
-
-        if (data.finished) {
-          const msg =
-            data.winner_id === this.user.id
-              ? "🏆 Victoire !"
-              : data.winner_id === null
-                ? "⚖️ Égalité parfaite !"
-                : "💥 Défaite !";
-          this.showEndPopup(msg);
-        } else {
-          this.showEndPopup("💥 Tous vos bateaux sont coulés !");
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    },
-
-    /* ----------------- Navigation ----------------- */
-    goHome() {
-      this.$router.push("/");
-    },
-    preventRefresh(e) {
-      e.preventDefault();
-    },
-    preventBack(e) {
-      e.preventDefault();
-    },
-    preventUnload(e) {
-      e.preventDefault();
-    },
-  },
-};
-</script>
