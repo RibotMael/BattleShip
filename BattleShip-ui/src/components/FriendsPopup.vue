@@ -288,7 +288,6 @@ export default {
 .popup-header {
   padding: 20px 25px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -306,6 +305,7 @@ export default {
   font-size: 1.2rem;
   cursor: pointer;
   transition: color 0.2s;
+  margin-left: 19rem;
 }
 
 .header-close:hover {

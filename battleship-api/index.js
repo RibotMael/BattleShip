@@ -191,6 +191,25 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("🚫 Déconnexion socket");
   });
+
+  // Quand le serveur reçoit un verrouillage
+  socket.on("lock-cell", (data) => {
+    // Il le renvoie à tous les joueurs de la room (gameId) SAUF à l'expéditeur
+    socket.to(data.gameId).emit("cell-pending", {
+      targetId: data.targetId,
+      index: data.index,
+      shooterId: data.shooterId 
+    });
+  });
+
+  // Quand le serveur reçoit un déverrouillage
+  socket.on("unlock-cell", (data) => {
+    socket.to(data.gameId).emit("cell-unlocked", {
+      targetId: data.targetId,
+      index: data.index,
+      shooterId: data.shooterId
+    });
+  });
 });
 
 /* ==========================
