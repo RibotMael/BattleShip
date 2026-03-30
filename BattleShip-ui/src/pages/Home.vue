@@ -92,14 +92,10 @@
 }
 
 .left-section {
-  flex: 1;
-  display: flex;
   justify-content: flex-start;
 }
 
 .right-section {
-  flex: 1;
-  display: flex;
   justify-content: flex-end;
   position: relative;
 }
@@ -141,12 +137,11 @@
 .pseudo {
   color: rgb(0, 0, 0);
   font-weight: bold;
-  font-size: 1.1rem;
 }
 
 .avatar {
-  width: 45px;
-  height: 45px;
+  width: 70px;
+  height: 70px;
   border-radius: 50%;
   border: 2px solid #00d4ff;
   object-fit: cover;
@@ -199,7 +194,7 @@
 }
 
 .menu-logo {
-  max-width: 700px;
+  max-width: 1000px;
   width: 200vw;
   margin-bottom: 4rem;
   filter: drop-shadow(0 0 25px rgba(0, 212, 255, 0.5));
@@ -289,7 +284,7 @@
     display: none;
   }*/ /* Cache le nom si trop serré */
   .menu-logo {
-    max-width: 500px;
+    max-width: 600px;
     margin-bottom: 3rem;
   }
   .btn-main {

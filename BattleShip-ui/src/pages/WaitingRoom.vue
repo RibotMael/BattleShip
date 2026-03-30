@@ -108,11 +108,34 @@
           </div>
 
           <footer class="panel-footer">
+            <div v-if="isHost" class="validation-errors">
+              <p
+                v-if="hasNotEnoughPlayers"
+                style="color: #ff4444; margin-bottom: 10px; font-size: 0.9em; font-weight: bold"
+              >
+                Il n'y a pas assez de joueurs pour lancer la partie.
+              </p>
+              <p
+                v-if="hasUnassignedPlayers"
+                style="color: #ff4444; margin-bottom: 10px; font-size: 0.9em; font-weight: bold"
+              >
+                Certains joueurs ne sont pas encore dans une équipe.
+              </p>
+              <p
+                v-if="hasUnbalancedTeams"
+                style="color: #ff4444; margin-bottom: 10px; font-size: 0.9em; font-weight: bold"
+              >
+                Les équipes doivent être équilibrées pour commencer.
+              </p>
+            </div>
+
+                       
             <button v-if="isHost" class="btn-start" :disabled="!canStartGame" @click="startGame">
-              Lancer la partie
+                            Lancer la partie            
             </button>
-            <button @click="leaveRoom" class="btn-leave">Quitter</button>
+                        <button @click="leaveRoom" class="btn-leave">Quitter</button>            
             <p v-if="errorMsg" class="err">{{ errorMsg }}</p>
+                     
           </footer>
         </main>
       </div>
@@ -165,6 +188,27 @@ export default {
       if (this.game.mode === "battle_royale") return this.playersWithMe.length >= 2;
       const req = this.playersPerTeam;
       return this.team1Players.length === req && this.team2Players.length === req;
+    },
+    hasNotEnoughPlayers() {
+      if (!this.game) return false;
+      if (this.game.mode === "battle_royale") {
+        return this.playersWithMe.length < 2;
+      }
+      return this.playersWithMe.length < (this.game.TotalPlayers || 2);
+    },
+    hasUnassignedPlayers() {
+      if (!this.game) return false;
+      return this.game.mode !== "battle_royale" && this.unassignedPlayers.length > 0;
+    },
+    hasUnbalancedTeams() {
+      if (!this.game || this.game.mode === "battle_royale") return false;
+
+      if (this.hasNotEnoughPlayers || this.hasUnassignedPlayers) return false;
+
+      return (
+        this.team1Players.length !== this.playersPerTeam ||
+        this.team2Players.length !== this.playersPerTeam
+      );
     },
   },
   async created() {

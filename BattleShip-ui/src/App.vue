@@ -23,7 +23,7 @@ export default {
       () => settingsStore.musicVolume,
       (newVal) => {
         audio.volume = newVal / 100;
-      }
+      },
     );
 
     const playMusic = () => {
@@ -67,9 +67,7 @@ body,
 }
 
 .top-bar {
-  position: absolute;
   top: 0;
-  right: 0;
   padding: 1rem;
   display: flex;
   align-items: center;
