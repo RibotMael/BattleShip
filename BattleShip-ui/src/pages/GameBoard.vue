@@ -6,20 +6,117 @@
         <span class="btn-icon">✕</span>
       </button>
     </div>
+    <div v-if="isSpectator && !gameOver" class="spectator-banner">
+      👁️ Vous êtes éliminé — vous observez la partie
+    </div>
 
-    <div class="grids-wrapper">
+    <!-- MODE ÉQUIPE : layout gauche/droite -->
+    <div v-if="isTeamMode" class="grids-wrapper team-layout">
+      <!-- GAUCHE : ma grille + grilles alliés -->
+      <div class="team-left">
+        <div class="grid-section player-section">
+          <h2 class="grid-title">Ma flotte</h2>
+          <div class="grid player-grid">
+            <div
+              v-for="(cell, index) in playerGrid"
+              :key="'me-' + index"
+              class="cell"
+              :class="{
+                ship: cell.shipNumber && cell.shipNumber !== 0,
+                hit: cell.status === 'hit',
+                miss: cell.status === 'miss',
+                sunk: cell.status === 'sunk',
+                pending: cell.status === 'pending',
+              }"
+            ></div>
+          </div>
+        </div>
+
+        <div v-for="ally in allies" :key="'ally-' + ally.id" class="grid-section ally-section">
+          <h2 class="grid-title ally-title">🤝 {{ ally.pseudo }}</h2>
+          <div class="grid ally-grid">
+            <div
+              v-for="(cell, index) in ally.grid"
+              :key="'ally-cell-' + index"
+              class="cell ally-cell"
+              :class="{
+                hit: cell === 'hit',
+                miss: cell === 'miss',
+                sunk: cell === 'sunk',
+              }"
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CENTRE : timer -->
+      <div class="timer-container">
+        <div class="timer-circle">
+          <svg class="progress-ring" width="100" height="100">
+            <circle
+              class="progress-ring__circle"
+              stroke="white"
+              stroke-width="6"
+              fill="transparent"
+              r="45"
+              cx="50"
+              cy="50"
+            />
+          </svg>
+          <div class="timer-text">{{ turnTimer }}s</div>
+        </div>
+      </div>
+
+      <!-- DROITE : grilles ennemies -->
+      <div class="team-right">
+        <div
+          v-for="(enemy, i) in enemies"
+          :key="'enemy-' + enemy.id"
+          class="grid-section enemy-section"
+        >
+          <h2
+            class="grid-title enemy-title"
+            :class="{ 'active-target': currentOpponentIndex === i }"
+            @click="currentOpponentIndex = i"
+            style="cursor: pointer"
+          >
+            ⚔️ {{ enemy.pseudo }}
+            <span v-if="currentOpponentIndex === i" class="target-indicator"> ◀ Ciblé</span>
+          </h2>
+          <div class="grid opponent-grid">
+            <div
+              v-for="(cell, index) in enemy.grid"
+              :key="'enemy-cell-' + index"
+              class="cell"
+              :class="{
+                hit: cell === 'hit',
+                miss: cell === 'miss',
+                sunk: cell === 'sunk',
+                selected: cell === 'selected',
+                pending: cell === 'pending',
+              }"
+              @click="selectEnemyCell(i, index)"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODE 1v1 / BATTLE ROYALE : layout original inchangé -->
+    <div v-else class="grids-wrapper">
       <div class="grid-section player-section">
         <h2 class="grid-title">Notre flotte</h2>
         <div class="grid player-grid">
           <div
             v-for="(cell, index) in playerGrid"
-            :key="index"
+            :key="'me-' + index"
             class="cell"
             :class="{
               ship: cell.shipNumber && cell.shipNumber !== 0,
               hit: cell.status === 'hit',
               miss: cell.status === 'miss',
               sunk: cell.status === 'sunk',
+              pending: cell.status === 'pending',
             }"
           ></div>
         </div>
@@ -55,11 +152,10 @@
             </option>
           </select>
         </h2>
-
         <div class="grid opponent-grid">
           <div
             v-for="(cell, index) in currentOpponent.grid"
-            :key="index"
+            :key="'opp-cell-' + index"
             class="cell"
             :class="{
               hit: cell === 'hit',
@@ -73,6 +169,7 @@
         </div>
       </div>
     </div>
+
     <div v-if="endPopup" class="popup-overlay">
       <div class="popup-content">
         <h2>Fin de la partie</h2>
@@ -85,6 +182,7 @@
 
 <script>
 import socket from "../services/socket.js";
+import heartbeatSrc from "@/assets/audio/BattementsDeCoeur.mp3";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -97,7 +195,10 @@ export default {
   data() {
     return {
       playerGrid: Array.from({ length: 100 }, () => ({ shipNumber: 0, status: "" })),
-      opponents: [],
+      opponents: [], // tous les autres joueurs (1v1 / BR)
+      allies: [], // coéquipiers (mode équipe)
+      enemies: [], // adversaires (mode équipe)
+      myTeamNumber: null,
       currentOpponentIndex: 0,
       turnTimer: 7,
       gameOver: false,
@@ -105,96 +206,113 @@ export default {
       turnInterval: null,
       user: JSON.parse(localStorage.getItem("user")) || { id: null, pseudo: "" },
       selectedCell: null,
+      selectedEnemyIndex: 0, // quel ennemi on cible en mode équipe
       endPopup: false,
       popupMessage: "",
       playerStatus: "in_game",
       hasFiredThisTurn: false,
+      isSelecting: false,
+      heartbeatAudio: null,
+      detectedTeamMode: false,
+      isSpectator: false,
     };
   },
   computed: {
-    currentOpponent() {
-      return this.opponents[this.currentOpponentIndex] || { id: null, grid: Array(100).fill("") };
+    isTeamMode() {
+      return ["2v2", "3v3", "4v4"].includes(this.gameType) || this.detectedTeamMode;
     },
     is1v1() {
       return this.gameType === "1v1";
     },
+    // Utilisé en mode 1v1/BR
+    currentOpponent() {
+      return (
+        this.opponents[this.currentOpponentIndex] || {
+          id: null,
+          pseudo: "Chargement...",
+          grid: Array(100).fill(""),
+        }
+      );
+    },
+    // Ennemi actuellement ciblé en mode équipe
+    currentEnemy() {
+      return (
+        this.enemies[this.currentOpponentIndex] || {
+          id: null,
+          pseudo: "Chargement...",
+          grid: Array(100).fill(""),
+        }
+      );
+    },
+  },
+  watch: {
+    playerGrid: {
+      deep: true,
+      handler() {
+        this.updateHeartbeatSpeed();
+      },
+    },
+    gameOver(val) {
+      if (val) this.stopHeartbeat();
+    },
   },
   mounted() {
     this.removeSocketListeners();
-    this.resetGameState();
     this.initGame();
+    this.initAudio();
+    this.playHeartbeat();
 
-    window.addEventListener("keydown", this.preventRefresh);
-    window.addEventListener("popstate", this.preventBack);
-    window.addEventListener("beforeunload", this.preventUnload);
+    socket.on("connect", () => console.log("⚡ Socket connecté"));
 
-    socket.on("connect", () => console.log("⚡ Socket connecté", socket.id));
     socket.on("turn-timer", (data) => {
-      if (data.timeLeft >= 7) {
-        this.clearPendingCells(); // Nettoyer le tour précédent
-      }
+      if (data.timeLeft >= 7) this.clearPendingCells();
       this.socketTurnTimer(data);
     });
-    socket.on("turn-ended", this.endTurn);
-    socket.on("shot-fired", this.onShotFired);
-    socket.on("player-eliminated", this.onPlayerEliminated);
-    socket.on("game-over", this.handleGameOver);
-    socket.on("game-started", this.handleGameStarted);
+
+    socket.on("turn-ended", () => this.endTurn());
+    socket.on("shot-fired", (data) => this.onShotFired(data));
+    socket.on("player-eliminated", (data) => this.onPlayerEliminated(data));
+    socket.on("game-over", (data) => this.handleGameOver(data));
+    socket.on("game-started", (data) => this.handleGameStarted(data));
 
     socket.on("cell-pending", (data) => {
-      const { targetId, index, shooterId } = data; // Ajoute shooterId si le serveur l'envoie
-      console.log(`[LOCK] Le joueur ${shooterId} verrouille la case ${index} chez ${targetId}`);
-
-      const opponent = this.opponents.find((o) => o.id === targetId);
-      if (opponent) {
-        // Si c'est nous qui avons cliqué, on ignore l'event pour ne pas écraser "selected" par "pending"
-        if (shooterId !== this.user.id) {
-          this.updateGridCell(opponent, index, "pending");
-        }
-      }
+      const { targetId, index, shooterId } = data;
+      if (shooterId === this.user.id) return;
+      const pool = this.isTeamMode ? this.enemies : this.opponents;
+      const opponent = pool.find((o) => o.id === targetId);
+      if (opponent) this.updateGridCell(opponent, index, "pending");
     });
 
     socket.on("cell-unlocked", (data) => {
       const { targetId, index } = data;
-      const opponent = this.opponents.find((o) => o.id === targetId);
+      const pool = this.isTeamMode ? this.enemies : this.opponents;
+      const opponent = pool.find((o) => o.id === targetId);
       if (opponent && opponent.grid[index] === "pending") {
-        this.updateGridCell(opponent, index, ""); // La case redevient cliquable
+        this.updateGridCell(opponent, index, "");
       }
-    });
-
-    socket.onAny((eventName, ...args) => {
-      if (this.gameOver) return;
-      console.log(`[SOCKET DEBUG] Reçu: ${eventName}`, args);
     });
   },
   beforeUnmount() {
-    console.log("🧹 Destruction GameBoard");
     clearInterval(this.fetchInterval);
     clearInterval(this.turnInterval);
     this.removeSocketListeners();
-
-    window.removeEventListener("keydown", this.preventRefresh);
-    window.removeEventListener("popstate", this.preventBack);
-    window.removeEventListener("beforeunload", this.preventUnload);
+    this.stopHeartbeat();
   },
   methods: {
     removeSocketListeners() {
-      console.log("🧹 Nettoyage socket");
-      socket.emit("leave-game", { gameId: this.gameId });
-
-      socket.off("turn-timer", this.socketTurnTimer);
-      socket.off("turn-ended", this.endTurn);
-      socket.off("shot-fired", this.onShotFired);
-      socket.off("player-eliminated", this.onPlayerEliminated);
-      socket.off("game-over", this.handleGameOver);
-      socket.off("game-started", this.handleGameStarted);
-      socket.offAny();
+      socket.off("turn-timer");
+      socket.off("turn-ended");
+      socket.off("shot-fired");
+      socket.off("player-eliminated");
+      socket.off("game-over");
+      socket.off("game-started");
+      socket.off("cell-pending");
+      socket.off("cell-unlocked");
     },
 
     /* ----------------- Timer ----------------- */
     socketTurnTimer({ timeLeft }) {
       if (this.gameOver) return;
-
       if (timeLeft >= 7) {
         this.hasFiredThisTurn = false;
         this.turnTimer = 7;
@@ -221,9 +339,8 @@ export default {
       circle.style.strokeDashoffset = offset;
     },
 
-    /* ----------------- Init & Reset ----------------- */
+    /* ----------------- Init ----------------- */
     handleGameStarted(data) {
-      console.log("🚀 La partie commence !");
       this.resetGameState();
       this.turnTimer = data.timeLeft || 7;
       this.updateCircle();
@@ -231,7 +348,6 @@ export default {
     resetGameState() {
       clearInterval(this.turnInterval);
       clearInterval(this.fetchInterval);
-
       this.fetchInterval = null;
       this.turnInterval = null;
       this.turnTimer = 7;
@@ -241,9 +357,9 @@ export default {
       this.popupMessage = "";
       this.playerStatus = "in_game";
       this.hasFiredThisTurn = false;
+      this.isSelecting = false;
     },
     async initGame() {
-      console.log("🛠️ Initialisation du jeu...");
       this.resetGameState();
       await this.fetchPlayerBoard();
 
@@ -301,32 +417,39 @@ export default {
         const data = await res.json();
         if (!data.success) return;
 
-        this.opponents = data.opponents.map((o) => ({ ...o, grid: Array(100).fill("") }));
+        this.myTeamNumber = data.myTeamNumber ?? null;
+        const all = data.opponents.map((o) => ({ ...o, grid: Array(100).fill("") }));
 
-        if (this.opponents.length > 0) {
-          const allParticipantsIds = [...this.opponents.map((o) => o.id), this.user.id].sort();
+        // Mode équipe détecté si myTeamNumber est non null
+        if (this.myTeamNumber !== null) {
+          this.detectedTeamMode = true;
 
-          const myIndex = allParticipantsIds.indexOf(this.user.id);
-
-          const targetId = allParticipantsIds[(myIndex + 1) % allParticipantsIds.length];
-
-          const finalIndex = this.opponents.findIndex((o) => o.id === targetId);
-
-          if (finalIndex !== -1) {
-            this.currentOpponentIndex = finalIndex;
-          } else {
-            this.currentOpponentIndex = 0;
-          }
-
-          console.log(
-            "🔄 Boucle validée : Je suis à la position",
-            myIndex,
-            "et je cible l'ID",
-            targetId,
+          this.allies = all.filter(
+            (o) => o.team_number !== null && Number(o.team_number) === Number(this.myTeamNumber),
           );
+          this.enemies = all.filter(
+            (o) => o.team_number !== null && Number(o.team_number) !== Number(this.myTeamNumber),
+          );
+          this.opponents = all; // référence complète pour applyShot/onShotFired
+          this.currentOpponentIndex = 0;
+        } else {
+          // BR : logique de rotation inchangée
+          this.detectedTeamMode = false;
+          this.opponents = all;
+          this.allies = [];
+          this.enemies = [];
+          if (all.length > 0) {
+            const allIds = [...all.map((o) => Number(o.id)), Number(this.user.id)].sort(
+              (a, b) => a - b,
+            );
+            const myIndex = allIds.indexOf(Number(this.user.id));
+            const targetId = allIds[(myIndex + 1) % allIds.length];
+            const finalIndex = all.findIndex((o) => Number(o.id) === Number(targetId));
+            this.currentOpponentIndex = finalIndex !== -1 ? finalIndex : 0;
+          }
         }
       } catch (err) {
-        console.error("Erreur boucle BR:", err);
+        console.error("Erreur fetchOpponents:", err);
       }
     },
     updateGridCell(opponent, index, value) {
@@ -335,18 +458,43 @@ export default {
       opponent.grid = newGrid;
     },
 
+    async checkGameStatus() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/games/${this.gameId}/status`);
+        const data = await res.json();
+        if (!data.success) return;
+
+        if (data.status === "finished" && !this.gameOver) {
+          this.handleGameOver({
+            winnerId: data.winner_id,
+            winnerTeam: data.winner_team ?? null,
+            isDraw: data.winner_id === null && data.winner_team === null,
+          });
+        }
+      } catch (err) {
+        console.error("Erreur checkGameStatus:", err);
+      }
+    },
+
     /* ----------------- Sélection & Tir ----------------- */
+
+    // Mode 1v1 / BR — inchangé
     selectCell(index) {
-      // --- AJOUT IMPORTANT : on bloque si le joueur a déjà validé son tir ---
-      if (this.gameOver || this.playerStatus === "dead" || this.hasFiredThisTurn) return;
+      if (
+        this.gameOver ||
+        this.playerStatus === "dead" ||
+        this.hasFiredThisTurn ||
+        this.isSelecting ||
+        this.turnTimer === 0
+      )
+        return;
 
       const val = this.currentOpponent.grid[index];
-
-      // Bloquer si déjà cliqué par un autre ou déjà tiré
       if (["hit", "miss", "sunk", "pending"].includes(val)) return;
       if (this.selectedCell === index) return;
 
-      // Libérer l'ancienne case avant d'en prendre une nouvelle
+      this.isSelecting = true;
+
       if (this.selectedCell !== null) {
         const oldIndex = this.selectedCell;
         this.updateGridCell(this.currentOpponent, oldIndex, "");
@@ -358,77 +506,134 @@ export default {
         });
       }
 
-      // Verrouiller la nouvelle
       this.selectedCell = index;
       this.updateGridCell(this.currentOpponent, index, "selected");
-
       socket.emit("lock-cell", {
         gameId: this.gameId,
         targetId: this.currentOpponent.id,
-        index: index,
+        index,
         shooterId: this.user.id,
       });
+
+      setTimeout(() => {
+        this.isSelecting = false;
+      }, 150);
+    },
+
+    // Mode équipe — cliquer sur la grille d'un ennemi précis
+    selectEnemyCell(enemyIndex, cellIndex) {
+      if (
+        this.gameOver ||
+        this.playerStatus === "dead" ||
+        this.hasFiredThisTurn ||
+        this.isSelecting ||
+        this.turnTimer === 0
+      )
+        return;
+
+      const enemy = this.enemies[enemyIndex];
+      if (!enemy) return;
+
+      const val = enemy.grid[cellIndex];
+      if (["hit", "miss", "sunk", "pending"].includes(val)) return;
+
+      this.isSelecting = true;
+
+      // Dé-sélectionner la cellule précédente si elle existe
+      if (this.selectedCell !== null) {
+        const prevEnemy = this.enemies[this.currentOpponentIndex];
+        if (prevEnemy) {
+          this.updateGridCell(prevEnemy, this.selectedCell, "");
+          socket.emit("unlock-cell", {
+            gameId: this.gameId,
+            targetId: prevEnemy.id,
+            index: this.selectedCell,
+            shooterId: this.user.id,
+          });
+        }
+      }
+
+      this.currentOpponentIndex = enemyIndex;
+      this.selectedCell = cellIndex;
+      this.updateGridCell(enemy, cellIndex, "selected");
+      socket.emit("lock-cell", {
+        gameId: this.gameId,
+        targetId: enemy.id,
+        index: cellIndex,
+        shooterId: this.user.id,
+      });
+
+      setTimeout(() => {
+        this.isSelecting = false;
+      }, 150);
     },
 
     clearPendingCells() {
-      this.opponents.forEach((opp) => {
+      const pool = this.isTeamMode ? this.enemies : this.opponents;
+      pool.forEach((opp) => {
         opp.grid = opp.grid.map((cell) => (cell === "pending" || cell === "selected" ? "" : cell));
       });
       this.selectedCell = null;
     },
 
     async validateShot() {
-      if (this.gameOver || this.hasFiredThisTurn) return;
-      let index = this.selectedCell;
+      if (this.gameOver || this.hasFiredThisTurn || this.playerStatus === "dead") return;
 
+      const targetPool = this.isTeamMode ? this.enemies : this.opponents;
+      const target = targetPool[this.currentOpponentIndex];
+      if (!target) return;
+
+      let index = this.selectedCell;
       if (index === null) {
-        // Tir aléatoire si rien n'est sélectionné
-        const available = this.currentOpponent.grid
-          .map((v, i) => (v === "" ? i : null))
-          .filter((i) => i !== null);
+        const available = [];
+        target.grid.forEach((v, i) => {
+          if (!["hit", "miss", "sunk"].includes(v)) available.push(i);
+        });
         if (!available.length) return;
         index = available[Math.floor(Math.random() * available.length)];
-        this.selectedCell = index; // On l'assigne pour le lock visuel
-        this.updateGridCell(this.currentOpponent, index, "selected");
       }
 
       this.hasFiredThisTurn = true;
-      // ON NE SUPPRIME PAS L'ETAT VISUEL ICI ! On attend le retour du serveur.
-      // this.updateGridCell(this.currentOpponent, index, ""); <-- SUPPRIMER CELA
-
-      await this.sendShoot(index);
+      await this.sendShoot(index, target);
     },
 
     onPlayerEliminated(data) {
-      console.log("💀 Joueur éliminé:", data);
-
       if (data.playerId === this.user.id) {
+        if (this.playerStatus === "dead") return; // déjà traité par checkDefeat
         this.playerStatus = "dead";
-        const msg =
-          data.reason === "abandon" ? "🏳️ Éliminé par abandon" : "💥 Tous vos navires ont coulé !";
-        this.showEndPopup(msg);
+        if (this.isTeamMode) {
+          this.enterSpectatorMode();
+        } else {
+          const msg =
+            data.reason === "abandon"
+              ? "🏳️ Éliminé par abandon"
+              : "💥 Tous vos navires ont coulé !";
+          this.showEndPopup(msg);
+        }
         return;
       }
 
-      const isCurrentTarget = this.opponents[this.currentOpponentIndex]?.id === data.playerId;
-
-      this.opponents = this.opponents.filter((opp) => opp.id !== data.playerId);
-
-      if (isCurrentTarget || this.currentOpponentIndex >= this.opponents.length) {
-        this.currentOpponentIndex = 0;
-        this.selectedCell = null;
+      if (this.isTeamMode) {
+        const wasCurrentEnemy = this.enemies[this.currentOpponentIndex]?.id === data.playerId;
+        this.enemies = this.enemies.filter((o) => o.id !== data.playerId);
+        this.allies = this.allies.filter((o) => o.id !== data.playerId);
+        if (wasCurrentEnemy && this.currentOpponentIndex >= this.enemies.length) {
+          this.currentOpponentIndex = 0;
+          this.selectedCell = null;
+        }
+      } else {
+        const isCurrentTarget = this.opponents[this.currentOpponentIndex]?.id === data.playerId;
+        this.opponents = this.opponents.filter((opp) => opp.id !== data.playerId);
+        if (isCurrentTarget || this.currentOpponentIndex >= this.opponents.length) {
+          this.currentOpponentIndex = 0;
+          this.selectedCell = null;
+        }
       }
+      this.opponents = this.opponents.filter((o) => o.id !== data.playerId);
     },
-    async sendShoot(index) {
-      if (this.gameOver || this.playerStatus === "dead") return;
 
-      const targetOpponent = this.opponents[this.currentOpponentIndex];
-      if (!targetOpponent?.id || index == null || index < 0 || index > 99) {
-        console.warn("Tir annulé : coordonnées ou cible invalides", { index, targetOpponent });
-        this.selectedCell = null;
-        return;
-      }
-
+    async sendShoot(index, targetOverride = null) {
+      const target = targetOverride || (this.isTeamMode ? this.currentEnemy : this.currentOpponent);
       const x = index % 10;
       const y = Math.floor(index / 10);
 
@@ -439,92 +644,159 @@ export default {
           body: JSON.stringify({
             gameId: this.gameId,
             playerId: this.user.id,
-            targetId: targetOpponent.id,
+            targetId: target.id,
             x,
             y,
           }),
         });
 
         const data = await res.json();
-        if (!data.success) return console.warn("Tir refusé :", data.message);
-
-        this.applyShot(targetOpponent.id, x, y, data.result, data.positions);
+        if (data.success) {
+          this.applyShot(target.id, x, y, data.result || "pending", data.positions);
+        }
         this.selectedCell = null;
       } catch (err) {
-        console.error(err);
-        this.selectedCell = null;
+        console.error("Erreur sendShoot:", err);
       }
     },
+
     applyShot(targetId, x, y, result, positions) {
       const idx = y * 10 + x;
-      if (targetId === this.user.id) {
-        this.playerGrid[idx].status = result;
-        positions?.forEach((p) => (this.playerGrid[p.y * 10 + p.x].status = "sunk"));
-      } else {
-        const target = this.opponents.find((o) => o.id === targetId);
-        if (!target) return;
-        const newGrid = [...target.grid];
-        newGrid[idx] = result;
-        positions?.forEach((p) => (newGrid[p.y * 10 + p.x] = "sunk"));
-        target.grid = newGrid;
-      }
-    },
-    onShotFired(data) {
-      const { targetId, x, y, result } = data;
-      const idx = y * 10 + x;
+      const resClean = String(result).toLowerCase();
 
-      if (targetId === this.user.id) {
+      if (String(targetId) === String(this.user.id)) {
         const newGrid = [...this.playerGrid];
-        newGrid[idx].status = result;
-        positions?.forEach((p) => (newGrid[p.y * 10 + p.x].status = "sunk"));
+        newGrid[idx] = { ...newGrid[idx], status: resClean };
+        positions?.forEach((p) => {
+          newGrid[p.y * 10 + p.x] = { ...newGrid[p.y * 10 + p.x], status: "sunk" };
+        });
         this.playerGrid = newGrid;
-        this.checkDefeat();
-        return;
       } else {
-        const target = this.opponents.find((o) => o.id === targetId);
+        // Chercher dans opponents (contient tout le monde)
+        const target = this.opponents.find((o) => String(o.id) === String(targetId));
         if (target) {
-          // Le résultat du tir remplace l'état 'pending' ou 'selected'
-          this.updateGridCell(target, idx, result);
+          const newGrid = [...target.grid];
+          newGrid[idx] = resClean;
+          positions?.forEach((p) => (newGrid[p.y * 10 + p.x] = "sunk"));
+          target.grid = newGrid;
         }
       }
-      const target = this.opponents.find((o) => o.id === targetId);
-      if (!target) return;
-      const newGrid = [...target.grid];
-      newGrid[idx] = result;
-      positions?.forEach((p) => (newGrid[p.y * 10 + p.x] = "sunk"));
-      target.grid = newGrid;
     },
 
-    /* ----------------- Enemy shots ----------------- */
+    onShotFired(data) {
+      const { targetId, x, y, result, positions } = data;
+      const idx = parseInt(y) * 10 + parseInt(x);
+      const safeResult = result ? String(result).toLowerCase() : "pending";
+
+      if (String(targetId) === String(this.user.id)) {
+        const newGrid = [...this.playerGrid];
+        newGrid[idx] = { ...newGrid[idx], status: safeResult };
+        if (positions) {
+          positions.forEach((p) => {
+            const pIdx = p.y * 10 + p.x;
+            if (newGrid[pIdx]) newGrid[pIdx] = { ...newGrid[pIdx], status: "sunk" };
+          });
+        }
+        this.playerGrid = newGrid;
+        this.checkDefeat();
+      } else {
+        const target = this.opponents.find((o) => String(o.id) === String(targetId));
+        if (target) {
+          const newGrid = [...target.grid];
+          newGrid[idx] = safeResult;
+          if (positions) positions.forEach((p) => (newGrid[p.y * 10 + p.x] = "sunk"));
+          target.grid = newGrid;
+        }
+      }
+    },
+
     async fetchEnemyShots() {
       try {
         const res = await fetch(
-          `${API_BASE_URL}/api/games/${this.gameId}/shots?playerId=${this.user.id}&t=${Date.now()}`,
+          `${API_BASE_URL}/api/games/${this.gameId}/shots?playerId=${this.user.id}`,
+          { credentials: "include" },
         );
         const data = await res.json();
-        if (!data.success) return;
+        if (!data || !data.success) return;
 
-        if (data.incomingShots) {
-          const newGrid = [...this.playerGrid];
-          data.incomingShots.forEach((s) => {
+        // Ma grille — tirs reçus
+        const incomingShots = data.incomingShots || [];
+        if (incomingShots.length > 0) {
+          const updatedGrid = [...this.playerGrid];
+          let changed = false;
+
+          incomingShots.forEach((s) => {
             const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
-            if (newGrid[idx]) newGrid[idx].status = s.result;
+            if (!updatedGrid[idx]) return;
+            const current = updatedGrid[idx].status;
+            const incoming = s.result ? String(s.result).toLowerCase() : null;
+
+            if (!incoming) {
+              if (current === "") {
+                updatedGrid[idx] = { ...updatedGrid[idx], status: "pending" };
+                changed = true;
+              }
+              return;
+            }
+            if (current === "" || current === "pending") {
+              updatedGrid[idx] = { ...updatedGrid[idx], status: incoming };
+              changed = true;
+            }
+            if (incoming === "sunk" && s.positions) {
+              s.positions.forEach((p) => {
+                const pIdx = p.y * 10 + p.x;
+                if (updatedGrid[pIdx] && updatedGrid[pIdx].status !== "sunk") {
+                  updatedGrid[pIdx] = { ...updatedGrid[pIdx], status: "sunk" };
+                  changed = true;
+                }
+              });
+            }
           });
-          this.playerGrid = newGrid;
+
+          if (changed) {
+            this.playerGrid = updatedGrid;
+            this.$nextTick(() => this.checkDefeat());
+          }
         }
 
-        if (data.playerShots) {
-          data.playerShots.forEach((s) => {
-            const target = this.opponents.find((o) => o.id === s.target_id);
-            if (!target) return;
+        // Mes tirs sur les ennemis
+        const myShots = data.playerShots || [];
+        myShots.forEach((s) => {
+          const target = this.opponents.find((o) => String(o.id) === String(s.target_id));
+          if (target && s.result) {
             const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
-            target.grid[idx] = s.result;
+            if (target.grid[idx] === "" || target.grid[idx] === "selected") {
+              this.updateGridCell(target, idx, String(s.result).toLowerCase());
+            }
+          }
+        });
+
+        // Tirs reçus par les alliés (mode équipe)
+        if (this.isTeamMode && data.allShots) {
+          this.allies.forEach((ally) => {
+            const allyShots = data.allShots.filter(
+              (s) => Number(s.target_id) === Number(ally.id) && s.result && s.state === "resolved",
+            );
+            if (!allyShots.length) return;
+
+            const newGrid = [...ally.grid];
+            allyShots.forEach((s) => {
+              const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
+              const result = String(s.result).toLowerCase();
+              if (newGrid[idx] === "" || newGrid[idx] === "pending") {
+                newGrid[idx] = result;
+              }
+              if (result === "sunk" && s.positions) {
+                s.positions.forEach((p) => {
+                  newGrid[p.y * 10 + p.x] = "sunk";
+                });
+              }
+            });
+            ally.grid = newGrid;
           });
         }
-
-        this.checkDefeat();
       } catch (err) {
-        console.error("Erreur Sync Shots:", err.message);
+        console.error("Erreur Sync Shots:", err);
       }
     },
 
@@ -536,50 +808,62 @@ export default {
       clearInterval(this.turnInterval);
       this.removeSocketListeners();
 
-      let msg = payload.isDraw
-        ? "⚖️ Égalité parfaite !"
-        : payload.winnerId === this.user.id
-          ? "🏆 Victoire !"
-          : "💥 Défaite !";
+      let msg;
+      if (payload.isDraw) {
+        msg = "⚖️ Égalité parfaite !";
+      } else if (this.isTeamMode && payload.winnerTeam != null) {
+        msg =
+          Number(payload.winnerTeam) === Number(this.myTeamNumber)
+            ? "🏆 Victoire !"
+            : "💥 Défaite !";
+      } else {
+        msg = String(payload.winnerId) === String(this.user.id) ? "🏆 Victoire !" : "💥 Défaite !";
+      }
 
       this.showEndPopup(msg);
     },
+
     async abandonGame() {
       if (!confirm("Voulez-vous vraiment abandonner ?")) return;
       try {
         const res = await fetch(`${API_BASE_URL}/api/games/eliminate-player`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            gameId: this.gameId,
-            playerId: this.user.id,
-            reason: "abandon",
-          }),
+          body: JSON.stringify({ gameId: this.gameId, playerId: this.user.id, reason: "abandon" }),
         });
         const data = await res.json();
+        if (!data.success) return console.warn(data.message);
 
-        if (data.success) {
-          this.playerStatus = "dead";
-          this.showEndPopup("🏳️ Abandon confirmé. Vous avez quitté la partie.");
+        this.playerStatus = "dead";
+        if (data.finished) {
+          const myTeamWon = this.isTeamMode ? data.winner_team === this.myTeamNumber : false;
+          this.showEndPopup(myTeamWon ? "🏆 Victoire !" : "🏳️ Abandon confirmé.");
+        } else if (this.isTeamMode) {
+          this.enterSpectatorMode();
         } else {
-          console.warn(data.message);
+          this.showEndPopup("🏳️ Abandon confirmé. Vous avez quitté la partie.");
         }
       } catch (err) {
         console.error(err);
       }
     },
-    showEndPopup(msg, force = false) {
+
+    showEndPopup(msg) {
       this.popupMessage = msg;
       this.endPopup = true;
-      if (!force) this.gameOver = true;
-
+      this.gameOver = true;
       clearInterval(this.fetchInterval);
       clearInterval(this.turnInterval);
-
-      if (!force) this.removeSocketListeners();
-
+      this.removeSocketListeners();
       this.turnTimer = 7;
       this.updateCircle();
+    },
+
+    enterSpectatorMode() {
+      this.isSpectator = true;
+      this.playerStatus = "dead";
+      this.selectedCell = null;
+      // On garde fetchInterval actif pour voir la partie en temps réel
     },
 
     async checkDefeat() {
@@ -600,13 +884,19 @@ export default {
         if (!data.success) return console.warn(data.message);
 
         if (data.finished) {
-          const msg =
-            data.winner_id === this.user.id
+          const myTeamWon = this.isTeamMode
+            ? data.winner_team === this.myTeamNumber
+            : data.winner_id === this.user.id;
+
+          const msg = data.is_draw
+            ? "⚖️ Égalité parfaite !"
+            : myTeamWon
               ? "🏆 Victoire !"
-              : data.winner_id === null
-                ? "⚖️ Égalité parfaite !"
-                : "💥 Défaite !";
+              : "💥 Défaite !";
           this.showEndPopup(msg);
+        } else if (this.isTeamMode) {
+          // Mon équipe est encore en vie — je passe en spectateur
+          this.enterSpectatorMode();
         } else {
           this.showEndPopup("💥 Tous vos bateaux sont coulés !");
         }
@@ -615,18 +905,35 @@ export default {
       }
     },
 
+    /* ----------------- Audio ----------------- */
+    initAudio() {
+      this.heartbeatAudio = new Audio(heartbeatSrc);
+      this.heartbeatAudio.loop = true;
+      this.heartbeatAudio.volume = 0.5;
+    },
+    playHeartbeat() {
+      this.heartbeatAudio?.play().catch(() => {});
+    },
+    stopHeartbeat() {
+      if (this.heartbeatAudio) {
+        this.heartbeatAudio.pause();
+        this.heartbeatAudio.currentTime = 0;
+      }
+    },
+    updateHeartbeatSpeed() {
+      if (!this.heartbeatAudio) return;
+      const ships = {};
+      this.playerGrid.forEach((cell) => {
+        if (cell.shipNumber > 0 && cell.status !== "hit" && cell.status !== "sunk") {
+          ships[cell.shipNumber] = true;
+        }
+      });
+      this.heartbeatAudio.playbackRate = Object.keys(ships).length === 1 ? 2.0 : 1.0;
+    },
+
     /* ----------------- Navigation ----------------- */
     goHome() {
       this.$router.push("/");
-    },
-    preventRefresh(e) {
-      e.preventDefault();
-    },
-    preventBack(e) {
-      e.preventDefault();
-    },
-    preventUnload(e) {
-      e.preventDefault();
     },
   },
 };
@@ -693,19 +1000,18 @@ body {
 /* WRAPPER DES GRILLES */
 .grids-wrapper {
   display: flex;
-  gap: 40px;
-  align-items: center;
+  justify-content: center;
+  align-items: center; /* Centre verticalement par défaut pour le 1v1 */
+  gap: 30px;
   width: 100%;
   max-width: 1200px;
-  justify-content: center;
-  flex-wrap: wrap;
-  overflow: hidden;
+  margin: 0 auto;
+  flex-wrap: wrap; /* 👈 INDISPENSABLE pour que rien ne s'écrase en 1vs1 ! */
 }
 
 .grid-section {
-  flex: 1 1 300px;
   width: 100%;
-  max-width: 100%;
+  max-width: 350px; /* Taille pour Ta flotte et les Ennemis */
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -811,7 +1117,9 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 120px;
+  width: 120px;
+  flex-shrink: 0;
+  align-self: center; /* Reste au milieu verticalement naturellement */
 }
 
 .timer-circle {
@@ -846,6 +1154,18 @@ body {
 }
 
 @media (max-width: 850px) {
+  .team-left {
+    order: 1;
+  }
+  .timer-container {
+    order: 2;
+    position: static; /* On retire le sticky sur mobile */
+    margin: 10px 0;
+  }
+  .team-right {
+    order: 3;
+  }
+
   .battle-container {
     padding-top: 80px;
   }
@@ -873,10 +1193,11 @@ body {
   }
 
   /* RE-ORGANISATION SUR MOBILE */
-  .grids-wrapper {
+  .grids-wrapper,
+  .team-layout {
     flex-direction: column;
-    gap: 10px;
-    padding: 0 5px;
+    align-items: center;
+    gap: 20px;
   }
 
   .grid-title {
@@ -976,5 +1297,91 @@ body {
 .timer-low {
   stroke: #ff4444 !important;
   filter: drop-shadow(0 0 5px #ff4444);
+}
+
+/* Layout mode équipe */
+.team-layout {
+  align-items: flex-start; /* Permet aux listes gauche/droite de s'étirer vers le bas sans se déformer */
+}
+
+.team-left,
+.team-right {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  flex: 1 1 300px; /* 👈 Permet de s'adapter ou de passer à la ligne proprement */
+  align-items: center;
+  width: 100%;
+}
+
+.ally-section {
+  width: 100%;
+  max-width: 250px; /* 👈 Plus petit pour entourer parfaitement la petite grille sans faire un gros carré vide */
+  background: rgba(0, 200, 80, 0.05);
+  border: 1px solid rgba(0, 200, 80, 0.2);
+  border-radius: 10px;
+  padding: 15px;
+  box-sizing: border-box;
+}
+
+.ally-title {
+  color: #4caf50 !important;
+  font-size: 0.9rem !important;
+}
+
+.enemy-title {
+  color: #ef5350 !important;
+  transition: opacity 0.2s;
+}
+
+.enemy-title:hover {
+  opacity: 0.8;
+}
+
+.active-target {
+  text-shadow: 0 0 8px rgba(255, 100, 100, 0.6);
+}
+
+.target-indicator {
+  font-size: 0.7rem;
+  color: #ff8a80;
+  margin-left: 6px;
+}
+
+.ally-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  grid-template-rows: repeat(10, 1fr);
+  gap: 1px;
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: 1 / 1;
+}
+
+.ally-cell {
+  width: 100%;
+  height: 100%;
+  cursor: default;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ally-cell:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.spectator-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background: rgba(239, 83, 80, 0.15);
+  border-bottom: 1px solid rgba(239, 83, 80, 0.4);
+  color: #ef5350;
+  text-align: center;
+  padding: 8px;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  z-index: 50;
 }
 </style>

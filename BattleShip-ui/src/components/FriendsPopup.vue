@@ -163,6 +163,7 @@ export default {
     async fetchInvitations() {
       try {
         const res = await api.get(`/invitation/${this.userId}`);
+        //console.log("Invitations reçues pour l'ami :", res.data.invitations);
         invitationStore.invitations = Array.isArray(res.data.invitations)
           ? res.data.invitations
           : [];
@@ -190,25 +191,29 @@ export default {
 
     async acceptInvitation(inv) {
       try {
+        // On utilise les noms de colonnes renvoyés par ton SELECT SQL
+        const inviteId = inv.ID;
+        const gameId = inv.id_game;
+
         const res = await api.post("/invitation/respond", {
           userId: this.userId,
-          inviteId: inv.ID,
-          gameId: inv.id_game,
-          senderId: inv.sender_id,
+          inviteId: inviteId,
           accept: true,
         });
 
         if (res.data.success) {
-          removeInvitation(inv.ID);
-          // Rejoindre la partie officiellement
-          await api.post("/games/join", {
-            gameId: inv.id_game,
-            playerId: this.userId,
-          });
-          this.$router.push(`/waiting-room/${inv.id_game}`);
+          // Nettoyage du store local
+          removeInvitation(inviteId);
+
+          // Redirection directe vers la salle d'attente
+          this.$router.push(`/waiting-room/${gameId}`);
+
+          // Fermeture de la popup
+          this.$emit("close");
         }
       } catch (err) {
-        console.error("❌ Erreur acceptInvitation :", err);
+        console.error("Erreur lors de l'acceptation :", err);
+        alert("Impossible de rejoindre la partie.");
       }
     },
 

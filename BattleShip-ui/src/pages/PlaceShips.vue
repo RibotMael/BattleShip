@@ -512,4 +512,68 @@ button {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 10px;
 }
+
+/* -------------------------------------------
+   Effets de clic et interactions (UX)
+------------------------------------------- */
+
+/* 1. Effet sur tous les boutons (Valider, Aléatoire, Rotation) */
+button:active:not(:disabled) {
+  transform: scale(0.92);
+  filter: brightness(0.8);
+  transition: transform 0.1s;
+}
+
+/* 2. Effet spécifique sur les cases de la grille au clic */
+.cell:active {
+  transform: scale(0.85);
+  background-color: #2980b9; /* Change légèrement de bleu au clic */
+  transition: transform 0.05s;
+}
+
+/* 3. Effet sur les cartes de la flotte (sur le côté) */
+.ship-card {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ship-card:hover:not(.placed) {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateX(5px); /* Petit décalage vers la droite au survol */
+}
+
+.ship-card:active {
+  transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 4. Amélioration visuelle du bouton Valider quand il est prêt */
+.validate-btn:not(:disabled) {
+  animation: pulse-green 2s infinite;
+  box-shadow: 0 0 0 0 rgba(39, 174, 96, 0.7);
+}
+
+@keyframes pulse-green {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 5. Feedback visuel sur le bouton Aléatoire */
+.random-btn:hover {
+  filter: brightness(1.1);
+}
+
+/* 6. Style pour les boutons désactivés */
+button:disabled {
+  filter: grayscale(1);
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 </style>

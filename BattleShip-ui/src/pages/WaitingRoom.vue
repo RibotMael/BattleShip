@@ -1,3 +1,4 @@
+<!--WaintingRoom.vue-->
 <template>
   <div class="page-fixed">
     <div class="room-wrapper">
@@ -21,15 +22,17 @@
               <button
                 class="btn-invite"
                 @click="inviteFriend(getUserId(friend))"
-                :disabled="!game?.ID_Game || !friend.isOnline || isPlayerInGame(getUserId(friend))"
+                :disabled="!game?.ID_Game || isPlayerInGame(getUserId(friend))"
               >
                 {{ isPlayerInGame(getUserId(friend)) ? "✓" : "+" }}
               </button>
             </div>
           </div>
+          <!--
           <button v-if="isHost && friends.length > 0" @click="inviteAllFriends" class="btn-all">
             Tout inviter
           </button>
+          -->
         </aside>
 
         <main class="panel main-panel">
@@ -129,13 +132,11 @@
               </p>
             </div>
 
-                       
             <button v-if="isHost" class="btn-start" :disabled="!canStartGame" @click="startGame">
-                            Lancer la partie            
+              Lancer la partie
             </button>
-                        <button @click="leaveRoom" class="btn-leave">Quitter</button>            
+            <button @click="leaveRoom" class="btn-leave">Quitter</button>
             <p v-if="errorMsg" class="err">{{ errorMsg }}</p>
-                     
           </footer>
         </main>
       </div>
@@ -178,10 +179,14 @@ export default {
       return this.playersWithMe.filter((p) => !this.teamAssignments[this.getUserId(p)]);
     },
     team1Players() {
-      return this.playersWithMe.filter((p) => this.teamAssignments[this.getUserId(p)] === 1);
+      return this.playersWithMe.filter(
+        (p) => Number(this.teamAssignments[this.getUserId(p)]) === 1,
+      );
     },
     team2Players() {
-      return this.playersWithMe.filter((p) => this.teamAssignments[this.getUserId(p)] === 2);
+      return this.playersWithMe.filter(
+        (p) => Number(this.teamAssignments[this.getUserId(p)]) === 2,
+      );
     },
     canStartGame() {
       if (!this.game || !this.isHost) return false;
@@ -236,7 +241,8 @@ export default {
   },
   methods: {
     getUserId(obj) {
-      return obj.ID_Users || obj.id_users || obj.id || obj.ID;
+      if (!obj) return null;
+      return Number(obj.ID_Users || obj.id_users || obj.id || obj.id_player || obj.ID);
     },
     isPlayerInGame(id) {
       return this.playersWithMe.some((p) => Number(this.getUserId(p)) === Number(id));
@@ -260,33 +266,40 @@ export default {
           return false;
         }
 
+        const g = data.game;
         this.game = {
-          ID_Game: data.game.id_Game || data.game.ID_Game,
-          id_creator: data.game.id_creator || data.game.ID_Creator,
-          status: data.game.status,
-          mode: data.game.id_game_type === 1 ? "battle_royale" : "classic",
-          TotalPlayers: data.game.TotalPlayers,
+          ID_Game: g.id_Game || g.ID_Game,
+          id_creator: g.id_creator || g.ID_Creator,
+          status: g.status,
+          // On s'assure que le mode est bien détecté
+          mode: Number(g.id_game_type) === 1 ? "battle_royale" : "classic",
+          TotalPlayers: g.TotalPlayers || 2,
         };
 
         this.players = Array.isArray(data.players) ? data.players : [];
         this.isHost = Number(this.userId) === Number(this.game.id_creator);
 
-        // Sync des équipes
+        // CORRECTION ICI : Utilisation de team_number pour la synchronisation
         const newAssign = {};
         this.players.forEach((p) => {
-          if (p.team) newAssign[this.getUserId(p)] = p.team;
+          const pId = this.getUserId(p);
+          // On vérifie team_number qui vient de ta BDD
+          if (p.team_number !== undefined && p.team_number !== null) {
+            newAssign[pId] = Number(p.team_number);
+          }
         });
         this.teamAssignments = newAssign;
 
-        // Auto-redirection si la partie commence
         if (this.game.status === "placement") {
           this.$router.replace({ name: "PlaceShips", params: { gameId: this.game.ID_Game } });
         }
         return true;
       } catch (err) {
+        console.error("Erreur fetchGame:", err);
         return false;
       }
     },
+
     async initRoom() {
       await this.fetchGame();
       await this.fetchFriends();
@@ -297,22 +310,46 @@ export default {
       this.polling = setInterval(() => this.fetchGame(), 3000);
     },
     async inviteFriend(friendId) {
+      // Debug pour vérifier que l'ID est bien là au moment du clic
+      console.log("Invitation envoyée pour le jeu :", this.game?.ID_Game, "à l'ami :", friendId);
+
+      if (!this.game?.ID_Game || !friendId) {
+        this.errorMsg = "Données d'invitation manquantes.";
+        return;
+      }
+
       try {
-        await api.post("/invitation", {
-          gameId: this.game.ID_Game,
-          senderId: this.userId,
-          receiverId: friendId,
+        const response = await api.post("/invitation", {
+          gameId: Number(this.game.ID_Game),
+          senderId: Number(this.userId),
+          receiverId: Number(friendId),
         });
+
+        if (response.data.success) {
+          // Optionnel : un petit feedback visuel
+          console.log("Invitation réussie");
+        } else {
+          alert("Erreur : " + response.data.message);
+        }
       } catch (err) {
-        this.errorMsg = "Erreur invitation.";
+        console.error("Erreur serveur lors de l'invitation:", err.response?.data || err.message);
+        this.errorMsg = "Impossible de joindre le service d'invitation.";
       }
     },
     async assignTeam(playerId, team) {
       try {
-        await api.post("/games/assign-team", { gameId: this.game.ID_Game, playerId, team });
-        this.fetchGame();
+        // On envoie 'team' à l'API (ton backend s'occupe de mapper vers team_number)
+        await api.post("/games/assign-team", {
+          gameId: Number(this.game.ID_Game),
+          playerId: Number(playerId),
+          team: team, // peut être 1, 2 ou null
+        });
+
+        // On rafraîchit immédiatement les données pour déplacer le joueur visuellement
+        await this.fetchGame();
       } catch (err) {
-        console.error(err);
+        console.error("Erreur assignation équipe:", err);
+        this.errorMsg = "Erreur lors du changement d'équipe.";
       }
     },
     async leaveRoom() {
@@ -321,6 +358,29 @@ export default {
         this.$router.push("/gamemode");
       } catch (err) {
         console.error(err);
+      }
+    },
+    async kickPlayer(playerId) {
+      if (this.getUserId({ id: playerId }) === this.userId) return;
+      if (!confirm("Voulez-vous vraiment exclure ce joueur ?")) return;
+      try {
+        await api.post("/games/kick", {
+          gameId: this.game.ID_Game,
+          playerId: Number(playerId),
+        });
+        await this.fetchGame();
+      } catch (err) {
+        console.error("Erreur lors du kick:", err);
+      }
+    },
+
+    // N'oublie pas d'ajouter aussi inviteAllFriends si tu l'utilises dans le template !
+    async inviteAllFriends() {
+      const onlineFriends = this.friends.filter(
+        (f) => f.isOnline && !this.isPlayerInGame(this.getUserId(f)),
+      );
+      for (const friend of onlineFriends) {
+        await this.inviteFriend(this.getUserId(friend));
       }
     },
     async startGame() {
@@ -610,5 +670,33 @@ export default {
     height: auto;
     min-height: 100vh;
   }
+}
+
+/* -------------------------------------------
+   Effet visuel de clic (Feedback UX)
+------------------------------------------- */
+
+/* 1. On s'assure que tous les boutons ont une transition fluide */
+button {
+  transition: all 0.15s ease-out;
+}
+
+/* 2. L'effet principal quand on clique (sauf si le bouton est désactivé) */
+button:active:not(:disabled) {
+  transform: scale(0.9); /* Le bouton rétrécit légèrement (effet d'enfoncement) */
+  opacity: 0.8; /* Il s'assombrit/devient très légèrement transparent */
+}
+
+/* 3. Effet "pressé" spécifique pour les boutons d'action en bas (Lancer/Quitter) */
+.btn-start:active:not(:disabled),
+.btn-leave:active:not(:disabled) {
+  box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.5); /* Ajoute une ombre interne pour accentuer la profondeur */
+}
+
+/* 4. On s'assure que les boutons désactivés (ex: amis déjà en jeu) ont l'air inactifs */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none; /* Empêche l'effet de clic si désactivé */
 }
 </style>

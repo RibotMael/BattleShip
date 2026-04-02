@@ -1,5 +1,8 @@
 <template>
   <div class="rules-container">
+    <button @click="$router.push('/')" class="back-button">
+      <span class="icon">⬅</span> Retour au quartier général
+    </button>
     <div class="content-wrapper">
       <header class="rules-header">
         <h1>⚓ Règles du jeu – BattleShip</h1>
@@ -131,10 +134,6 @@
           <li><strong>Création</strong> : Créer votre propre partie (public/privé, mode).</li>
         </ul>
       </section>
-
-      <button @click="$router.push('/')" class="back-button">
-        <span class="icon">⬅</span> Retour au quartier général
-      </button>
     </div>
   </div>
 </template>
@@ -351,27 +350,56 @@ ul:not(.timeline-list) li::before {
 }
 
 .back-button {
-  align-self: center;
-  margin-top: 1rem;
-  padding: 1rem 2rem;
-  font-size: 1.1rem;
+  /* Positionnement fixe */
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1000; /* Pour passer par-dessus les cartes et le texte */
+
+  /* Style du bouton */
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
   font-weight: bold;
   color: white;
-  background: linear-gradient(135deg, #0ea5e9, #0284c7);
-  border: none;
+  background: rgba(14, 165, 233, 0.8); /* Semi-transparent pour le style */
+  backdrop-filter: blur(8px); /* Effet de flou derrière le bouton */
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 50px;
   cursor: pointer;
-  box-shadow: 0 4px 15px rgba(2, 132, 199, 0.4);
-  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  width: auto;
 }
 
+/* Effet au survol */
 .back-button:hover {
+  background: rgba(14, 165, 233, 1);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(2, 132, 199, 0.6);
-  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+  box-shadow: 0 6px 20px rgba(2, 132, 199, 0.5);
+}
+
+.back-button:active {
+  transform: scale(0.95) translateY(0);
+  background: #0284c7;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 850px) {
+  .back-button {
+    position: sticky; /* Devient collant au lieu de fixe sur petit écran */
+    top: 10px;
+    margin-bottom: -40px; /* Évite de décaler tout le contenu */
+    left: 50%;
+    transform: translateX(-50%);
+    width: fit-content;
+  }
+
+  .back-button:active {
+    transform: translateX(-50%) scale(0.95);
+  }
 }
 
 @media (max-width: 600px) {

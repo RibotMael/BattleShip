@@ -201,7 +201,7 @@ router.get("/:id", async (req, res) => {
       gp.id_player AS ID_Users, 
       u.Pseudo, 
       u.Avatar,
-      gp.team_number AS team,  -- On récupère le numéro d'équipe ici
+      gp.team_number,  
       IFNULL(pb.validated, 0) AS validated
     FROM game_players gp
     JOIN users u ON u.ID_Users = gp.id_player
@@ -745,7 +745,8 @@ router.get("/:gameId/shots", async (req, res) => {
     res.json({ 
       success: true, 
       incomingShots, 
-      playerShots 
+      playerShots,
+      allShots: enhancedShots 
     });
   } catch (err) {
     console.error("❌ Erreur /shots :", err);
@@ -761,32 +762,30 @@ router.get("/:gameId/shots", async (req, res) => {
 router.get("/:gameId/opponents", async (req, res) => {
   const { gameId } = req.params;
   const playerId = Number(req.query.playerId);
-
-  if (!gameId || !playerId) 
+  if (!gameId || !playerId)
     return res.status(400).json({ success: false, message: "Paramètres manquants" });
-
   try {
     const [players] = await db.query(
-      `SELECT u.ID_Users as id, u.pseudo
-        FROM users u
-        JOIN game_players gp ON u.ID_Users = gp.id_player
-        WHERE gp.id_game = ? AND u.ID_Users != ?
-        `,
+      `SELECT u.ID_Users as id, u.pseudo, gp.team_number
+       FROM users u
+       JOIN game_players gp ON u.ID_Users = gp.id_player
+       WHERE gp.id_game = ? AND u.ID_Users != ?`,
       [gameId, playerId]
     );
-
-    if (!players.length) 
+    const [[myPlayer]] = await db.query(
+      `SELECT team_number FROM game_players WHERE id_game = ? AND id_player = ?`,
+      [gameId, playerId]
+    );
+    if (!players.length)
       return res.status(404).json({ success: false, message: "Aucun adversaire disponible" });
-
-    res.json({ success: true, opponents: players });
+    res.json({ success: true, opponents: players, myTeamNumber: myPlayer?.team_number ?? null });
   } catch (err) {
-    console.error("Erreur fetchOpponents :", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
 
 router.post("/eliminate-player", async (req, res) => {
-  const { gameId, playerId, reason } = req.body; 
+  const { gameId, playerId, reason } = req.body;
 
   if (!gameId || !playerId || !["abandon", "shot"].includes(reason)) {
     return res.status(400).json({ success: false, message: "Paramètres invalides" });
@@ -797,70 +796,65 @@ router.post("/eliminate-player", async (req, res) => {
     await conn.beginTransaction();
 
     const newStatus = reason === "abandon" ? "left" : "dead";
-    const [update] = await conn.query(
-      `UPDATE game_players
-      SET player_status = ?
-      WHERE id_game = ? AND id_player = ? AND (player_status = 'in_game' OR player_status IS NULL)`,
+    await conn.query(
+      `UPDATE game_players SET player_status = ?
+       WHERE id_game = ? AND id_player = ? AND (player_status = 'in_game' OR player_status IS NULL)`,
       [newStatus, gameId, playerId]
     );
 
-    // Récupérer type de partie et joueurs restants
-    const [[game]] = await conn.query(`
-      SELECT t.name AS game_type
-      FROM games g
-      JOIN type t ON t.id_Type = g.id_game_type
-      WHERE g.id_Game = ?`, [gameId]);
-
-    // Récupérer les joueurs encore en vie
     const [players] = await conn.query(
-      "SELECT id_player, player_status FROM game_players WHERE id_game = ?",
+      "SELECT id_player, player_status, team_number FROM game_players WHERE id_game = ?",
       [gameId]
     );
 
-    const alivePlayers = players.filter(p => p.player_status === "in_game");
+    const alivePlayers = players.filter((p) => p.player_status === "in_game");
+    const isTeamMode = players.some((p) => p.team_number !== null);
 
     let finished = false;
     let winnerId = null;
+    let winnerTeam = null;
     let isDraw = false;
 
-    // ÉGALITÉ
-    if (alivePlayers.length === 0) {
-      finished = true;
-      isDraw = true;
+    if (isTeamMode) {
+      const aliveTeams = [...new Set(alivePlayers.map((p) => p.team_number).filter((t) => t !== null))];
 
-      await conn.query(
-        "UPDATE games SET status = 'finished', winner_id = NULL WHERE id_Game = ?",
-        [gameId]
-      );
-    }
-
-    // DERNIER SURVIVANT
-    else if (alivePlayers.length === 1) {
-      finished = true;
-      winnerId = alivePlayers[0].id_player;
-
-      await conn.query(
-        "UPDATE games SET status = 'finished', winner_id = ? WHERE id_Game = ?",
-        [winnerId, gameId]
-      );
+      if (aliveTeams.length === 0) {
+        finished = true;
+        isDraw = true;
+        await conn.query("UPDATE games SET status='finished', winner_id=NULL WHERE id_Game=?", [gameId]);
+      } else if (aliveTeams.length === 1) {
+        finished = true;
+        winnerTeam = aliveTeams[0];
+        const winner = alivePlayers.find((p) => p.team_number === winnerTeam);
+        winnerId = winner?.id_player ?? null;
+        await conn.query("UPDATE games SET status='finished', winner_id=? WHERE id_Game=?", [winnerId, gameId]);
+      }
+    } else {
+      if (alivePlayers.length === 0) {
+        finished = true;
+        isDraw = true;
+        await conn.query("UPDATE games SET status='finished', winner_id=NULL WHERE id_Game=?", [gameId]);
+      } else if (alivePlayers.length === 1) {
+        finished = true;
+        winnerId = alivePlayers[0].id_player;
+        await conn.query("UPDATE games SET status='finished', winner_id=? WHERE id_Game=?", [winnerId, gameId]);
+      }
     }
 
     await conn.commit();
 
-    // Envoyer événements Socket.io
     if (finished) {
-      if (typeof stopGameTimer === "function") {
-        stopGameTimer(gameId);
-      }
-      
-      io.to(gameId).emit("game-over", {
-        winnerId,
-        isDraw
-      });
+      if (typeof stopGameTimer === "function") stopGameTimer(gameId);
+      io.to(String(gameId)).emit("game-over", { winnerId, winnerTeam, isDraw });
     } else {
-      io.to(gameId).emit("player-eliminated", {
+      const [[eliminated]] = await conn.query(
+        "SELECT team_number FROM game_players WHERE id_game=? AND id_player=?",
+        [gameId, playerId]
+      );
+      io.to(String(gameId)).emit("player-eliminated", {
         playerId,
         reason,
+        teamNumber: eliminated?.team_number ?? null,
         aliveCount: alivePlayers.length,
       });
     }
@@ -869,11 +863,9 @@ router.post("/eliminate-player", async (req, res) => {
       success: true,
       finished,
       winner_id: winnerId,
-      message: reason === "abandon"
-        ? "💀 Joueur a abandonné"
-        : "💀 Joueur éliminé"
+      winner_team: winnerTeam,
+      is_draw: isDraw,
     });
-
   } catch (err) {
     await conn.rollback();
     console.error("Erreur eliminate-player:", err);
@@ -909,6 +901,21 @@ router.get("/:id/status", async (req, res) => {
     // Partie terminée déjà enregistrée 
     if (game.status === "finished") {
       stopGameTimer(gameId); 
+
+      if (game.winner_id) {
+        const [[wp]] = await db.query(
+          "SELECT team_number FROM game_players WHERE id_game=? AND id_player=?",
+          [gameId, game.winner_id]
+        );
+        winnerTeam = wp?.team_number ?? null;
+      }
+
+      return res.json({
+        success: true,
+        status: "finished",          // ← champ cohérent avec Vue
+        winner_id: game.winner_id,
+        winner_team: winnerTeam,
+      });
 
       const winner = game.winner_id;
       let resultType = "draw";
