@@ -652,7 +652,7 @@ export default {
 
         const data = await res.json();
         if (data.success) {
-          this.applyShot(target.id, x, y, data.result || "pending", data.positions);
+          this.applyShot(target.id, x, y, "pending", data.positions);
         }
         this.selectedCell = null;
       } catch (err) {
@@ -765,7 +765,7 @@ export default {
           const target = this.opponents.find((o) => String(o.id) === String(s.target_id));
           if (target && s.result) {
             const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
-            if (target.grid[idx] === "" || target.grid[idx] === "selected") {
+            if (!["hit", "miss", "sunk"].includes(target.grid[idx])) {
               this.updateGridCell(target, idx, String(s.result).toLowerCase());
             }
           }
