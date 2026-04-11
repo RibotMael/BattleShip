@@ -400,6 +400,26 @@ router.post("/leave", async (req, res) => {
   }
 });
 
+// GET /api/games/:gameId/timer — utilisé par Vue pour se resynchroniser
+router.get("/:gameId/timer", async (req, res) => {
+  const { gameId } = req.params;
+  try {
+    const [[game]] = await db.query(
+      "SELECT last_turn_timestamp FROM games WHERE id_Game = ?",
+      [gameId]
+    );
+    if (!game) return res.status(404).json({ success: false });
+
+    const elapsed = Math.floor(Date.now() / 1000) - (game.last_turn_timestamp || 0);
+    const timeLeft = Math.max(0, Math.min(7, 7 - elapsed));
+
+    res.json({ success: true, timeLeft });
+  } catch (err) {
+    console.error("❌ Erreur /timer :", err);
+    res.status(500).json({ success: false });
+  }
+});
+
 // Supprimer la partie (seul l’hôte)
 router.delete("/delete/:gameId", async (req, res) => {
   const { gameId } = req.params;
@@ -878,113 +898,47 @@ router.post("/eliminate-player", async (req, res) => {
 // Vérifie si la partie est terminée et qui a gagné
 router.get("/:id/status", async (req, res) => {
   const gameId = req.params.id;
-  const playerId = Number(req.query.playerId);
-
-  if (!gameId || !playerId) 
-    return res.status(400).json({ success: false, message: "Paramètres manquants" });
 
   try {
     const [gameRows] = await db.query(
-      "SELECT status, winner_id, id_game_mode FROM games WHERE id_Game = ?",
+      "SELECT status, winner_id FROM games WHERE id_Game = ?",
       [gameId]
     );
 
-    if (!gameRows.length) return res.status(404).json({ success: false, message: "Partie introuvable" });
+    if (!gameRows.length)
+      return res.status(404).json({ success: false, message: "Partie introuvable" });
 
     const game = gameRows[0];
 
-    // Mapper id_game_mode en string
-    let mode = "1v1";
-    if (game.id_game_mode === 2) mode = "battle_royale";
-    game.mode = mode;
-
-    // Partie terminée déjà enregistrée 
     if (game.status === "finished") {
-      stopGameTimer(gameId); 
+      stopGameTimer(gameId);
 
+      let winnerTeam = null;
       if (game.winner_id) {
         const [[wp]] = await db.query(
-          "SELECT team_number FROM game_players WHERE id_game=? AND id_player=?",
+          "SELECT team_number FROM game_players WHERE id_game = ? AND id_player = ?",
           [gameId, game.winner_id]
         );
         winnerTeam = wp?.team_number ?? null;
       }
 
+      // ✅ Notifier tous les joueurs connectés via socket
+      // (couvre le cas où quit_game.php finit la partie sans passer par Node.js)
+      io.to(String(gameId)).emit("game-over", {
+        winnerId: game.winner_id,
+        winnerTeam,
+        isDraw: game.winner_id === null,
+      });
+
       return res.json({
         success: true,
-        status: "finished",          // ← champ cohérent avec Vue
+        status: "finished",
         winner_id: game.winner_id,
         winner_team: winnerTeam,
       });
-
-      const winner = game.winner_id;
-      let resultType = "draw";
-      if (winner === playerId) resultType = "win";
-      else if (winner && winner !== playerId) resultType = "lose";
-
-      return res.json({
-        success: true,
-        finished: true,
-        winner,
-        result: resultType,
-        message: winner === null ? "⚖️ Égalité !" : (winner === playerId ? "🏆 Victoire !" : "💥 Défaite !")
-      });
     }
 
-    // Détection de la fin de partie (Battle Royale) 
-    if (game.mode === "battle_royale") {
-      const [players] = await db.query(
-        "SELECT id_player, player_status FROM game_players WHERE id_game = ?",
-        [gameId]
-      );
-
-      const alivePlayers = players.filter(p => p.player_status === "in_game");
-
-      // ÉGALITÉ 
-      if (alivePlayers.length === 0) {
-        await db.query(
-          "UPDATE games SET status = 'finished', winner_id = NULL WHERE id_Game = ?",
-          [gameId]
-        );
-
-        // ARRÊT DU TIMER SERVEUR
-        stopGameTimer(gameId);
-
-        return res.json({
-          success: true,
-          finished: true,
-          winner: null,
-          result: "draw",
-          message: "⚖️ Égalité parfaite !"
-        });
-      }
-
-      // VICTOIRE
-      if (alivePlayers.length === 1) {
-        const winnerId = alivePlayers[0].id_player;
-
-        await db.query(
-          "UPDATE games SET status = 'finished', winner_id = ? WHERE id_Game = ?",
-          [winnerId, gameId]
-        );
-
-        // ARRÊT DU TIMER SERVEUR
-        stopGameTimer(gameId);
-
-        return res.json({
-          success: true,
-          finished: true,
-          winner: winnerId,
-          result: winnerId === playerId ? "win" : "lose",
-          message: winnerId === playerId ? "🏆 Victoire !" : "💥 Défaite !"
-        });
-      }
-
-      return res.json({ success: true, finished: false });
-    }
-
-    // 1v1 
-    return res.json({ success: true, finished: false });
+    return res.json({ success: true, status: game.status });
 
   } catch (err) {
     console.error("Erreur /status :", err);

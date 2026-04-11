@@ -112,7 +112,7 @@ function startTurn(gameId, duration = 7) {
         if (games[sId] && !games[sId].finished) {
           startTurn(sId, duration);
         }
-      }, 1500);
+      }, 800);
     }
   }, 1000);
 

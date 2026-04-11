@@ -262,7 +262,11 @@ export default {
     this.initAudio();
     this.playHeartbeat();
 
-    socket.on("connect", () => console.log("⚡ Socket connecté"));
+    socket.on("connect", () => {
+      console.log("⚡ Socket connecté");
+      // ✅ Resync timer si reconnexion en cours de partie
+      if (!this.gameOver) this.resyncTimer();
+    });
 
     socket.on("turn-timer", (data) => {
       if (data.timeLeft >= 7) this.clearPendingCells();
@@ -278,17 +282,17 @@ export default {
     socket.on("cell-pending", (data) => {
       const { targetId, index, shooterId } = data;
       if (shooterId === this.user.id) return;
-      const pool = this.isTeamMode ? this.enemies : this.opponents;
-      const opponent = pool.find((o) => o.id === targetId);
-      if (opponent) this.updateGridCell(opponent, index, "pending");
+      // Utilise directement targetId
+      this.updateGridCell(targetId, index, "pending");
     });
 
     socket.on("cell-unlocked", (data) => {
       const { targetId, index } = data;
+      // On vérifie si la cellule est bien en pending avant d'effacer
       const pool = this.isTeamMode ? this.enemies : this.opponents;
-      const opponent = pool.find((o) => o.id === targetId);
-      if (opponent && opponent.grid[index] === "pending") {
-        this.updateGridCell(opponent, index, "");
+      const opp = pool.find((o) => String(o.id) === String(targetId));
+      if (opp && opp.grid[index] === "pending") {
+        this.updateGridCell(targetId, index, "");
       }
     });
   },
@@ -310,6 +314,53 @@ export default {
       socket.off("cell-unlocked");
     },
 
+    async syncAllShots() {
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/games/${this.gameId}/shots?playerId=${this.user.id}`,
+          { credentials: "include" },
+        );
+        const data = await res.json();
+        if (!data || !data.success) return;
+
+        // 1. Synchroniser ma grille (tirs reçus)
+        if (data.incomingShots) {
+          const updatedGrid = [...this.playerGrid];
+          data.incomingShots.forEach((s) => {
+            const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
+            if (updatedGrid[idx]) {
+              updatedGrid[idx].status = s.result ? String(s.result).toLowerCase() : "pending";
+            }
+          });
+          this.playerGrid = updatedGrid;
+        }
+
+        // 2. Synchroniser les tirs sur les ennemis
+        const myShots = data.playerShots || [];
+
+        myShots.forEach((s) => {
+          if (!s.result) return;
+
+          const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
+
+          // 🔥 ON FORCE LA VALEUR (source = backend)
+          this.updateGridCell(s.target_id, idx, String(s.result).toLowerCase(), s.positions);
+        });
+
+        // 3. Synchroniser les alliés en mode équipe
+        if (this.isTeamMode && data.allShots) {
+          data.allShots.forEach((s) => {
+            if (s.result && s.state === "resolved") {
+              const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
+              this.updateGridCell(s.target_id, idx, s.result, s.positions);
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Erreur syncAllShots:", err);
+      }
+    },
+
     /* ----------------- Timer ----------------- */
     socketTurnTimer({ timeLeft }) {
       if (this.gameOver) return;
@@ -321,6 +372,20 @@ export default {
       }
       this.$nextTick(this.updateCircle);
     },
+
+    async resyncTimer() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/games/${this.gameId}/timer`);
+        const data = await res.json();
+        if (data.success && typeof data.timeLeft === "number") {
+          this.turnTimer = data.timeLeft;
+          this.$nextTick(this.updateCircle);
+        }
+      } catch (err) {
+        console.error("Erreur resyncTimer:", err);
+      }
+    },
+
     endTurn() {
       if (this.gameOver) return;
       this.turnTimer = 0;
@@ -342,6 +407,11 @@ export default {
     /* ----------------- Init ----------------- */
     handleGameStarted(data) {
       this.resetGameState();
+      this.fetchInterval = setInterval(async () => {
+        await this.fetchEnemyShots();
+        await this.checkGameStatus();
+      }, 2000);
+      this.syncAllShots();
       this.turnTimer = data.timeLeft || 7;
       this.updateCircle();
     },
@@ -366,13 +436,19 @@ export default {
       if (this.is1v1) await this.fetchOpponent();
       else await this.fetchOpponents();
 
+      await this.$nextTick();
+      await this.syncAllShots();
+      await this.fetchEnemyShots();
+
       socket.emit("join-game", { gameId: this.gameId, playerId: this.user.id });
       socket.emit("player-ready", { gameId: this.gameId, playerId: this.user.id });
 
-      this.fetchInterval = setInterval(async () => {
-        await this.fetchEnemyShots();
-        await this.checkGameStatus();
-      }, 2000);
+      if (!this.fetchInterval) {
+        this.fetchInterval = setInterval(async () => {
+          await this.fetchEnemyShots();
+          await this.checkGameStatus();
+        }, 2000);
+      }
     },
 
     /* ----------------- Grilles ----------------- */
@@ -452,15 +528,55 @@ export default {
         console.error("Erreur fetchOpponents:", err);
       }
     },
-    updateGridCell(opponent, index, value) {
-      const newGrid = [...opponent.grid];
-      newGrid[index] = value;
-      opponent.grid = newGrid;
+    updateGridCell(targetId, index, value, positions = []) {
+      const resClean = String(value).toLowerCase();
+
+      const patchArray = (array) => {
+        const idxInArray = array.findIndex((o) => String(o.id) === String(targetId));
+        if (idxInArray !== -1) {
+          const newGrid = [...array[idxInArray].grid];
+          newGrid[index] = resClean;
+
+          if (positions && positions.length > 0) {
+            positions.forEach((p) => {
+              newGrid[p.y * 10 + p.x] = "sunk";
+            });
+          }
+
+          // On remplace l'objet par une copie (Crucial pour la réactivité)
+          array[idxInArray] = {
+            ...array[idxInArray],
+            grid: newGrid,
+          };
+          return true;
+        }
+        return false;
+      };
+
+      // Mise à jour de la source principale
+      const hasChanged = patchArray(this.opponents);
+
+      // Si on est en mode équipe, on synchronise les vues filtrées
+      if (this.isTeamMode) {
+        patchArray(this.enemies);
+        patchArray(this.allies);
+        // On force Vue à voir que les tableaux ont changé
+        this.enemies = [...this.enemies];
+        this.allies = [...this.allies];
+      }
+
+      // Très important : on force aussi la réassignation du tableau principal
+      // pour déclencher les propriétés calculées (currentOpponent)
+      if (hasChanged) {
+        this.opponents = [...this.opponents];
+      }
     },
 
     async checkGameStatus() {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/games/${this.gameId}/status`);
+        const res = await fetch(
+          `${API_BASE_URL}/api/games/${this.gameId}/status?playerId=${this.user.id}`,
+        );
         const data = await res.json();
         if (!data.success) return;
 
@@ -479,6 +595,7 @@ export default {
     /* ----------------- Sélection & Tir ----------------- */
 
     // Mode 1v1 / BR — inchangé
+    // Mode 1v1 / BR
     selectCell(index) {
       if (
         this.gameOver ||
@@ -497,7 +614,8 @@ export default {
 
       if (this.selectedCell !== null) {
         const oldIndex = this.selectedCell;
-        this.updateGridCell(this.currentOpponent, oldIndex, "");
+        // CORRECTION ICI : On passe l'ID, pas l'objet
+        this.updateGridCell(this.currentOpponent.id, oldIndex, "");
         socket.emit("unlock-cell", {
           gameId: this.gameId,
           targetId: this.currentOpponent.id,
@@ -507,7 +625,8 @@ export default {
       }
 
       this.selectedCell = index;
-      this.updateGridCell(this.currentOpponent, index, "selected");
+      // CORRECTION ICI : On passe l'ID
+      this.updateGridCell(this.currentOpponent.id, index, "selected");
       socket.emit("lock-cell", {
         gameId: this.gameId,
         targetId: this.currentOpponent.id,
@@ -520,7 +639,7 @@ export default {
       }, 150);
     },
 
-    // Mode équipe — cliquer sur la grille d'un ennemi précis
+    // Mode équipe
     selectEnemyCell(enemyIndex, cellIndex) {
       if (
         this.gameOver ||
@@ -539,11 +658,11 @@ export default {
 
       this.isSelecting = true;
 
-      // Dé-sélectionner la cellule précédente si elle existe
       if (this.selectedCell !== null) {
         const prevEnemy = this.enemies[this.currentOpponentIndex];
         if (prevEnemy) {
-          this.updateGridCell(prevEnemy, this.selectedCell, "");
+          // CORRECTION ICI : On passe l'ID
+          this.updateGridCell(prevEnemy.id, this.selectedCell, "");
           socket.emit("unlock-cell", {
             gameId: this.gameId,
             targetId: prevEnemy.id,
@@ -555,7 +674,8 @@ export default {
 
       this.currentOpponentIndex = enemyIndex;
       this.selectedCell = cellIndex;
-      this.updateGridCell(enemy, cellIndex, "selected");
+      // CORRECTION ICI : On passe l'ID
+      this.updateGridCell(enemy.id, cellIndex, "selected");
       socket.emit("lock-cell", {
         gameId: this.gameId,
         targetId: enemy.id,
@@ -652,7 +772,9 @@ export default {
 
         const data = await res.json();
         if (data.success) {
-          this.applyShot(target.id, x, y, "pending", data.positions);
+          const finalResult = data.result ? data.result : "pending";
+
+          this.applyShot(target.id, x, y, finalResult, data.positions);
         }
         this.selectedCell = null;
       } catch (err) {
@@ -664,23 +786,20 @@ export default {
       const idx = y * 10 + x;
       const resClean = String(result).toLowerCase();
 
+      // 1. Si c'est moi
       if (String(targetId) === String(this.user.id)) {
         const newGrid = [...this.playerGrid];
         newGrid[idx] = { ...newGrid[idx], status: resClean };
         positions?.forEach((p) => {
-          newGrid[p.y * 10 + p.x] = { ...newGrid[p.y * 10 + p.x], status: "sunk" };
+          const pIdx = p.y * 10 + p.x;
+          if (newGrid[pIdx]) newGrid[pIdx] = { ...newGrid[pIdx], status: "sunk" };
         });
         this.playerGrid = newGrid;
-      } else {
-        // Chercher dans opponents (contient tout le monde)
-        const target = this.opponents.find((o) => String(o.id) === String(targetId));
-        if (target) {
-          const newGrid = [...target.grid];
-          newGrid[idx] = resClean;
-          positions?.forEach((p) => (newGrid[p.y * 10 + p.x] = "sunk"));
-          target.grid = newGrid;
-        }
+        return;
       }
+
+      // 2. 🟢 Remplacement par votre méthode qui force la réactivité Vue
+      this.updateGridCell(targetId, idx, resClean, positions);
     },
 
     onShotFired(data) {
@@ -700,13 +819,8 @@ export default {
         this.playerGrid = newGrid;
         this.checkDefeat();
       } else {
-        const target = this.opponents.find((o) => String(o.id) === String(targetId));
-        if (target) {
-          const newGrid = [...target.grid];
-          newGrid[idx] = safeResult;
-          if (positions) positions.forEach((p) => (newGrid[p.y * 10 + p.x] = "sunk"));
-          target.grid = newGrid;
-        }
+        // 🟢 Utilisation de votre méthode réactive au lieu de muter directement
+        this.updateGridCell(targetId, idx, safeResult, positions);
       }
     },
 
@@ -732,13 +846,16 @@ export default {
             const incoming = s.result ? String(s.result).toLowerCase() : null;
 
             if (!incoming) {
-              if (current === "") {
+              // pending seulement si aucune info
+              if (current !== "hit" && current !== "miss" && current !== "sunk") {
                 updatedGrid[idx] = { ...updatedGrid[idx], status: "pending" };
                 changed = true;
               }
               return;
             }
-            if (current === "" || current === "pending") {
+
+            // 🔥 ON FORCE TOUJOURS LA VALEUR DU BACKEND
+            if (current !== incoming) {
               updatedGrid[idx] = { ...updatedGrid[idx], status: incoming };
               changed = true;
             }
@@ -761,14 +878,16 @@ export default {
 
         // Mes tirs sur les ennemis
         const myShots = data.playerShots || [];
+
         myShots.forEach((s) => {
-          const target = this.opponents.find((o) => String(o.id) === String(s.target_id));
-          if (target && s.result) {
-            const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
-            if (!["hit", "miss", "sunk"].includes(target.grid[idx])) {
-              this.updateGridCell(target, idx, String(s.result).toLowerCase());
-            }
+          if (!s.result) return;
+
+          const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
+          if (!this.opponents.find((o) => String(o.id) === String(s.target_id))) {
+            this.fetchOpponents(); // 🔥 resync si joueur inconnu
           }
+          // 🔥 ON FORCE LA VALEUR (source = backend)
+          this.updateGridCell(s.target_id, idx, String(s.result).toLowerCase(), s.positions);
         });
 
         // Tirs reçus par les alliés (mode équipe)
@@ -783,9 +902,7 @@ export default {
             allyShots.forEach((s) => {
               const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
               const result = String(s.result).toLowerCase();
-              if (newGrid[idx] === "" || newGrid[idx] === "pending") {
-                newGrid[idx] = result;
-              }
+              newGrid[idx] = result;
               if (result === "sunk" && s.positions) {
                 s.positions.forEach((p) => {
                   newGrid[p.y * 10 + p.x] = "sunk";
@@ -797,6 +914,11 @@ export default {
         }
       } catch (err) {
         console.error("Erreur Sync Shots:", err);
+      }
+      this.opponents = [...this.opponents];
+      if (this.isTeamMode) {
+        this.enemies = [...this.enemies];
+        this.allies = [...this.allies];
       }
     },
 
