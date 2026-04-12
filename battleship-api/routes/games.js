@@ -726,6 +726,19 @@ router.get("/:gameId/shots", async (req, res) => {
       [gameId]
     );
 
+    const targetIds = [...new Set(shots.map(s => s.target_id))];
+    const boardCache = {};
+    await Promise.all(targetIds.map(async (tid) => {
+      const [rows] = await db.query(
+        "SELECT board_json FROM player_boards WHERE game_id = ? AND player_id = ?",
+        [gameId, tid]
+      );
+      if (rows.length) boardCache[tid] = JSON.parse(rows[0].board_json);
+    }));
+
+    // Puis dans le map, remplacer la requête par :
+    const board = boardCache[shot.target_id];
+
     const enhancedShots = await Promise.all(
       shots.map(async (s) => {
         const shot = {
@@ -922,12 +935,10 @@ router.get("/:id/status", async (req, res) => {
         winnerTeam = wp?.team_number ?? null;
       }
 
-      // ✅ Notifier tous les joueurs connectés via socket
-      // (couvre le cas où quit_game.php finit la partie sans passer par Node.js)
       io.to(String(gameId)).emit("game-over", {
         winnerId: game.winner_id,
         winnerTeam,
-        isDraw: game.winner_id === null,
+        isDraw: data.winner_id === null && winnerTeam === null,
       });
 
       return res.json({

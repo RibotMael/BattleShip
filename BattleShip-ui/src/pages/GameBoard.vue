@@ -890,6 +890,33 @@ export default {
           this.updateGridCell(s.target_id, idx, String(s.result).toLowerCase(), s.positions);
         });
 
+        if (data.allShots) {
+          data.allShots.forEach((s) => {
+            // Ignorer mes propres tirs (déjà traités) et les tirs sur moi-même
+            if (String(s.id_player) === String(this.user.id)) return;
+            if (String(s.target_id) === String(this.user.id)) return;
+
+            const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
+            const pool = this.isTeamMode ? this.enemies : this.opponents;
+            const target = pool.find((o) => String(o.id) === String(s.target_id));
+            if (!target) return;
+
+            const currentVal = target.grid[idx];
+
+            if (s.state === "pending" && s.result === null) {
+              // Afficher comme pending seulement si la case n'est pas déjà résolue
+              if (!["hit", "miss", "sunk"].includes(currentVal)) {
+                this.updateGridCell(s.target_id, idx, "pending");
+              }
+            } else if (s.result) {
+              // Tir résolu d'un allié → mettre à jour si pas encore affiché
+              if (!["hit", "miss", "sunk"].includes(currentVal)) {
+                this.updateGridCell(s.target_id, idx, String(s.result).toLowerCase(), s.positions);
+              }
+            }
+          });
+        }
+
         // Tirs reçus par les alliés (mode équipe)
         if (this.isTeamMode && data.allShots) {
           this.allies.forEach((ally) => {
