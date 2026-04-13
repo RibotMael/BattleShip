@@ -170,15 +170,793 @@
       </div>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!--  POPUP DE FIN DE PARTIE — REDESIGNÉE               -->
+    <!-- ═══════════════════════════════════════════════════ -->
     <div v-if="endPopup" class="popup-overlay">
-      <div class="popup-content">
-        <h2>Fin de la partie</h2>
-        <p>{{ popupMessage }}</p>
-        <button class="btn-home" @click="goHome">Retour à l'accueil</button>
+      <div class="popup-content" :class="popupResultClass">
+        <!-- Titre résultat -->
+        <div class="popup-result-banner">
+          <span class="popup-result-icon">{{ popupIcon }}</span>
+          <h2 class="popup-result-title">{{ popupMessage }}</h2>
+        </div>
+
+        <!-- Bloc récompenses (affiché dès que claimReward a répondu) -->
+        <div v-if="rewardData" class="rewards-section">
+          <div class="rewards-row">
+            <!-- Gold -->
+            <div class="reward-card gold-card">
+              <span class="reward-card-icon">🪙</span>
+              <span class="reward-card-amount">+{{ rewardData.goldGain }}</span>
+              <span class="reward-card-label">GOLD</span>
+            </div>
+            <!-- XP -->
+            <div class="reward-card xp-card">
+              <span class="reward-card-icon">⭐</span>
+              <span class="reward-card-amount">+{{ rewardData.xpGain }}</span>
+              <span class="reward-card-label">XP</span>
+            </div>
+          </div>
+
+          <!-- Level-up banner -->
+          <!-- Détail bonus level-up -->
+          <div
+            v-if="rewardData.levelUp && rewardData.levelUpGoldGain > 0"
+            class="levelup-gold-note"
+          >
+            <span>🎁 Bonus montée de niveau :</span>
+            <span class="levelup-gold-amount">+{{ rewardData.levelUpGoldGain }} 🪙</span>
+          </div>
+
+          <div v-if="rewardData.levelUp" class="levelup-banner">
+            🎉 NIVEAU {{ rewardData.newLevel }} ATTEINT !
+          </div>
+
+          <!-- Barre de progression XP -->
+          <div class="xp-progress-block">
+            <div class="xp-progress-header">
+              <span>Niv. {{ rewardData.newLevel }}</span>
+              <span>{{ rewardData.xpIntoLevel }} / {{ rewardData.xpNeededForNext }} XP</span>
+            </div>
+            <div class="xp-bar-track">
+              <div class="xp-bar-fill" :style="{ width: xpProgressPercent + '%' }"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chargement récompenses -->
+        <div v-else class="rewards-loading">
+          <span class="loading-dot"></span>
+          <span class="loading-dot"></span>
+          <span class="loading-dot"></span>
+        </div>
+
+        <button class="btn-home" @click="goHome">⚓ Retour à l'accueil</button>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* CONTENEUR PRINCIPAL */
+.battle-container {
+  width: 100%;
+  min-height: 100vh;
+  background: radial-gradient(circle at center, #1b2735 0%, #090a0f 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80px 10px 40px 10px;
+  color: white;
+  font-family: "Orbitron", sans-serif;
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* BOUTON ABANDONNER */
+.header-actions {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 100;
+}
+
+.btn-abandon {
+  width: auto;
+  min-width: 140px;
+  padding: 10px 20px;
+  background: rgba(198, 40, 40, 0.1);
+  border: 1px solid #ff4444;
+  border-radius: 5px;
+  color: #ff4444;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-abandon:hover {
+  background: #c62828;
+  color: white;
+  box-shadow: 0 0 15px rgba(198, 40, 40, 0.5);
+}
+
+.btn-icon {
+  display: none;
+}
+
+/* WRAPPER DES GRILLES */
+.grids-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 30px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  flex-wrap: wrap;
+}
+
+.grid-section {
+  width: 100%;
+  max-width: 350px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.grid-title {
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  color: #00d4ff;
+  text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  grid-template-rows: repeat(10, 1fr);
+  gap: 2px;
+  background: rgba(0, 212, 255, 0.15);
+  padding: 4px;
+  border: 1px solid rgba(0, 212, 255, 0.4);
+  border-radius: 4px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  box-sizing: border-box;
+}
+
+.cell {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  background: rgba(10, 25, 47, 0.85);
+  border: 1px solid rgba(0, 212, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.player-grid .cell.ship {
+  background: #1e3a5f;
+  border: 1px solid #00d4ff;
+  box-shadow: inset 0 0 8px rgba(0, 212, 255, 0.3);
+}
+
+.cell.hit {
+  background: radial-gradient(circle, #ff4444 30%, #7f0000 100%) !important;
+  box-shadow: 0 0 12px #ff4444;
+  z-index: 1;
+}
+
+.cell.miss::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+}
+
+.cell.sunk {
+  background: #1a1a1a !important;
+  border: 1px solid #444;
+}
+
+.cell.sunk::after {
+  content: "✕";
+  color: #ff4444;
+  font-size: 1.1rem;
+  font-weight: bold;
+  opacity: 0.7;
+}
+
+.cell.selected {
+  background: rgba(255, 235, 59, 0.2) !important;
+  outline: 2px solid #ffeb3b;
+  z-index: 2;
+}
+
+.cell.pending {
+  background-color: #f39c12 !important;
+  cursor: not-allowed;
+  opacity: 0.7;
+  position: relative;
+}
+.cell.pending::after {
+  content: "⏳";
+  position: absolute;
+  font-size: 10px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* TIMER */
+.timer-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.timer-circle {
+  width: 100px;
+  height: 100px;
+  position: relative;
+}
+
+.progress-ring {
+  transform: rotate(-90deg);
+}
+
+.timer-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: white;
+}
+
+.opponent-dropdown {
+  background: #0a192f;
+  color: #00d4ff;
+  border: 1px solid #00d4ff;
+  padding: 4px 8px;
+  font-family: "Orbitron";
+  font-size: 0.8rem;
+  border-radius: 4px;
+  margin-left: 10px;
+}
+
+/* ═══════════════════════════════════════════════════════ */
+/*  POPUP DE FIN DE PARTIE — REDESIGNÉ                    */
+/* ═══════════════════════════════════════════════════════ */
+
+.popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(6px);
+}
+
+.popup-content {
+  background: linear-gradient(145deg, #0d1f35 0%, #091524 100%);
+  padding: 36px 40px 32px;
+  border-radius: 18px;
+  text-align: center;
+  max-width: 420px;
+  width: 92%;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 30px 80px rgba(0, 0, 0, 0.7);
+  animation: popupIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes popupIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Bordure colorée selon le résultat */
+.popup-victory {
+  border: 1px solid rgba(255, 215, 0, 0.5);
+  box-shadow:
+    0 0 0 1px rgba(255, 215, 0, 0.15),
+    0 30px 80px rgba(0, 0, 0, 0.7),
+    inset 0 0 60px rgba(255, 215, 0, 0.04);
+}
+
+.popup-defeat {
+  border: 1px solid rgba(255, 68, 68, 0.4);
+  box-shadow:
+    0 0 0 1px rgba(255, 68, 68, 0.12),
+    0 30px 80px rgba(0, 0, 0, 0.7),
+    inset 0 0 60px rgba(255, 68, 68, 0.04);
+}
+
+.popup-draw {
+  border: 1px solid rgba(0, 212, 255, 0.4);
+  box-shadow:
+    0 0 0 1px rgba(0, 212, 255, 0.12),
+    0 30px 80px rgba(0, 0, 0, 0.7),
+    inset 0 0 60px rgba(0, 212, 255, 0.04);
+}
+
+/* RÉSULTAT */
+.popup-result-banner {
+  margin-bottom: 24px;
+}
+
+.popup-result-icon {
+  display: block;
+  font-size: 3rem;
+  margin-bottom: 8px;
+  animation: bounceIn 0.5s 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes bounceIn {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.popup-result-title {
+  font-size: 1.6rem;
+  font-weight: 900;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.popup-victory .popup-result-title {
+  color: #ffd700;
+  text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+.popup-defeat .popup-result-title {
+  color: #ff5555;
+  text-shadow: 0 0 20px rgba(255, 85, 85, 0.4);
+}
+.popup-draw .popup-result-title {
+  color: #00d4ff;
+  text-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+}
+
+/* RÉCOMPENSES */
+.rewards-section {
+  animation: fadeSlideUp 0.4s 0.3s ease both;
+}
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rewards-row {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.reward-card {
+  flex: 1;
+  max-width: 140px;
+  padding: 16px 12px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.gold-card {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.12) 0%, rgba(255, 165, 0, 0.08) 100%);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.xp-card {
+  background: linear-gradient(135deg, rgba(100, 200, 255, 0.12) 0%, rgba(0, 150, 255, 0.08) 100%);
+  border: 1px solid rgba(100, 200, 255, 0.3);
+}
+
+.reward-card-icon {
+  font-size: 1.8rem;
+}
+
+.reward-card-amount {
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.gold-card .reward-card-amount {
+  color: #ffd700;
+}
+.xp-card .reward-card-amount {
+  color: #64c8ff;
+}
+
+.reward-card-label {
+  font-size: 0.65rem;
+  letter-spacing: 2px;
+  opacity: 0.6;
+  text-transform: uppercase;
+}
+
+/* LEVEL-UP GOLD NOTE */
+.levelup-gold-note {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 215, 0, 0.07);
+  border: 1px solid rgba(255, 215, 0, 0.2);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.72rem;
+  color: rgba(255, 215, 0, 0.75);
+  margin-bottom: 10px;
+  letter-spacing: 0.5px;
+}
+.levelup-gold-amount {
+  font-weight: 900;
+  color: #ffd700;
+}
+
+/* LEVEL UP */
+.levelup-banner {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 215, 0, 0.15),
+    rgba(255, 165, 0, 0.2),
+    rgba(255, 215, 0, 0.15)
+  );
+  border: 1px solid rgba(255, 215, 0, 0.5);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #ffd700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+  margin-bottom: 20px;
+  animation: levelUpPulse 1s ease infinite alternate;
+}
+
+@keyframes levelUpPulse {
+  from {
+    box-shadow: 0 0 8px rgba(255, 215, 0, 0.2);
+  }
+  to {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+  }
+}
+
+/* BARRE XP */
+.xp-progress-block {
+  margin-bottom: 24px;
+}
+
+.xp-progress-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.xp-bar-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.xp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00b4ff, #00e5ff);
+  border-radius: 10px;
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
+  transition: width 1s ease 0.5s;
+}
+
+/* LOADING RÉCOMPENSES */
+.rewards-loading {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px 0;
+}
+
+.loading-dot {
+  width: 8px;
+  height: 8px;
+  background: rgba(0, 212, 255, 0.5);
+  border-radius: 50%;
+  animation: dotBounce 1s ease infinite;
+}
+
+.loading-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.loading-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes dotBounce {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(-8px);
+    opacity: 1;
+  }
+}
+
+/* BOUTON ACCUEIL */
+.btn-home {
+  margin-top: 4px;
+  padding: 13px 32px;
+  background: linear-gradient(135deg, #00b4ff, #0070cc);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: "Orbitron";
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+  box-shadow: 0 4px 20px rgba(0, 180, 255, 0.3);
+}
+
+.btn-home:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 8px 28px rgba(0, 180, 255, 0.5);
+}
+
+/* PROGRESS RING */
+.progress-ring {
+  transform: rotate(-90deg);
+  transition: stroke-dashoffset 0.3s linear;
+}
+
+.progress-ring__circle {
+  stroke-dasharray: 282.7;
+  stroke-dashoffset: 0;
+  stroke-linecap: round;
+  transition:
+    stroke-dashoffset 1s linear,
+    stroke 0.3s;
+}
+
+.timer-low {
+  stroke: #ff4444 !important;
+  filter: drop-shadow(0 0 5px #ff4444);
+}
+
+/* Layout mode équipe */
+.team-layout {
+  align-items: flex-start;
+}
+
+.team-left,
+.team-right {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  flex: 1 1 300px;
+  align-items: center;
+  width: 100%;
+}
+
+.ally-section {
+  width: 100%;
+  max-width: 250px;
+  background: rgba(0, 200, 80, 0.05);
+  border: 1px solid rgba(0, 200, 80, 0.2);
+  border-radius: 10px;
+  padding: 15px;
+  box-sizing: border-box;
+}
+
+.ally-title {
+  color: #4caf50 !important;
+  font-size: 0.9rem !important;
+}
+
+.enemy-title {
+  color: #ef5350 !important;
+  transition: opacity 0.2s;
+}
+
+.enemy-title:hover {
+  opacity: 0.8;
+}
+
+.active-target {
+  text-shadow: 0 0 8px rgba(255, 100, 100, 0.6);
+}
+
+.target-indicator {
+  font-size: 0.7rem;
+  color: #ff8a80;
+  margin-left: 6px;
+}
+
+.ally-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  grid-template-rows: repeat(10, 1fr);
+  gap: 1px;
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: 1 / 1;
+}
+
+.ally-cell {
+  width: 100%;
+  height: 100%;
+  cursor: default;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ally-cell:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.spectator-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background: rgba(239, 83, 80, 0.15);
+  border-bottom: 1px solid rgba(239, 83, 80, 0.4);
+  color: #ef5350;
+  text-align: center;
+  padding: 8px;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  z-index: 50;
+}
+
+/* RESPONSIVE */
+@media (max-width: 850px) {
+  .team-left {
+    order: 1;
+  }
+  .timer-container {
+    order: 2;
+    position: static;
+    margin: 10px 0;
+  }
+  .team-right {
+    order: 3;
+  }
+
+  .battle-container {
+    padding-top: 80px;
+  }
+  .header-actions {
+    top: 15px;
+    right: 15px;
+  }
+
+  .btn-abandon {
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .btn-text {
+    display: none;
+  }
+  .btn-icon {
+    display: block;
+    font-size: 1.4rem;
+    font-weight: bold;
+  }
+
+  .grids-wrapper,
+  .team-layout {
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .grid-title {
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+  .player-section {
+    order: 1;
+  }
+  .timer-container {
+    order: 2;
+    margin: 5px 0;
+    transform: scale(0.85);
+  }
+  .opponent-section {
+    order: 3;
+  }
+  .grid-section {
+    max-width: 92vw;
+    margin: 0 auto;
+  }
+
+  .popup-content {
+    padding: 28px 22px 24px;
+  }
+  .popup-result-title {
+    font-size: 1.3rem;
+  }
+  .rewards-row {
+    gap: 10px;
+  }
+  .reward-card {
+    padding: 12px 8px;
+  }
+  .reward-card-amount {
+    font-size: 1.25rem;
+  }
+}
+</style>
 
 <script>
 import socket from "../services/socket.js";
@@ -195,9 +973,9 @@ export default {
   data() {
     return {
       playerGrid: Array.from({ length: 100 }, () => ({ shipNumber: 0, status: "" })),
-      opponents: [], // tous les autres joueurs (1v1 / BR)
-      allies: [], // coéquipiers (mode équipe)
-      enemies: [], // adversaires (mode équipe)
+      opponents: [],
+      allies: [],
+      enemies: [],
       myTeamNumber: null,
       currentOpponentIndex: 0,
       turnTimer: 7,
@@ -206,15 +984,19 @@ export default {
       turnInterval: null,
       user: JSON.parse(localStorage.getItem("user")) || { id: null, pseudo: "" },
       selectedCell: null,
-      selectedEnemyIndex: 0, // quel ennemi on cible en mode équipe
+      selectedEnemyIndex: 0,
       endPopup: false,
       popupMessage: "",
+      popupIcon: "",
       playerStatus: "in_game",
       hasFiredThisTurn: false,
       isSelecting: false,
       heartbeatAudio: null,
       detectedTeamMode: false,
       isSpectator: false,
+      // ── Récompenses ──────────────────────────────────────
+      rewardData: null,
+      rewardClaimed: false,
     };
   },
   computed: {
@@ -224,7 +1006,6 @@ export default {
     is1v1() {
       return this.gameType === "1v1";
     },
-    // Utilisé en mode 1v1/BR
     currentOpponent() {
       return (
         this.opponents[this.currentOpponentIndex] || {
@@ -234,7 +1015,6 @@ export default {
         }
       );
     },
-    // Ennemi actuellement ciblé en mode équipe
     currentEnemy() {
       return (
         this.enemies[this.currentOpponentIndex] || {
@@ -243,6 +1023,21 @@ export default {
           grid: Array(100).fill(""),
         }
       );
+    },
+    // Classe CSS du popup selon victoire/défaite
+    popupResultClass() {
+      if (!this.popupMessage) return "";
+      if (this.popupMessage.includes("Victoire")) return "popup-victory";
+      if (this.popupMessage.includes("Défaite")) return "popup-defeat";
+      if (this.popupMessage.includes("Égalité")) return "popup-draw";
+      return "popup-defeat";
+    },
+    // Pourcentage de la barre XP
+    xpProgressPercent() {
+      if (!this.rewardData) return 0;
+      const { xpIntoLevel, xpNeededForNext } = this.rewardData;
+      if (!xpNeededForNext) return 0;
+      return Math.min(100, Math.floor((xpIntoLevel / xpNeededForNext) * 100));
     },
   },
   watch: {
@@ -263,8 +1058,6 @@ export default {
     this.playHeartbeat();
 
     socket.on("connect", () => {
-      console.log("⚡ Socket connecté");
-      // ✅ Resync timer si reconnexion en cours de partie
       if (!this.gameOver) this.resyncTimer();
     });
 
@@ -282,13 +1075,11 @@ export default {
     socket.on("cell-pending", (data) => {
       const { targetId, index, shooterId } = data;
       if (shooterId === this.user.id) return;
-      // Utilise directement targetId
       this.updateGridCell(targetId, index, "pending");
     });
 
     socket.on("cell-unlocked", (data) => {
       const { targetId, index } = data;
-      // On vérifie si la cellule est bien en pending avant d'effacer
       const pool = this.isTeamMode ? this.enemies : this.opponents;
       const opp = pool.find((o) => String(o.id) === String(targetId));
       if (opp && opp.grid[index] === "pending") {
@@ -314,6 +1105,62 @@ export default {
       socket.off("cell-unlocked");
     },
 
+    // ────────────────────────────────────────────────────────
+    // SYSTÈME DE RÉCOMPENSES
+    // ────────────────────────────────────────────────────────
+
+    /**
+     * Appel API pour créditer gold + XP.
+     * isVictory : true = victoire, false = défaite/abandon/égalité
+     */
+    async claimReward(isVictory) {
+      // Ne récompenser qu'une seule fois et jamais les spectateurs
+      if (this.rewardClaimed || this.isSpectator) return;
+      this.rewardClaimed = true;
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/users/${this.user.id}/reward`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ isVictory, gameId: this.gameId }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          this.rewardData = data;
+
+          // Mettre à jour le localStorage — clés homogènes avec HomeMenu/Profile
+          const stored = JSON.parse(localStorage.getItem("user")) || {};
+          stored.gold = data.newGold;
+          stored.level = data.newLevel;
+          stored.xp = data.newXp;
+          localStorage.setItem("user", JSON.stringify(stored));
+          // Déclencher la mise à jour du menu principal
+          import("@/eventBus.js")
+            .then(({ userBus }) => {
+              userBus.userUpdated = !userBus.userUpdated;
+            })
+            .catch(() => {});
+        }
+      } catch (err) {
+        console.error("Erreur claimReward :", err);
+        // Fallback : afficher les montants localement même si l'API échoue
+        this.rewardData = {
+          goldGain: isVictory ? 100 : 25,
+          xpGain: isVictory ? 50 : 25,
+          newLevel: this.user.niveau || 0,
+          xpIntoLevel: 0,
+          xpNeededForNext: 100,
+          levelUp: false,
+          newGold: null,
+        };
+      }
+    },
+
+    // ────────────────────────────────────────────────────────
+    // SYNC TIRS
+    // ────────────────────────────────────────────────────────
     async syncAllShots() {
       try {
         const res = await fetch(
@@ -323,7 +1170,6 @@ export default {
         const data = await res.json();
         if (!data || !data.success) return;
 
-        // 1. Synchroniser ma grille (tirs reçus)
         if (data.incomingShots) {
           const updatedGrid = [...this.playerGrid];
           data.incomingShots.forEach((s) => {
@@ -335,19 +1181,13 @@ export default {
           this.playerGrid = updatedGrid;
         }
 
-        // 2. Synchroniser les tirs sur les ennemis
         const myShots = data.playerShots || [];
-
         myShots.forEach((s) => {
           if (!s.result) return;
-
           const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
-
-          // 🔥 ON FORCE LA VALEUR (source = backend)
           this.updateGridCell(s.target_id, idx, String(s.result).toLowerCase(), s.positions);
         });
 
-        // 3. Synchroniser les alliés en mode équipe
         if (this.isTeamMode && data.allShots) {
           data.allShots.forEach((s) => {
             if (s.result && s.state === "resolved") {
@@ -425,9 +1265,12 @@ export default {
       this.selectedCell = null;
       this.endPopup = false;
       this.popupMessage = "";
+      this.popupIcon = "";
       this.playerStatus = "in_game";
       this.hasFiredThisTurn = false;
       this.isSelecting = false;
+      this.rewardData = null;
+      this.rewardClaimed = false;
     },
     async initGame() {
       this.resetGameState();
@@ -496,20 +1339,17 @@ export default {
         this.myTeamNumber = data.myTeamNumber ?? null;
         const all = data.opponents.map((o) => ({ ...o, grid: Array(100).fill("") }));
 
-        // Mode équipe détecté si myTeamNumber est non null
         if (this.myTeamNumber !== null) {
           this.detectedTeamMode = true;
-
           this.allies = all.filter(
             (o) => o.team_number !== null && Number(o.team_number) === Number(this.myTeamNumber),
           );
           this.enemies = all.filter(
             (o) => o.team_number !== null && Number(o.team_number) !== Number(this.myTeamNumber),
           );
-          this.opponents = all; // référence complète pour applyShot/onShotFired
+          this.opponents = all;
           this.currentOpponentIndex = 0;
         } else {
-          // BR : logique de rotation inchangée
           this.detectedTeamMode = false;
           this.opponents = all;
           this.allies = [];
@@ -543,30 +1383,21 @@ export default {
             });
           }
 
-          // On remplace l'objet par une copie (Crucial pour la réactivité)
-          array[idxInArray] = {
-            ...array[idxInArray],
-            grid: newGrid,
-          };
+          array[idxInArray] = { ...array[idxInArray], grid: newGrid };
           return true;
         }
         return false;
       };
 
-      // Mise à jour de la source principale
       const hasChanged = patchArray(this.opponents);
 
-      // Si on est en mode équipe, on synchronise les vues filtrées
       if (this.isTeamMode) {
         patchArray(this.enemies);
         patchArray(this.allies);
-        // On force Vue à voir que les tableaux ont changé
         this.enemies = [...this.enemies];
         this.allies = [...this.allies];
       }
 
-      // Très important : on force aussi la réassignation du tableau principal
-      // pour déclencher les propriétés calculées (currentOpponent)
       if (hasChanged) {
         this.opponents = [...this.opponents];
       }
@@ -593,9 +1424,6 @@ export default {
     },
 
     /* ----------------- Sélection & Tir ----------------- */
-
-    // Mode 1v1 / BR — inchangé
-    // Mode 1v1 / BR
     selectCell(index) {
       if (
         this.gameOver ||
@@ -614,7 +1442,6 @@ export default {
 
       if (this.selectedCell !== null) {
         const oldIndex = this.selectedCell;
-        // CORRECTION ICI : On passe l'ID, pas l'objet
         this.updateGridCell(this.currentOpponent.id, oldIndex, "");
         socket.emit("unlock-cell", {
           gameId: this.gameId,
@@ -625,7 +1452,6 @@ export default {
       }
 
       this.selectedCell = index;
-      // CORRECTION ICI : On passe l'ID
       this.updateGridCell(this.currentOpponent.id, index, "selected");
       socket.emit("lock-cell", {
         gameId: this.gameId,
@@ -639,7 +1465,6 @@ export default {
       }, 150);
     },
 
-    // Mode équipe
     selectEnemyCell(enemyIndex, cellIndex) {
       if (
         this.gameOver ||
@@ -661,7 +1486,6 @@ export default {
       if (this.selectedCell !== null) {
         const prevEnemy = this.enemies[this.currentOpponentIndex];
         if (prevEnemy) {
-          // CORRECTION ICI : On passe l'ID
           this.updateGridCell(prevEnemy.id, this.selectedCell, "");
           socket.emit("unlock-cell", {
             gameId: this.gameId,
@@ -674,7 +1498,6 @@ export default {
 
       this.currentOpponentIndex = enemyIndex;
       this.selectedCell = cellIndex;
-      // CORRECTION ICI : On passe l'ID
       this.updateGridCell(enemy.id, cellIndex, "selected");
       socket.emit("lock-cell", {
         gameId: this.gameId,
@@ -719,7 +1542,7 @@ export default {
 
     onPlayerEliminated(data) {
       if (data.playerId === this.user.id) {
-        if (this.playerStatus === "dead") return; // déjà traité par checkDefeat
+        if (this.playerStatus === "dead") return;
         this.playerStatus = "dead";
         if (this.isTeamMode) {
           this.enterSpectatorMode();
@@ -728,7 +1551,8 @@ export default {
             data.reason === "abandon"
               ? "🏳️ Éliminé par abandon"
               : "💥 Tous vos navires ont coulé !";
-          this.showEndPopup(msg);
+          this.claimReward(false);
+          this.showEndPopup(msg, false);
         }
         return;
       }
@@ -773,7 +1597,6 @@ export default {
         const data = await res.json();
         if (data.success) {
           const finalResult = data.result ? data.result : "pending";
-
           this.applyShot(target.id, x, y, finalResult, data.positions);
         }
         this.selectedCell = null;
@@ -786,7 +1609,6 @@ export default {
       const idx = y * 10 + x;
       const resClean = String(result).toLowerCase();
 
-      // 1. Si c'est moi
       if (String(targetId) === String(this.user.id)) {
         const newGrid = [...this.playerGrid];
         newGrid[idx] = { ...newGrid[idx], status: resClean };
@@ -798,7 +1620,6 @@ export default {
         return;
       }
 
-      // 2. 🟢 Remplacement par votre méthode qui force la réactivité Vue
       this.updateGridCell(targetId, idx, resClean, positions);
     },
 
@@ -819,7 +1640,6 @@ export default {
         this.playerGrid = newGrid;
         this.checkDefeat();
       } else {
-        // 🟢 Utilisation de votre méthode réactive au lieu de muter directement
         this.updateGridCell(targetId, idx, safeResult, positions);
       }
     },
@@ -833,7 +1653,6 @@ export default {
         const data = await res.json();
         if (!data || !data.success) return;
 
-        // Ma grille — tirs reçus
         const incomingShots = data.incomingShots || [];
         if (incomingShots.length > 0) {
           const updatedGrid = [...this.playerGrid];
@@ -846,7 +1665,6 @@ export default {
             const incoming = s.result ? String(s.result).toLowerCase() : null;
 
             if (!incoming) {
-              // pending seulement si aucune info
               if (current !== "hit" && current !== "miss" && current !== "sunk") {
                 updatedGrid[idx] = { ...updatedGrid[idx], status: "pending" };
                 changed = true;
@@ -854,7 +1672,6 @@ export default {
               return;
             }
 
-            // 🔥 ON FORCE TOUJOURS LA VALEUR DU BACKEND
             if (current !== incoming) {
               updatedGrid[idx] = { ...updatedGrid[idx], status: incoming };
               changed = true;
@@ -876,23 +1693,18 @@ export default {
           }
         }
 
-        // Mes tirs sur les ennemis
         const myShots = data.playerShots || [];
-
         myShots.forEach((s) => {
           if (!s.result) return;
-
           const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
           if (!this.opponents.find((o) => String(o.id) === String(s.target_id))) {
-            this.fetchOpponents(); // 🔥 resync si joueur inconnu
+            this.fetchOpponents();
           }
-          // 🔥 ON FORCE LA VALEUR (source = backend)
           this.updateGridCell(s.target_id, idx, String(s.result).toLowerCase(), s.positions);
         });
 
         if (data.allShots) {
           data.allShots.forEach((s) => {
-            // Ignorer mes propres tirs (déjà traités) et les tirs sur moi-même
             if (String(s.id_player) === String(this.user.id)) return;
             if (String(s.target_id) === String(this.user.id)) return;
 
@@ -904,12 +1716,10 @@ export default {
             const currentVal = target.grid[idx];
 
             if (s.state === "pending" && s.result === null) {
-              // Afficher comme pending seulement si la case n'est pas déjà résolue
               if (!["hit", "miss", "sunk"].includes(currentVal)) {
                 this.updateGridCell(s.target_id, idx, "pending");
               }
             } else if (s.result) {
-              // Tir résolu d'un allié → mettre à jour si pas encore affiché
               if (!["hit", "miss", "sunk"].includes(currentVal)) {
                 this.updateGridCell(s.target_id, idx, String(s.result).toLowerCase(), s.positions);
               }
@@ -917,7 +1727,6 @@ export default {
           });
         }
 
-        // Tirs reçus par les alliés (mode équipe)
         if (this.isTeamMode && data.allShots) {
           this.allies.forEach((ally) => {
             const allyShots = data.allShots.filter(
@@ -957,19 +1766,26 @@ export default {
       clearInterval(this.turnInterval);
       this.removeSocketListeners();
 
-      let msg;
+      let isVictory = false;
+      let msg, icon;
+
       if (payload.isDraw) {
-        msg = "⚖️ Égalité parfaite !";
+        msg = "Égalité parfaite";
+        icon = "⚖️";
+        isVictory = false;
       } else if (this.isTeamMode && payload.winnerTeam != null) {
-        msg =
-          Number(payload.winnerTeam) === Number(this.myTeamNumber)
-            ? "🏆 Victoire !"
-            : "💥 Défaite !";
+        isVictory = Number(payload.winnerTeam) === Number(this.myTeamNumber);
+        msg = isVictory ? "Victoire" : "Défaite";
+        icon = isVictory ? "🏆" : "💥";
       } else {
-        msg = String(payload.winnerId) === String(this.user.id) ? "🏆 Victoire !" : "💥 Défaite !";
+        isVictory = String(payload.winnerId) === String(this.user.id);
+        msg = isVictory ? "Victoire" : "Défaite";
+        icon = isVictory ? "🏆" : "💥";
       }
 
-      this.showEndPopup(msg);
+      // Réclamer la récompense AVANT d'afficher le popup
+      this.claimReward(isVictory);
+      this.showEndPopup(`${icon} ${msg} !`, isVictory);
     },
 
     async abandonGame() {
@@ -984,20 +1800,23 @@ export default {
         if (!data.success) return console.warn(data.message);
 
         this.playerStatus = "dead";
+        const myTeamWon = this.isTeamMode ? data.winner_team === this.myTeamNumber : false;
+
         if (data.finished) {
-          const myTeamWon = this.isTeamMode ? data.winner_team === this.myTeamNumber : false;
-          this.showEndPopup(myTeamWon ? "🏆 Victoire !" : "🏳️ Abandon confirmé.");
+          this.claimReward(myTeamWon);
+          this.showEndPopup(myTeamWon ? "🏆 Victoire !" : "🏳️ Abandon confirmé.", myTeamWon);
         } else if (this.isTeamMode) {
           this.enterSpectatorMode();
         } else {
-          this.showEndPopup("🏳️ Abandon confirmé. Vous avez quitté la partie.");
+          this.claimReward(false);
+          this.showEndPopup("🏳️ Abandon confirmé.", false);
         }
       } catch (err) {
         console.error(err);
       }
     },
 
-    showEndPopup(msg) {
+    showEndPopup(msg, isVictory = false) {
       this.popupMessage = msg;
       this.endPopup = true;
       this.gameOver = true;
@@ -1012,7 +1831,6 @@ export default {
       this.isSpectator = true;
       this.playerStatus = "dead";
       this.selectedCell = null;
-      // On garde fetchInterval actif pour voir la partie en temps réel
     },
 
     async checkDefeat() {
@@ -1037,17 +1855,24 @@ export default {
             ? data.winner_team === this.myTeamNumber
             : data.winner_id === this.user.id;
 
-          const msg = data.is_draw
-            ? "⚖️ Égalité parfaite !"
-            : myTeamWon
-              ? "🏆 Victoire !"
-              : "💥 Défaite !";
-          this.showEndPopup(msg);
+          let msg, isVic;
+          if (data.is_draw) {
+            msg = "⚖️ Égalité parfaite !";
+            isVic = false;
+          } else if (myTeamWon) {
+            msg = "🏆 Victoire !";
+            isVic = true;
+          } else {
+            msg = "💥 Défaite !";
+            isVic = false;
+          }
+          this.claimReward(isVic);
+          this.showEndPopup(msg, isVic);
         } else if (this.isTeamMode) {
-          // Mon équipe est encore en vie — je passe en spectateur
           this.enterSpectatorMode();
         } else {
-          this.showEndPopup("💥 Tous vos bateaux sont coulés !");
+          this.claimReward(false);
+          this.showEndPopup("💥 Tous vos bateaux sont coulés !", false);
         }
       } catch (err) {
         console.error(err);
@@ -1058,7 +1883,7 @@ export default {
     initAudio() {
       this.heartbeatAudio = new Audio(heartbeatSrc);
       this.heartbeatAudio.loop = true;
-      this.heartbeatAudio.volume = 0.5;
+      this.heartbeatAudio.volume = 1;
     },
     playHeartbeat() {
       this.heartbeatAudio?.play().catch(() => {});
@@ -1087,450 +1912,3 @@ export default {
   },
 };
 </script>
-
-<style scoped>
-html,
-body {
-  max-width: 100%;
-  overflow-x: hidden;
-  position: relative;
-}
-/* CONTENEUR PRINCIPAL */
-.battle-container {
-  width: 100%;
-  min-height: 100vh;
-  background: radial-gradient(circle at center, #1b2735 0%, #090a0f 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 80px 10px 40px 10px;
-  color: white;
-  font-family: "Orbitron", sans-serif;
-  box-sizing: border-box;
-  position: relative;
-}
-
-/* BOUTON ABANDONNER */
-.header-actions {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 100;
-}
-
-.btn-abandon {
-  width: auto;
-  min-width: 140px;
-  padding: 10px 20px;
-  background: rgba(198, 40, 40, 0.1);
-  border: 1px solid #ff4444;
-  border-radius: 5px;
-  color: #ff4444;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-transform: uppercase;
-  font-size: 0.8rem;
-  letter-spacing: 1px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-abandon:hover {
-  background: #c62828;
-  color: white;
-  box-shadow: 0 0 15px rgba(198, 40, 40, 0.5);
-}
-
-.btn-icon {
-  display: none;
-}
-
-/* WRAPPER DES GRILLES */
-.grids-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center; /* Centre verticalement par défaut pour le 1v1 */
-  gap: 30px;
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  flex-wrap: wrap; /* 👈 INDISPENSABLE pour que rien ne s'écrase en 1vs1 ! */
-}
-
-.grid-section {
-  width: 100%;
-  max-width: 350px; /* Taille pour Ta flotte et les Ennemis */
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.grid-title {
-  font-size: 1.1rem;
-  margin-bottom: 15px;
-  text-transform: uppercase;
-  color: #00d4ff;
-  text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
-}
-
-/* LA GRILLE */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  grid-template-rows: repeat(10, 1fr); /* 👈 AJOUT ICI */
-  gap: 2px;
-  background: rgba(0, 212, 255, 0.15);
-  padding: 4px;
-  border: 1px solid rgba(0, 212, 255, 0.4);
-  border-radius: 4px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  box-sizing: border-box;
-}
-/* LES CELLULES */
-.cell {
-  width: 100%;
-  height: 100%;
-  aspect-ratio: 1 / 1;
-  background: rgba(10, 25, 47, 0.85);
-  border: 1px solid rgba(0, 212, 255, 0.05);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-}
-
-/* ETATS DES CELLULES */
-.player-grid .cell.ship {
-  background: #1e3a5f;
-  border: 1px solid #00d4ff;
-  box-shadow: inset 0 0 8px rgba(0, 212, 255, 0.3);
-}
-
-.cell.hit {
-  background: radial-gradient(circle, #ff4444 30%, #7f0000 100%) !important;
-  box-shadow: 0 0 12px #ff4444;
-  z-index: 1;
-}
-
-.cell.miss::after {
-  content: "";
-  width: 6px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.4);
-  border-radius: 50%;
-}
-
-.cell.sunk {
-  background: #1a1a1a !important;
-  border: 1px solid #444;
-}
-
-.cell.sunk::after {
-  content: "✕";
-  color: #ff4444;
-  font-size: 1.1rem;
-  font-weight: bold;
-  opacity: 0.7;
-}
-
-.cell.selected {
-  background: rgba(255, 235, 59, 0.2) !important;
-  outline: 2px solid #ffeb3b;
-  z-index: 2;
-}
-
-.cell.pending {
-  background-color: #f39c12 !important; /* Orange pour indiquer l'attente */
-  cursor: not-allowed;
-  opacity: 0.7;
-  position: relative;
-}
-.cell.pending::after {
-  content: "⏳";
-  position: absolute;
-  font-size: 10px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-/* TIMER / CHRONO */
-.timer-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 120px;
-  flex-shrink: 0;
-  align-self: center; /* Reste au milieu verticalement naturellement */
-}
-
-.timer-circle {
-  width: 100px;
-  height: 100px;
-  position: relative;
-}
-
-.progress-ring {
-  transform: rotate(-90deg);
-}
-
-.timer-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: white;
-}
-
-.opponent-dropdown {
-  background: #0a192f;
-  color: #00d4ff;
-  border: 1px solid #00d4ff;
-  padding: 4px 8px;
-  font-family: "Orbitron";
-  font-size: 0.8rem;
-  border-radius: 4px;
-  margin-left: 10px;
-}
-
-@media (max-width: 850px) {
-  .team-left {
-    order: 1;
-  }
-  .timer-container {
-    order: 2;
-    position: static; /* On retire le sticky sur mobile */
-    margin: 10px 0;
-  }
-  .team-right {
-    order: 3;
-  }
-
-  .battle-container {
-    padding-top: 80px;
-  }
-
-  .header-actions {
-    top: 15px;
-    right: 15px;
-  }
-
-  .btn-abandon {
-    width: 46px;
-    height: 46px;
-    min-width: 46px;
-    padding: 0;
-    border-radius: 50%;
-  }
-
-  .btn-text {
-    display: none;
-  }
-  .btn-icon {
-    display: block;
-    font-size: 1.4rem;
-    font-weight: bold;
-  }
-
-  /* RE-ORGANISATION SUR MOBILE */
-  .grids-wrapper,
-  .team-layout {
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-  }
-
-  .grid-title {
-    font-size: 0.9rem;
-    margin-bottom: 8px;
-  }
-
-  .player-section {
-    order: 1;
-  }
-
-  .timer-container {
-    order: 2;
-    margin: 5px 0;
-    transform: scale(0.85);
-  }
-
-  .opponent-section {
-    order: 3;
-  }
-
-  .grid-section {
-    max-width: 92vw;
-    margin: 0 auto;
-  }
-}
-
-/* POPUP DE FIN */
-.end-popup {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  padding: 20px;
-}
-
-.popup-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-  backdrop-filter: blur(5px);
-}
-
-.popup-content {
-  background: #0a192f;
-  padding: 40px;
-  border: 2px solid #00d4ff;
-  border-radius: 15px;
-  text-align: center;
-  max-width: 400px;
-  width: 90%;
-  box-shadow: 0 0 50px rgba(0, 212, 255, 0.4);
-}
-
-.btn-home {
-  margin-top: 25px;
-  padding: 12px 30px;
-  background: #00d4ff;
-  border: none;
-  border-radius: 5px;
-  color: #0a192f;
-  font-weight: bold;
-  cursor: pointer;
-  font-family: "Orbitron";
-  text-transform: uppercase;
-  transition: transform 0.2s;
-}
-
-.btn-home:hover {
-  transform: scale(1.05);
-}
-
-.progress-ring {
-  transform: rotate(-90deg);
-  transition: stroke-dashoffset 0.3s linear;
-}
-
-.progress-ring__circle {
-  stroke-dasharray: 282.7;
-  stroke-dashoffset: 0;
-  stroke-linecap: round;
-  transition:
-    stroke-dashoffset 1s linear,
-    stroke 0.3s;
-}
-
-.timer-low {
-  stroke: #ff4444 !important;
-  filter: drop-shadow(0 0 5px #ff4444);
-}
-
-/* Layout mode équipe */
-.team-layout {
-  align-items: flex-start; /* Permet aux listes gauche/droite de s'étirer vers le bas sans se déformer */
-}
-
-.team-left,
-.team-right {
-  display: flex;
-  flex-direction: column;
-  gap: 30px;
-  flex: 1 1 300px; /* 👈 Permet de s'adapter ou de passer à la ligne proprement */
-  align-items: center;
-  width: 100%;
-}
-
-.ally-section {
-  width: 100%;
-  max-width: 250px; /* 👈 Plus petit pour entourer parfaitement la petite grille sans faire un gros carré vide */
-  background: rgba(0, 200, 80, 0.05);
-  border: 1px solid rgba(0, 200, 80, 0.2);
-  border-radius: 10px;
-  padding: 15px;
-  box-sizing: border-box;
-}
-
-.ally-title {
-  color: #4caf50 !important;
-  font-size: 0.9rem !important;
-}
-
-.enemy-title {
-  color: #ef5350 !important;
-  transition: opacity 0.2s;
-}
-
-.enemy-title:hover {
-  opacity: 0.8;
-}
-
-.active-target {
-  text-shadow: 0 0 8px rgba(255, 100, 100, 0.6);
-}
-
-.target-indicator {
-  font-size: 0.7rem;
-  color: #ff8a80;
-  margin-left: 6px;
-}
-
-.ally-grid {
-  display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  grid-template-rows: repeat(10, 1fr);
-  gap: 1px;
-  width: 100%;
-  max-width: 220px;
-  aspect-ratio: 1 / 1;
-}
-
-.ally-cell {
-  width: 100%;
-  height: 100%;
-  cursor: default;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.ally-cell:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.spectator-banner {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  background: rgba(239, 83, 80, 0.15);
-  border-bottom: 1px solid rgba(239, 83, 80, 0.4);
-  color: #ef5350;
-  text-align: center;
-  padding: 8px;
-  font-size: 0.85rem;
-  letter-spacing: 1px;
-  z-index: 50;
-}
-</style>

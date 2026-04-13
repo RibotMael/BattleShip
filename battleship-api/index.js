@@ -9,7 +9,7 @@ dotenv.config();
 
 // Routes
 import authRoutes from "./routes/auth.js"; 
-import userProfileRoutes from "./routes/user.js";  
+//import userProfileRoutes from "./routes/user.js";  
 import checkPseudoRoute from "./api/check-pseudo.js";
 import avatarRouter from "./api/avatar.js";
 import friendsRouter from "./routes/friends.js";
@@ -133,7 +133,7 @@ function stopGameTimer(gameId) {
    ROUTES API
 ========================== */
 app.use("/api", authRoutes);
-app.use("/api/users", userProfileRoutes);
+//app.use("/api/users", userProfileRoutes);
 app.use("/api", checkPseudoRoute);
 app.use("/api/friends", friendsRouter);
 app.use("/api/invitation", invitationsRouter);

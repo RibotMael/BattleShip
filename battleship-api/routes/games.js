@@ -9,6 +9,23 @@ import { stopGameTimer } from "../index.js";
 const router = express.Router();
 const games = {};
 
+function xpForNextLevel(level) {
+  return Math.floor(100 * Math.pow(1.02, level));
+}
+ 
+function computeLevel(totalXp) {
+  let level = 0;
+  let used  = 0;
+  while (true) {
+    const needed = xpForNextLevel(level);
+    if (used + needed > totalXp) {
+      return { level, xpIntoLevel: totalXp - used, xpNeededForNext: needed };
+    }
+    used += needed;
+    level++;
+  }
+}
+
 // Récupérer les parties publiques disponibles
 router.get("/public", async (req, res) => {
   try {
@@ -954,6 +971,94 @@ router.get("/:id/status", async (req, res) => {
   } catch (err) {
     console.error("Erreur /status :", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
+});
+
+router.get("/:id/stats", async (req, res) => {
+  const playerId = parseInt(req.params.id);
+  if (!playerId) return res.status(400).json({ success: false });
+ 
+  try {
+    const [rows] = await db.query(
+      "SELECT Gold, xp, niveau FROM users WHERE ID_Users = ?",
+      [playerId]
+    );
+    if (!rows.length) return res.status(404).json({ success: false });
+ 
+    const { Gold, xp } = rows[0];
+    const lvl = computeLevel(xp);
+ 
+    return res.json({
+      success: true,
+      gold:    Gold,
+      xp,
+      level:   lvl.level,
+      xpIntoLevel:     lvl.xpIntoLevel,
+      xpNeededForNext: lvl.xpNeededForNext,
+    });
+  } catch (err) {
+    console.error("Erreur /stats :", err);
+    return res.status(500).json({ success: false });
+  }
+});
+
+router.post("/:id/reward", async (req, res) => {
+  const playerId  = parseInt(req.params.id);
+  const { isVictory, gameId } = req.body;
+ 
+  if (!playerId || typeof isVictory !== "boolean") {
+    return res.status(400).json({ success: false, message: "Paramètres invalides." });
+  }
+ 
+  const baseGold = isVictory ? 100 : 25;
+  const xpGain   = isVictory ? 50  : 25;
+ 
+  try {
+    const [rows] = await db.query(
+      "SELECT Gold, xp, niveau FROM users WHERE ID_Users = ?",
+      [playerId]
+    );
+    if (!rows.length) return res.status(404).json({ success: false, message: "Joueur introuvable." });
+ 
+    const { Gold: currentGold, xp: currentXp } = rows[0];
+ 
+    const lvlBefore   = computeLevel(currentXp);
+    const newXp       = currentXp + xpGain;
+    const lvlAfter    = computeLevel(newXp);
+    const levelsGained = lvlAfter.level - lvlBefore.level;
+    const levelUpGold  = levelsGained * 200;   // +200 gold par niveau gagné
+    const totalGold    = baseGold + levelUpGold;
+    const newGold      = currentGold + totalGold;
+ 
+    await db.query(
+      "UPDATE users SET Gold = ?, xp = ?, niveau = ? WHERE ID_Users = ?",
+      [newGold, newXp, lvlAfter.level, playerId]
+    );
+ 
+    const ratioField = isVictory ? "Win" : "Defeat";
+    await db.query(
+      `UPDATE ratio SET ${ratioField} = ${ratioField} + 1, Game_Played = Game_Played + 1 WHERE ID_Profil = ?`,
+      [playerId]
+    );
+ 
+    return res.json({
+      success:         true,
+      goldGain:        totalGold,
+      baseGoldGain:    baseGold,
+      levelUpGoldGain: levelUpGold,
+      xpGain,
+      levelsGained,
+      newGold,
+      newXp,
+      newLevel:        lvlAfter.level,
+      xpIntoLevel:     lvlAfter.xpIntoLevel,
+      xpNeededForNext: lvlAfter.xpNeededForNext,
+      levelUp:         levelsGained > 0,
+      levelUpTo:       levelsGained > 0 ? lvlAfter.level : null,
+    });
+  } catch (err) {
+    console.error("Erreur reward endpoint:", err);
+    return res.status(500).json({ success: false, message: "Erreur serveur." });
   }
 });
 

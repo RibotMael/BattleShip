@@ -1,26 +1,31 @@
 <!--WaintingRoom.vue-->
 <template>
-  <div class="page-fixed">
-    <div class="room-wrapper">
-      <header class="header">
-        <h1>Salle d'attente</h1>
-        <div class="game-mode" v-if="game">{{ game.mode.replace("_", " ") }}</div>
+  <div class="background waiting-page">
+    <div class="room-container">
+      <header class="hud-header">
+        <div class="header-main">
+          <div class="status-indicator animate-pulse"></div>
+          <h1>
+            SALLE D'ATTENTE <span class="session-id" v-if="game">#{{ game.ID_Game }}</span>
+          </h1>
+        </div>
+        <div class="game-badge" v-if="game">
+          <span class="mode-text">{{ game.mode.replace("_", " ") }}</span>
+        </div>
       </header>
 
-      <div class="content-grid">
-        <aside class="panel friends-panel">
-          <div class="panel-header">
-            <h3>Amis</h3>
-          </div>
-          <div class="list-container">
-            <div v-if="friends.length === 0" class="empty-msg">Aucun ami en ligne</div>
-            <div v-for="friend in friends" :key="getUserId(friend)" class="mini-card">
-              <div class="user-block">
-                <span class="dot" :class="{ online: friend.isOnline }"></span>
-                <span class="name">{{ friend.Pseudo || friend.pseudo }}</span>
+      <div class="hud-grid">
+        <aside class="hud-panel friends-panel">
+          <div class="panel-tag">UNITÉS DISPONIBLES</div>
+          <div class="list-scroll">
+            <div v-if="friends.length === 0" class="empty-msg">AUCUNE UNITÉ EN LIGNE</div>
+            <div v-for="friend in friends" :key="getUserId(friend)" class="friend-row">
+              <div class="user-info">
+                <span class="status-dot" :class="{ online: friend.isOnline }"></span>
+                <span class="user-name">{{ friend.Pseudo || friend.pseudo }}</span>
               </div>
               <button
-                class="btn-invite"
+                class="btn-mini-action"
                 @click="inviteFriend(getUserId(friend))"
                 :disabled="!game?.ID_Game || isPlayerInGame(getUserId(friend))"
               >
@@ -28,54 +33,42 @@
               </button>
             </div>
           </div>
-          <!--
-          <button v-if="isHost && friends.length > 0" @click="inviteAllFriends" class="btn-all">
-            Tout inviter
-          </button>
-          -->
         </aside>
 
-        <main class="panel main-panel">
-          <div v-if="game?.mode === 'battle_royale'" class="br-section">
-            <h3>Joueurs</h3>
-            <div class="player-chips">
-              <div v-for="player in playersWithMe" :key="getUserId(player)" class="chip">
-                <span class="name-truncate">{{ player.Pseudo || player.pseudo }}</span>
-                <span
+        <main class="hud-panel main-panel">
+          <div class="panel-tag">AFFECTATION DES TROUPES</div>
+
+          <div v-if="game?.mode === 'battle_royale'" class="br-layout">
+            <div class="player-wall">
+              <div v-for="player in playersWithMe" :key="getUserId(player)" class="player-tag">
+                <span class="tag-name">{{ player.Pseudo || player.pseudo }}</span>
+                <button
                   v-if="isHost && getUserId(player) !== userId"
                   @click="kickPlayer(getUserId(player))"
-                  class="kick"
-                  >×</span
+                  class="tag-kick"
                 >
+                  ×
+                </button>
               </div>
             </div>
           </div>
 
-          <div v-else class="teams-section">
-            <div v-if="unassignedPlayers.length > 0" class="waiting-box">
-              <p>Non assignés</p>
-              <div class="player-chips">
-                <div v-for="player in unassignedPlayers" :key="getUserId(player)" class="chip">
-                  <span class="name-truncate">{{ player.Pseudo || player.pseudo }}</span>
-                  <div class="chip-actions">
-                    <button
-                      class="btn-team"
-                      title="Assigner Équipe 1"
-                      @click="assignTeam(getUserId(player), 1)"
-                    >
-                      1
-                    </button>
-                    <button
-                      class="btn-team"
-                      title="Assigner Équipe 2"
-                      @click="assignTeam(getUserId(player), 2)"
-                    >
-                      2
-                    </button>
+          <div v-else class="teams-layout">
+            <div v-if="unassignedPlayers.length > 0" class="unassigned-section">
+              <div class="section-title">EN ATTENTE D'ORDRES</div>
+              <div class="player-wall">
+                <div
+                  v-for="player in unassignedPlayers"
+                  :key="getUserId(player)"
+                  class="player-tag unassigned"
+                >
+                  <span class="tag-name">{{ player.Pseudo || player.pseudo }}</span>
+                  <div class="tag-controls">
+                    <button class="ctrl-btn" @click="assignTeam(getUserId(player), 1)">T1</button>
+                    <button class="ctrl-btn" @click="assignTeam(getUserId(player), 2)">T2</button>
                     <button
                       v-if="isHost && getUserId(player) !== userId"
-                      class="btn-kick"
-                      title="Exclure"
+                      class="ctrl-btn kick"
                       @click="kickPlayer(getUserId(player))"
                     >
                       ×
@@ -86,63 +79,425 @@
             </div>
 
             <div class="teams-grid">
-              <div class="team-col">
-                <h4>Équipe 1</h4>
-                <div v-for="player in team1Players" :key="getUserId(player)" class="team-row">
-                  <span class="name-truncate">{{ player.Pseudo || player.pseudo }}</span>
-                  <div class="row-btns">
-                    <button @click="assignTeam(getUserId(player), 2)">⇄</button>
-                    <button @click="assignTeam(getUserId(player), null)" class="remove">×</button>
+              <div class="team-block t1">
+                <div class="team-header">ÉQUIPE ALPHA</div>
+                <div class="team-list">
+                  <div v-for="player in team1Players" :key="getUserId(player)" class="member-row">
+                    <span class="member-name">{{ player.Pseudo || player.pseudo }}</span>
+                    <div class="member-actions">
+                      <button @click="assignTeam(getUserId(player), 2)" class="btn-swap">⇄</button>
+                      <button @click="assignTeam(getUserId(player), null)" class="btn-remove">
+                        ×
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div class="team-col">
-                <h4>Équipe 2</h4>
-                <div v-for="player in team2Players" :key="getUserId(player)" class="team-row">
-                  <span class="name-truncate">{{ player.Pseudo || player.pseudo }}</span>
-                  <div class="row-btns">
-                    <button @click="assignTeam(getUserId(player), 1)">⇄</button>
-                    <button @click="assignTeam(getUserId(player), null)" class="remove">×</button>
+              <div class="team-block t2">
+                <div class="team-header">ÉQUIPE BETA</div>
+                <div class="team-list">
+                  <div v-for="player in team2Players" :key="getUserId(player)" class="member-row">
+                    <span class="member-name">{{ player.Pseudo || player.pseudo }}</span>
+                    <div class="member-actions">
+                      <button @click="assignTeam(getUserId(player), 1)" class="btn-swap">⇄</button>
+                      <button @click="assignTeam(getUserId(player), null)" class="btn-remove">
+                        ×
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <footer class="panel-footer">
-            <div v-if="isHost" class="validation-errors">
-              <p
-                v-if="hasNotEnoughPlayers"
-                style="color: #ff4444; margin-bottom: 10px; font-size: 0.9em; font-weight: bold"
-              >
-                Il n'y a pas assez de joueurs pour lancer la partie.
-              </p>
-              <p
-                v-if="hasUnassignedPlayers"
-                style="color: #ff4444; margin-bottom: 10px; font-size: 0.9em; font-weight: bold"
-              >
-                Certains joueurs ne sont pas encore dans une équipe.
-              </p>
-              <p
-                v-if="hasUnbalancedTeams"
-                style="color: #ff4444; margin-bottom: 10px; font-size: 0.9em; font-weight: bold"
-              >
-                Les équipes doivent être équilibrées pour commencer.
-              </p>
+          <footer class="hud-footer">
+            <div class="error-stack" v-if="isHost">
+              <transition-group name="fade-error">
+                <p v-if="hasNotEnoughPlayers" key="err1" class="hud-error">
+                  ⚠️ EFFECTIF INSUFFISANT
+                </p>
+                <p v-if="hasUnassignedPlayers" key="err2" class="hud-error">
+                  ⚠️ UNITÉS NON ASSIGNÉES
+                </p>
+                <p v-if="hasUnbalancedTeams" key="err3" class="hud-error">
+                  ⚠️ DÉSÉQUILIBRE DÉTECTÉ
+                </p>
+              </transition-group>
             </div>
 
-            <button v-if="isHost" class="btn-start" :disabled="!canStartGame" @click="startGame">
-              Lancer la partie
-            </button>
-            <button @click="leaveRoom" class="btn-leave">Quitter</button>
-            <p v-if="errorMsg" class="err">{{ errorMsg }}</p>
+            <div class="button-group">
+              <button
+                v-if="isHost"
+                class="btn-cyber btn-primary"
+                :disabled="!canStartGame"
+                @click="startGame"
+              >
+                ENGAGER LE COMBAT
+              </button>
+              <button @click="leaveRoom" class="btn-cyber btn-danger">ABANDONNER</button>
+            </div>
+            <p v-if="errorMsg" class="system-err">{{ errorMsg }}</p>
           </footer>
         </main>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+@import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap");
+
+.waiting-page {
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(3, 10, 16, 0.9), rgba(3, 10, 16, 0.95)),
+    url("@/assets/images/BackGroundAccueil.png");
+  background-size: cover;
+  background-position: center;
+  font-family: "Rajdhani", sans-serif;
+  color: #dff2ee;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.room-container {
+  width: 100%;
+  max-width: 1100px;
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* --- HEADER --- */
+.hud-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(29, 233, 192, 0.3);
+  padding-bottom: 10px;
+}
+
+.header-main {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.status-indicator {
+  width: 12px;
+  height: 12px;
+  background: #1de9c0;
+  border-radius: 2px;
+  box-shadow: 0 0 10px #1de9c0;
+}
+
+.animate-pulse {
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin: 0;
+  letter-spacing: 2px;
+  font-weight: 700;
+}
+
+.session-id {
+  color: rgba(29, 233, 192, 0.5);
+  font-size: 1rem;
+}
+
+.game-badge {
+  background: rgba(29, 233, 192, 0.1);
+  padding: 4px 15px;
+  border-radius: 4px;
+  border: 1px solid rgba(29, 233, 192, 0.3);
+}
+
+.mode-text {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #1de9c0;
+  text-transform: uppercase;
+}
+
+/* --- PANELS --- */
+.hud-grid {
+  display: flex;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+}
+
+.hud-panel {
+  background: rgba(6, 18, 26, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-tag {
+  background: rgba(29, 233, 192, 0.1);
+  color: #1de9c0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  width: fit-content;
+  letter-spacing: 1px;
+}
+
+.friends-panel {
+  width: 280px;
+}
+
+.list-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px;
+}
+
+.friend-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.2s;
+}
+
+.friend-row:hover {
+  background: rgba(29, 233, 192, 0.05);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4a5568;
+}
+.status-dot.online {
+  background: #1de9c0;
+  box-shadow: 0 0 8px #1de9c0;
+}
+
+.btn-mini-action {
+  background: #1de9c0;
+  color: #030a10;
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+/* --- MAIN PANEL & TEAMS --- */
+.main-panel {
+  flex: 1;
+  padding: 20px;
+}
+
+.player-wall {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.player-tag {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 8px 12px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.player-tag.unassigned {
+  border-color: rgba(29, 233, 192, 0.3);
+}
+
+.tag-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.tag-controls {
+  display: flex;
+  gap: 5px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  padding-left: 10px;
+}
+
+.ctrl-btn {
+  background: transparent;
+  border: 1px solid #1de9c0;
+  color: #1de9c0;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.ctrl-btn.kick {
+  border-color: #f87171;
+  color: #f87171;
+}
+
+.section-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1de9c0;
+  margin-bottom: 10px;
+  opacity: 0.7;
+}
+
+.teams-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.team-block {
+  background: rgba(255, 255, 255, 0.02);
+  border-top: 3px solid #1de9c0;
+  padding: 15px;
+}
+
+.team-block.t2 {
+  border-top-color: #38bdf8;
+}
+
+.team-header {
+  font-weight: 700;
+  letter-spacing: 2px;
+  margin-bottom: 15px;
+  font-size: 1rem;
+}
+
+.member-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.member-actions button {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  padding: 0 8px;
+  font-size: 1rem;
+}
+
+.member-actions .btn-remove:hover {
+  color: #f87171;
+}
+
+/* --- FOOTER --- */
+.hud-footer {
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 20px;
+}
+
+.hud-error {
+  color: #f87171;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.button-group {
+  display: flex;
+  gap: 15px;
+}
+
+.btn-cyber {
+  padding: 12px 25px;
+  font-family: "Rajdhani", sans-serif;
+  font-weight: 700;
+  letter-spacing: 2px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-primary {
+  background: #1de9c0;
+  color: #030a10;
+  flex: 2;
+}
+
+.btn-primary:disabled {
+  background: #1a3a34;
+  color: #2e6b62;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid #f87171;
+  color: #f87171;
+  flex: 1;
+}
+
+.btn-danger:hover {
+  background: #f87171;
+  color: white;
+}
+
+/* Transitions */
+.fade-error-enter-active,
+.fade-error-leave-active {
+  transition: all 0.3s ease;
+}
+.fade-error-enter-from,
+.fade-error-leave-to {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
+@media (max-width: 900px) {
+  .hud-grid {
+    flex-direction: column;
+  }
+  .friends-panel {
+    width: 100%;
+    height: 180px;
+  }
+  .teams-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
 
 <script>
 import api from "@/api/api.js";
@@ -402,301 +757,3 @@ export default {
   },
 };
 </script>
-
-<style scoped>
-.page-fixed {
-  position: fixed;
-  inset: 0;
-  background: #0f172a;
-  color: #f8fafc;
-  font-family: "Inter", sans-serif;
-  display: flex;
-  justify-content: center;
-  padding: 20px;
-  overflow-x: hidden;
-}
-
-.panel-header {
-  margin-left: 1rem;
-}
-
-.room-wrapper {
-  width: 100%;
-  max-width: 1000px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  min-width: 0;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.header h1 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin: 0;
-}
-
-.game-mode {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  background: #1e293b;
-  padding: 4px 12px;
-  border-radius: 20px;
-  color: #38bdf8;
-}
-
-.content-grid {
-  display: flex;
-  gap: 20px;
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
-}
-
-.panel {
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.friends-panel {
-  width: 260px;
-  flex-shrink: 0;
-}
-
-.list-container {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 10px;
-}
-
-.mini-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px;
-  border-bottom: 1px solid #334155;
-}
-
-.user-block {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.9rem;
-  min-width: 0;
-}
-
-.name,
-.name-truncate {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #64748b;
-  flex-shrink: 0;
-}
-.dot.online {
-  background: #22c55e;
-  box-shadow: 0 0 8px #22c55e;
-}
-
-.btn-invite {
-  background: #38bdf8;
-  color: #0f172a;
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  border: none;
-  font-weight: bold;
-  cursor: pointer;
-  flex-shrink: 0;
-  padding: 0rem;
-}
-
-.btn-all {
-  padding: 8px;
-  background: none;
-  border: 1px solid #38bdf8;
-  color: #38bdf8;
-  border-radius: 6px;
-  font-size: 0.8rem;
-}
-
-.main-panel {
-  flex: 1;
-  padding: 20px;
-  min-width: 0;
-  overflow-y: auto;
-}
-
-.player-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.chip {
-  background: #334155;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: 100%;
-}
-
-.chip-actions {
-  display: flex;
-  gap: 6px;
-  margin-left: auto;
-  padding-left: 10px;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.btn-team {
-  background: #1e293b;
-  color: #38bdf8;
-  border: 1px solid #38bdf8;
-  border-radius: 4px;
-  width: 24px;
-  height: 24px;
-  font-size: 0.75rem;
-  font-weight: bold;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.btn-team:hover {
-  background: #38bdf8;
-  color: #0f172a;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.btn-kick {
-  background: rgba(248, 113, 113, 0.1);
-  color: #f87171;
-  border: 1px solid #f87171;
-  border-radius: 4px;
-  width: 24px;
-  height: 24px;
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.btn-kick:hover {
-  background: #f87171;
-  color: white;
-}
-
-.teams-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-top: 20px;
-}
-
-.team-col {
-  background: #0f172a;
-  padding: 15px;
-  border-radius: 8px;
-  border: 1px solid #334155;
-  min-width: 0;
-}
-
-.team-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid #1e293b;
-  font-size: 0.9rem;
-  gap: 10px;
-}
-
-.row-btns {
-  display: flex;
-  gap: 5px;
-  flex-shrink: 0;
-}
-
-.panel-footer {
-  margin-top: auto;
-  padding-top: 20px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-@media (max-width: 800px) {
-  .content-grid {
-    flex-direction: column;
-  }
-  .friends-panel {
-    width: 100%;
-    height: 200px;
-  }
-  .teams-grid {
-    grid-template-columns: 1fr;
-  }
-  .page-fixed {
-    position: relative;
-    height: auto;
-    min-height: 100vh;
-  }
-}
-
-/* -------------------------------------------
-   Effet visuel de clic (Feedback UX)
-------------------------------------------- */
-
-/* 1. On s'assure que tous les boutons ont une transition fluide */
-button {
-  transition: all 0.15s ease-out;
-}
-
-/* 2. L'effet principal quand on clique (sauf si le bouton est désactivé) */
-button:active:not(:disabled) {
-  transform: scale(0.9); /* Le bouton rétrécit légèrement (effet d'enfoncement) */
-  opacity: 0.8; /* Il s'assombrit/devient très légèrement transparent */
-}
-
-/* 3. Effet "pressé" spécifique pour les boutons d'action en bas (Lancer/Quitter) */
-.btn-start:active:not(:disabled),
-.btn-leave:active:not(:disabled) {
-  box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.5); /* Ajoute une ombre interne pour accentuer la profondeur */
-}
-
-/* 4. On s'assure que les boutons désactivés (ex: amis déjà en jeu) ont l'air inactifs */
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none; /* Empêche l'effet de clic si désactivé */
-}
-</style>

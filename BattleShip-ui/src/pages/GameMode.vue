@@ -1,61 +1,341 @@
 <template>
-  <div class="game-mode-container">
-    <div class="game-mode-card">
-      <h1>⚓ Paramètres de la partie</h1>
+  <div class="background game-mode-page">
+    <div class="config-card">
+      <header class="card-header">
+        <div class="decoration-line"></div>
+        <h1 class="title">PARAMÈTRES DE MISSION</h1>
+      </header>
 
-      <!-- Choix du mode -->
-      <div class="form-group">
-        <label for="language">🌍 Langue :</label>
-        <select id="language" v-model="language">
-          <option value="fr">Français</option>
-          <option value="be">Belge</option>
-        </select>
+      <div class="card-body">
+        <div class="form-group">
+          <label><span class="label-icon">🌍</span> LANGUE DE COMMUNICATION</label>
+          <div class="custom-dropdown" v-click-outside="() => (showLang = false)">
+            <div
+              class="dropdown-selected"
+              @click="showLang = !showLang"
+              :class="{ open: showLang }"
+            >
+              {{ language === "fr" ? "FRANÇAIS" : "BELGE" }}
+              <span class="arrow"></span>
+            </div>
+            <transition name="dropdown">
+              <div v-if="showLang" class="dropdown-options">
+                <div class="option" @click="selectLang('fr')">FRANÇAIS</div>
+                <div class="option" @click="selectLang('be')">BELGE</div>
+              </div>
+            </transition>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-card" :class="{ active: isPrivate }">
+            <input type="checkbox" v-model="isPrivate" />
+            <div class="check-box">
+              <span v-if="isPrivate">✓</span>
+            </div>
+            <span class="label-text">PARTIE PRIVÉE</span>
+            <span class="lock-icon">{{ isPrivate ? "🔒" : "🔓" }}</span>
+          </label>
+        </div>
+
+        <transition name="fade-slide" mode="out-in">
+          <div v-if="!isPrivate" class="form-group" key="public">
+            <label><span class="label-icon">⚔️</span> MODE DE BATAILLE</label>
+            <div class="custom-dropdown" v-click-outside="() => (showMode = false)">
+              <div
+                class="dropdown-selected"
+                @click="showMode = !showMode"
+                :class="{ open: showMode }"
+              >
+                {{ formatMode(mode) }}
+                <span class="arrow"></span>
+              </div>
+              <transition name="dropdown">
+                <div v-if="showMode" class="dropdown-options">
+                  <div
+                    v-for="m in ['1v1', '2v2', '3v3', '4v4', 'battle-royale']"
+                    :key="m"
+                    class="option"
+                    @click="selectMode(m)"
+                  >
+                    {{ formatMode(m) }}
+                  </div>
+                </div>
+              </transition>
+            </div>
+          </div>
+
+          <div v-else class="form-group" key="private">
+            <label><span class="label-icon">👥</span> EFFECTIF TOTAL (PAIR)</label>
+            <div class="input-container">
+              <input type="number" v-model.number="totalPlayers" min="2" max="20" step="2" />
+              <div class="input-badge" :class="totalPlayers % 2 !== 0 ? 'error' : 'success'">
+                {{
+                  totalPlayers % 2 !== 0
+                    ? "IMPÉRATIF"
+                    : `${totalPlayers / 2} VS ${totalPlayers / 2}`
+                }}
+              </div>
+            </div>
+          </div>
+        </transition>
+
+        <footer class="actions">
+          <button class="btn-cyber btn-primary" @click="startGame" :disabled="!canStart || loading">
+            <span class="btn-text">{{ loading ? "INITIALISATION..." : "LANCER L'ASSAUT" }}</span>
+          </button>
+          <button class="btn-back" @click="$router.push('/')">ANNULER</button>
+        </footer>
       </div>
-
-      <!-- Partie privée -->
-      <div class="form-group checkbox-group">
-        <label>
-          <input type="checkbox" v-model="isPrivate" />
-          Partie privée <span class="lock">🔒</span>
-        </label>
-      </div>
-
-      <!-- Modes publics -->
-      <div v-if="!isPrivate" class="form-group">
-        <label for="mode">⚔️ Mode de bataille :</label>
-        <select id="mode" v-model="mode">
-          <option value="1v1">1 vs 1</option>
-          <option value="2v2">2 vs 2</option>
-          <option value="3v3">3 vs 3</option>
-          <option value="4v4">4 vs 4</option>
-          <option value="battle-royale">Battle Royale</option>
-        </select>
-      </div>
-
-      <!-- Modes privés -->
-      <div v-else class="private-settings form-group">
-        <label>👥 Nombre total de participants (pair) :</label>
-        <input
-          type="number"
-          v-model.number="totalPlayers"
-          min="2"
-          max="20"
-          step="2"
-          placeholder="Ex: 4"
-        />
-        <p v-if="totalPlayers % 2 !== 0" class="error-text">⚠️ Le nombre doit être pair !</p>
-        <p v-else class="info-text">{{ totalPlayers / 2 }} vs {{ totalPlayers / 2 }}</p>
-      </div>
-
-      <button class="start-button neon-btn" @click="startGame" :disabled="!canStart || loading">
-        {{ loading ? "⏳ Création en cours..." : "🚀 Lancer la partie" }}
-      </button>
-
-      <button class="cancel-button" @click="$router.push('/')">🏠 Retour</button>
     </div>
   </div>
 </template>
 
+<script setup>
+import { ref } from "vue";
+
+const language = ref("fr");
+const mode = ref("1v1");
+const isPrivate = ref(false);
+const totalPlayers = ref(4);
+const showLang = ref(false);
+const showMode = ref(false);
+
+const selectLang = (val) => {
+  language.value = val;
+  showLang.value = false;
+};
+const selectMode = (val) => {
+  mode.value = val;
+  showMode.value = false;
+};
+const formatMode = (m) => (m === "battle-royale" ? "BATTLE ROYALE" : m.replace("v", " VS "));
+
+// Simple directive pour fermer si on clique ailleurs
+const vClickOutside = {
+  mounted(el, binding) {
+    el.clickOutsideEvent = (event) => {
+      if (!(el === event.target || el.contains(event.target))) {
+        binding.value();
+      }
+    };
+    document.addEventListener("click", el.clickOutsideEvent);
+  },
+  unmounted(el) {
+    document.removeEventListener("click", el.clickOutsideEvent);
+  },
+};
+</script>
+
+<style scoped>
+@import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&display=swap");
+
+.background {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, #0a1921 0%, #030a10 100%);
+  font-family: "Rajdhani", sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #dff2ee;
+}
+
+.config-card {
+  width: 100%;
+  max-width: 380px;
+  background: rgba(6, 18, 26, 0.9);
+  border: 1px solid rgba(29, 233, 192, 0.2);
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+}
+
+.title {
+  font-size: 1.3rem;
+  text-align: center;
+  color: #1de9c0;
+  letter-spacing: 3px;
+  margin-bottom: 2rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+label {
+  display: block;
+  font-size: 0.75rem;
+  color: rgba(29, 233, 192, 0.6);
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+
+/* --- CUSTOM DROPDOWN --- */
+.custom-dropdown {
+  position: relative;
+  cursor: pointer;
+}
+
+.dropdown-selected {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(29, 233, 192, 0.2);
+  padding: 12px 15px;
+  border-radius: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s;
+}
+
+.dropdown-selected.open,
+.dropdown-selected:hover {
+  border-color: #1de9c0;
+  background: rgba(29, 233, 192, 0.05);
+}
+
+.arrow {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #1de9c0;
+  transition: transform 0.3s;
+}
+.open .arrow {
+  transform: rotate(180deg);
+}
+
+.dropdown-options {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  background: #0d1a21;
+  border: 1px solid #1de9c0;
+  border-radius: 6px;
+  z-index: 100;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.option {
+  padding: 12px 15px;
+  transition: background 0.2s;
+}
+.option:hover {
+  background: #1de9c0;
+  color: #030a10;
+}
+
+/* --- INPUTS & CHECKBOX --- */
+.input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+input[type="number"] {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(29, 233, 192, 0.2);
+  padding: 12px;
+  border-radius: 6px;
+  color: white;
+  outline: none;
+}
+
+.input-badge {
+  position: absolute;
+  right: 10px;
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.input-badge.success {
+  background: rgba(29, 233, 192, 0.1);
+  color: #1de9c0;
+}
+.input-badge.error {
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+}
+
+.checkbox-card {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px dashed rgba(29, 233, 192, 0.2);
+  cursor: pointer;
+}
+.checkbox-card.active {
+  border-style: solid;
+  border-color: #1de9c0;
+}
+.checkbox-card input {
+  display: none;
+}
+
+.check-box {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #1de9c0;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #030a10;
+  background: transparent;
+}
+input:checked + .check-box {
+  background: #1de9c0;
+}
+
+/* --- BUTTONS --- */
+.btn-cyber {
+  width: 100%;
+  padding: 1rem;
+  border-radius: 6px;
+  border: none;
+  font-weight: 700;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 1rem;
+}
+
+.btn-primary {
+  background: #1de9c0;
+  color: #030a10;
+}
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 0 20px rgba(29, 233, 192, 0.4);
+  transform: translateY(-2px);
+}
+
+.btn-back {
+  background: transparent;
+  color: #2e6b62;
+  margin-top: 10px;
+}
+.btn-back:hover {
+  color: #f87171;
+}
+
+/* Transitions */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.2s ease;
+}
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+</style>
 <script>
 import api from "@/api/api.js";
 
@@ -163,143 +443,3 @@ export default {
   },
 };
 </script>
-
-<style scoped>
-.game-mode-container {
-  background: radial-gradient(circle at center, #00334d, #001a26 90%);
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 2rem;
-  font-family: "Orbitron", sans-serif;
-  color: #fff;
-}
-
-.game-mode-card {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border: 2px solid rgba(0, 180, 255, 0.5);
-  border-radius: 20px;
-  padding: 2rem 2.5rem;
-  width: 100%;
-  max-width: 450px;
-  text-align: center;
-  box-shadow: 0 0 20px rgba(0, 150, 255, 0.4);
-  animation: fadeIn 0.6s ease-out;
-}
-
-h1 {
-  font-size: 1.8rem;
-  color: #00bfff;
-  margin-bottom: 1.5rem;
-  text-shadow: 0 0 8px #00bfff;
-}
-
-.form-group {
-  margin-bottom: 1.2rem;
-  text-align: left;
-}
-
-label {
-  display: block;
-  font-weight: bold;
-  margin-bottom: 0.3rem;
-}
-
-select,
-input[type="number"] {
-  width: 100%;
-  padding: 0.6rem;
-  background-color: rgba(0, 51, 77, 0.8);
-  color: #fff;
-  border: 1px solid rgba(0, 180, 255, 0.5);
-  border-radius: 8px;
-  outline: none;
-  transition: all 0.2s ease;
-  appearance: none;
-}
-
-select:focus,
-input[type="number"]:focus {
-  border-color: #00bfff;
-  box-shadow: 0 0 10px rgba(0, 180, 255, 0.6);
-}
-
-select option {
-  background-color: #00263d;
-  color: #fff;
-}
-
-.checkbox-group {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.lock {
-  margin-left: 5px;
-}
-
-.error-text {
-  color: #ff6b6b;
-  font-size: 0.9rem;
-  margin-top: -0.3rem;
-}
-
-.info-text {
-  color: #00ffaa;
-  font-weight: bold;
-}
-
-button {
-  width: 100%;
-  padding: 0.9rem;
-  border-radius: 10px;
-  font-weight: bold;
-  cursor: pointer;
-  font-size: 1.05rem;
-  transition: all 0.3s ease;
-  margin-top: 1rem;
-  border: none;
-}
-
-.neon-btn {
-  background: linear-gradient(90deg, #009dff, #00eaff);
-  color: #fff;
-  box-shadow: 0 0 15px rgba(0, 200, 255, 0.6);
-}
-
-.neon-btn:hover:not(:disabled) {
-  box-shadow: 0 0 25px rgba(0, 255, 255, 0.9);
-  transform: scale(1.03);
-}
-
-.neon-btn:disabled {
-  background: #444;
-  color: #ccc;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
-.cancel-button {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ccc;
-}
-
-.cancel-button:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-</style>
