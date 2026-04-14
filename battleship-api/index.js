@@ -72,23 +72,31 @@ const games = {};
 /**
  * Démarre ou réinitialise le tour d'une partie
  */
-function startTurn(gameId, duration = 7) {
+async function startTurn(gameId, duration = 7) {
   const sId = String(gameId);
 
-  // Nettoyage si un timer existe déjà
-  if (games[sId]?.timer) {
-    clearInterval(games[sId].timer);
-  }
+  if (games[sId]?.timer) clearInterval(games[sId].timer);
 
-  if (!games[sId]) {
-    games[sId] = { turnNumber: 0 };
-  }
+  if (!games[sId]) games[sId] = { turnNumber: 0 };
 
-  games[sId].turnStartAt = Date.now();
-  games[sId].duration = duration;
-  games[sId].ended = false;
-  games[sId].finished = false;
+  const turnStartAt = Date.now(); // ms, ancre temporelle
+  const unixNow = Math.floor(turnStartAt / 1000);
+
+  games[sId].turnStartAt = turnStartAt;
+  games[sId].duration    = duration;
+  games[sId].ended       = false;
+  games[sId].finished    = false;
   games[sId].turnNumber++;
+
+  // ✅ Mise à jour last_turn_timestamp en BDD à chaque nouveau tour
+  try {
+    await db.query(
+      "UPDATE games SET last_turn_timestamp = ?, current_round = current_round + 1 WHERE id_Game = ?",
+      [unixNow, sId]
+    );
+  } catch (err) {
+    console.error("❌ Erreur update last_turn_timestamp:", err);
+  }
 
   const interval = setInterval(() => {
     if (!games[sId] || games[sId].finished) {
@@ -96,27 +104,35 @@ function startTurn(gameId, duration = 7) {
       return;
     }
 
-    const elapsed = (Date.now() - games[sId].turnStartAt) / 1000;
+    const elapsed  = (Date.now() - games[sId].turnStartAt) / 1000;
     const timeLeft = Math.max(0, Math.ceil(duration - elapsed));
 
-    // Diffusion du temps restant
-    io.to(sId).emit("turn-timer", { timeLeft, gameId: sId });
+    // ✅ On envoie turnStartAt pour que le client puisse calculer localement
+    io.to(sId).emit("turn-timer", {
+      timeLeft,
+      gameId:     sId,
+      turnStartAt: games[sId].turnStartAt, // ms timestamp serveur
+    });
 
     if (timeLeft <= 0 && !games[sId].ended) {
       games[sId].ended = true;
       clearInterval(interval);
-
       io.to(sId).emit("turn-ended", { reason: "timeout", gameId: sId });
 
       setTimeout(() => {
-        if (games[sId] && !games[sId].finished) {
-          startTurn(sId, duration);
-        }
+        if (games[sId] && !games[sId].finished) startTurn(sId, duration);
       }, 800);
     }
   }, 1000);
 
   games[sId].timer = interval;
+
+  // ✅ Émission immédiate du premier tick (timeLeft = 7)
+  io.to(sId).emit("turn-timer", {
+    timeLeft: duration,
+    gameId:   sId,
+    turnStartAt,
+  });
 }
 
 function stopGameTimer(gameId) {

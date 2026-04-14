@@ -92,26 +92,132 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, computed, onMounted } from "vue";
+import { useRouter } from "vue-router";
+import api from "@/api/api.js";
 
+// --- INITIALISATION ---
+const router = useRouter();
+
+// --- ÉTAT DU COMPOSANT (Anciennement data) ---
 const language = ref("fr");
 const mode = ref("1v1");
 const isPrivate = ref(false);
-const totalPlayers = ref(4);
+const totalPlayers = ref(2); // J'ai gardé le "2" de ton second script
 const showLang = ref(false);
 const showMode = ref(false);
+const loading = ref(false);
+const user = ref(null);
 
+// --- CYCLE DE VIE (Anciennement mounted) ---
+onMounted(() => {
+  user.value = JSON.parse(localStorage.getItem("user"));
+});
+
+// --- VARIABLES CALCULÉES (Anciennement computed) ---
+const canStart = computed(() => {
+  if (mode.value === "battle-royale") return !!user.value;
+  if (isPrivate.value)
+    return !!user.value && totalPlayers.value >= 2 && totalPlayers.value % 2 === 0;
+  return !!user.value;
+});
+
+// --- MÉTHODES D'INTERFACE ---
 const selectLang = (val) => {
   language.value = val;
   showLang.value = false;
 };
+
 const selectMode = (val) => {
   mode.value = val;
   showMode.value = false;
 };
+
 const formatMode = (m) => (m === "battle-royale" ? "BATTLE ROYALE" : m.replace("v", " VS "));
 
-// Simple directive pour fermer si on clique ailleurs
+// --- LOGIQUE API ET MÉTIER (Anciennement methods) ---
+const getTeamModeFromSelection = (gameType) => {
+  switch (gameType) {
+    case "1v1":
+      return 1;
+    case "2v2":
+      return 2;
+    case "3v3":
+      return 3;
+    case "4v4":
+      return 4;
+    case "battle-royale":
+      return null;
+    default:
+      throw new Error(`Mode inconnu : ${gameType}`);
+  }
+};
+
+const startGame = async () => {
+  if (!user.value?.id) {
+    alert("⚠️ Utilisateur non connecté !");
+    return;
+  }
+
+  loading.value = true;
+
+  try {
+    // Déterminer id_team_mode
+    const teamModeId = isPrivate.value
+      ? Math.floor(totalPlayers.value / 2)
+      : getTeamModeFromSelection(mode.value);
+
+    // Calcul du totalPlayers
+    let calcTotalPlayers;
+    if (mode.value === "battle-royale") {
+      calcTotalPlayers = 2;
+    } else if (isPrivate.value) {
+      calcTotalPlayers = totalPlayers.value;
+    } else {
+      calcTotalPlayers = teamModeId * 2;
+    }
+
+    const payload = {
+      hostId: Number(user.value.id),
+      id_game_mode: isPrivate.value ? 2 : 1,
+      id_game_type: mode.value === "battle-royale" ? 1 : 2,
+      id_team_mode: teamModeId,
+      id_version: language.value === "fr" ? 1 : 2,
+      totalPlayers: calcTotalPlayers,
+    };
+
+    const response = await api.post("/games/create", payload);
+    const data = response.data;
+
+    if (!data.success) {
+      alert(data.message || "Erreur lors de la création de la partie.");
+      return;
+    }
+
+    const normalizedGame = {
+      ID_Game: data.game.ID_Game || data.game.id_game || data.game.id,
+      ID_Creator: data.game.ID_Creator || data.game.id_creator || data.game.creatorId,
+      TotalPlayers: data.game.TotalPlayers || calcTotalPlayers,
+      Status: data.game.Status || "preparation",
+    };
+
+    localStorage.setItem("currentGame", JSON.stringify(normalizedGame));
+    localStorage.setItem("currentLanguage", language.value);
+
+    router.push({
+      name: "WaitingRoom",
+      params: { gameId: normalizedGame.ID_Game },
+    });
+  } catch (err) {
+    console.error("❌ Erreur dans startGame:", err);
+    const errorMsg = err.response?.data?.message || "Impossible de contacter le serveur.";
+    alert(errorMsg);
+  } finally {
+    loading.value = false;
+  }
+};
+
+// --- DIRECTIVE PERSONNALISÉE ---
 const vClickOutside = {
   mounted(el, binding) {
     el.clickOutsideEvent = (event) => {
@@ -336,110 +442,3 @@ input:checked + .check-box {
   transform: translateY(-10px);
 }
 </style>
-<script>
-import api from "@/api/api.js";
-
-export default {
-  data() {
-    return {
-      language: "fr",
-      mode: "1v1",
-      isPrivate: false,
-      totalPlayers: 2,
-      loading: false,
-      user: null,
-    };
-  },
-  computed: {
-    canStart() {
-      if (this.mode === "battle-royale") return this.user;
-      if (this.isPrivate) return this.user && this.totalPlayers >= 2 && this.totalPlayers % 2 === 0;
-      return this.user;
-    },
-  },
-  mounted() {
-    this.user = JSON.parse(localStorage.getItem("user"));
-  },
-  methods: {
-    getTeamModeFromSelection(gameType) {
-      switch (gameType) {
-        case "1v1":
-          return 1;
-        case "2v2":
-          return 2;
-        case "3v3":
-          return 3;
-        case "4v4":
-          return 4;
-        case "battle-royale":
-          return null;
-        default:
-          throw new Error(`Mode inconnu : ${gameType}`);
-      }
-    },
-    async startGame() {
-      if (!this.user?.id) {
-        alert("⚠️ Utilisateur non connecté !");
-        return;
-      }
-
-      this.loading = true;
-
-      try {
-        // Déterminer id_team_mode
-        const teamModeId = this.isPrivate
-          ? Math.floor(this.totalPlayers / 2)
-          : this.getTeamModeFromSelection(this.mode);
-
-        // Calcul du totalPlayers
-        let calcTotalPlayers;
-        if (this.mode === "battle-royale") {
-          calcTotalPlayers = 2;
-        } else if (this.isPrivate) {
-          calcTotalPlayers = this.totalPlayers;
-        } else {
-          calcTotalPlayers = teamModeId * 2;
-        }
-
-        const payload = {
-          hostId: Number(this.user.id),
-          id_game_mode: this.isPrivate ? 2 : 1,
-          id_game_type: this.mode === "battle-royale" ? 1 : 2,
-          id_team_mode: teamModeId,
-          id_version: this.language === "fr" ? 1 : 2,
-          totalPlayers: calcTotalPlayers,
-        };
-
-        const response = await api.post("/games/create", payload);
-        const data = response.data;
-
-        if (!data.success) {
-          alert(data.message || "Erreur lors de la création de la partie.");
-          return;
-        }
-
-        const normalizedGame = {
-          ID_Game: data.game.ID_Game || data.game.id_game || data.game.id,
-          ID_Creator: data.game.ID_Creator || data.game.id_creator || data.game.creatorId,
-          TotalPlayers: data.game.TotalPlayers || calcTotalPlayers,
-          Status: data.game.Status || "preparation",
-        };
-
-        localStorage.setItem("currentGame", JSON.stringify(normalizedGame));
-        localStorage.setItem("currentLanguage", this.language);
-
-        this.$router.push({
-          name: "WaitingRoom",
-          params: { gameId: normalizedGame.ID_Game },
-        });
-      } catch (err) {
-        console.error("❌ Erreur dans startGame:", err);
-        const errorMsg = err.response?.data?.message || "Impossible de contacter le serveur.";
-        alert(errorMsg);
-      } finally {
-        this.loading = false;
-      }
-    },
-  },
-};
-</script>

@@ -48,7 +48,9 @@
 
         <aside class="fleet-panel">
           <div class="panel-header">
-            <div class="tag">ARSENAL DISPONIBLE</div>
+            <div class="tag">
+              ARSENAL DISPONIBLE (MODE {{ game.mode === "be" ? "BELGE" : "FRANÇAIS" }})
+            </div>
             <button @click="toggleOrientation" class="btn-rotation" :class="orientation">
               <svg
                 viewBox="0 0 24 24"
@@ -88,340 +90,11 @@
               </div>
             </div>
           </div>
-
-          <div class="fleet-footer">
-            <div class="remaining-count">
-              BÂTIMENTS RESTANTS : <span>{{ remainingShips }}</span>
-            </div>
-          </div>
         </aside>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&display=swap");
-
-.place-ships-page {
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(circle at center, #061621 0%, #02080d 100%);
-  font-family: "Rajdhani", sans-serif;
-  color: #dff2ee;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
-}
-
-.hud-container {
-  width: 100%;
-  max-width: 1100px;
-  display: flex;
-  flex-direction: column;
-  gap: 30px;
-}
-
-/* --- HEADER --- */
-.tactical-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  border-bottom: 1px solid rgba(29, 233, 192, 0.2);
-  padding-bottom: 15px;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-.radar-ping {
-  width: 12px;
-  height: 12px;
-  background: #1de9c0;
-  border-radius: 50%;
-  box-shadow: 0 0 15px #1de9c0;
-  animation: ping 1.5s infinite;
-}
-@keyframes ping {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(3);
-    opacity: 0;
-  }
-}
-
-h1 {
-  font-size: 1.5rem;
-  letter-spacing: 4px;
-  margin: 0;
-}
-
-.header-right {
-  display: flex;
-  gap: 30px;
-}
-.info-block {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
-.info-block .label {
-  font-size: 0.7rem;
-  color: rgba(29, 233, 192, 0.5);
-}
-.info-block .value {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #1de9c0;
-}
-
-/* --- LAYOUT --- */
-.tactical-layout {
-  display: flex;
-  gap: 40px;
-  justify-content: center;
-}
-
-/* --- RADAR GRID --- */
-.grid-wrapper {
-  background: rgba(29, 233, 192, 0.03);
-  padding: 15px;
-  border: 1px solid rgba(29, 233, 192, 0.1);
-  border-radius: 4px;
-  position: relative;
-}
-
-.grid-radar {
-  display: grid;
-  grid-template-columns: repeat(10, 40px);
-  grid-template-rows: repeat(10, 40px);
-  gap: 2px;
-  background: rgba(29, 233, 192, 0.1); /* Lignes du quadrillage */
-}
-
-.sonar-cell {
-  width: 40px;
-  height: 40px;
-  background: #030a10;
-  cursor: pointer;
-  position: relative;
-  transition: all 0.2s;
-}
-
-.cell-inner {
-  position: absolute;
-  inset: 0;
-  border: 1px solid rgba(29, 233, 192, 0.05);
-}
-
-/* État : Survol (Preview) */
-.sonar-cell.preview {
-  background: rgba(29, 233, 192, 0.3) !important;
-}
-.sonar-cell.preview.invalid {
-  background: rgba(248, 113, 113, 0.3) !important;
-}
-
-/* État : Bateau placé */
-.sonar-cell.ship {
-  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%) !important;
-  border: 1px solid #718096;
-  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
-}
-
-/* --- ACTIONS --- */
-.grid-actions {
-  display: flex;
-  gap: 15px;
-  margin-top: 25px;
-}
-
-.btn-radar {
-  flex: 1;
-  padding: 12px;
-  border: 1px solid #1de9c0;
-  background: transparent;
-  color: #1de9c0;
-  font-family: "Rajdhani";
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.btn-radar:hover:not(:disabled) {
-  background: rgba(29, 233, 192, 0.1);
-  box-shadow: 0 0 20px rgba(29, 233, 192, 0.2);
-}
-
-.btn-radar.validate {
-  background: #1de9c0;
-  color: #030a10;
-}
-
-.btn-radar.validate:disabled {
-  background: #1a3a34;
-  border-color: transparent;
-  color: #2e6b62;
-}
-
-/* --- FLEET PANEL --- */
-.fleet-panel {
-  width: 320px;
-  background: rgba(6, 18, 26, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-}
-
-.panel-header {
-  margin-bottom: 20px;
-}
-.tag {
-  font-size: 0.7rem;
-  color: rgba(29, 233, 192, 0.6);
-  margin-bottom: 10px;
-}
-
-.btn-rotation {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: white;
-  cursor: pointer;
-  font-family: "Rajdhani";
-  font-weight: 700;
-}
-
-.btn-rotation svg {
-  transition: transform 0.3s;
-}
-.btn-rotation.vertical svg {
-  transform: rotate(90deg);
-}
-
-.fleet-list {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  overflow-y: auto;
-  padding-right: 5px;
-}
-
-.ship-item {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 12px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.ship-item:hover {
-  border-color: rgba(29, 233, 192, 0.4);
-  background: rgba(29, 233, 192, 0.03);
-}
-.ship-item.selected {
-  border-color: #1de9c0;
-  background: rgba(29, 233, 192, 0.08);
-  box-shadow: 0 0 15px rgba(29, 233, 192, 0.1);
-}
-.ship-item.isPlaced {
-  opacity: 0.4;
-  filter: grayscale(1);
-  cursor: default;
-}
-
-.ship-visual .ship-segments {
-  display: flex;
-  gap: 3px;
-}
-.segment {
-  width: 12px;
-  height: 6px;
-  background: #1de9c0;
-  border-radius: 1px;
-}
-
-.ship-meta {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-.ship-meta .name {
-  font-size: 0.9rem;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-.ship-meta .size-text {
-  font-size: 0.65rem;
-  color: rgba(29, 233, 192, 0.6);
-}
-
-.status-indicator {
-  width: 8px;
-  height: 8px;
-  border: 1px solid #1de9c0;
-  border-radius: 50%;
-}
-.isPlaced .status-indicator {
-  background: #1de9c0;
-}
-
-.fleet-footer {
-  margin-top: 20px;
-  padding-top: 15px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-}
-.remaining-count {
-  font-size: 0.8rem;
-  letter-spacing: 1px;
-  text-align: center;
-}
-.remaining-count span {
-  color: #1de9c0;
-  font-weight: 800;
-}
-
-@media (max-width: 850px) {
-  .tactical-layout {
-    flex-direction: column;
-    align-items: center;
-  }
-  .sonar-cell {
-    width: 8.5vw;
-    height: 8.5vw;
-  }
-  .grid-radar {
-    grid-template-columns: repeat(10, 8.5vw);
-    grid-template-rows: repeat(10, 8.5vw);
-  }
-  .fleet-panel {
-    width: 100%;
-  }
-}
-
-.custom-scroll::-webkit-scrollbar {
-  width: 3px;
-}
-.custom-scroll::-webkit-scrollbar-thumb {
-  background: rgba(29, 233, 192, 0.2);
-}
-</style>
 
 <script>
 import api from "@/api/api.js";
@@ -591,19 +264,26 @@ export default {
       for (let i = 0; i < ship.size; i++) {
         const idx = this.orientation === "horizontal" ? startIndex + i : startIndex + i * 10;
 
-        // Vérifie si on dépasse de la grille
+        // 1. Vérification des limites de la grille
         if (idx >= 100 || (this.orientation === "horizontal" && Math.floor(idx / 10) !== row)) {
           this.hoverCells = [];
           return;
         }
 
-        // Vérifie la collision stricte OU l'adjacence (si mode français)
-        if (this.grid[idx].hasShip || (this.isFrenchMode && this.isAdjacent(idx))) {
+        // 2. Vérification de collision directe (Interdit dans TOUS les modes)
+        const collisionDirecte = this.grid[idx].hasShip;
+
+        // 3. Vérification d'adjacence (Interdit UNIQUEMENT en mode Français)
+        // On ajoute une sécurité : isAdjacent ne doit pas invalider si c'est le mode Belge
+        const collisionAdjacente = this.isFrenchMode && this.isAdjacent(idx);
+
+        if (collisionDirecte || collisionAdjacente) {
           valid = false;
         }
 
         indices.push(idx);
       }
+
       this.hoverCells = indices;
       this.invalidPreview = !valid;
     },
@@ -671,3 +351,381 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+@import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&display=swap");
+
+html,
+body {
+  overflow-x: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.place-ships-page {
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: radial-gradient(circle at center, #061621 0%, #02080d 100%);
+  font-family: "Rajdhani", sans-serif;
+  color: #dff2ee;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  box-sizing: border-box;
+  padding: 40px 20px;
+}
+
+.hud-container {
+  width: 100%;
+  max-width: 1100px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  box-sizing: border-box;
+}
+
+/* --- HEADER --- */
+.tactical-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-bottom: 1px solid rgba(29, 233, 192, 0.2);
+  padding-bottom: 15px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.radar-ping {
+  width: 12px;
+  height: 12px;
+  background: #1de9c0;
+  border-radius: 50%;
+  box-shadow: 0 0 15px #1de9c0;
+  animation: ping 1.5s infinite;
+}
+@keyframes ping {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+
+h1 {
+  font-size: 1.5rem;
+  letter-spacing: 4px;
+  margin: 0;
+}
+
+.header-right {
+  display: flex;
+  gap: 30px;
+}
+.info-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.info-block .label {
+  font-size: 0.7rem;
+  color: rgba(29, 233, 192, 0.5);
+}
+.info-block .value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1de9c0;
+}
+
+/* --- LAYOUT --- */
+.tactical-layout {
+  display: flex;
+  gap: 40px;
+  justify-content: center;
+}
+
+.tactical-layout > * {
+  min-width: 0;
+}
+
+/* --- RADAR GRID --- */
+.grid-wrapper {
+  background: rgba(29, 233, 192, 0.03);
+  padding: 15px;
+  border: 1px solid rgba(29, 233, 192, 0.1);
+  border-radius: 4px;
+  position: relative;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.grid-radar {
+  display: grid;
+  grid-template-columns: repeat(10, 40px);
+  grid-template-rows: repeat(10, 40px);
+  gap: 2px;
+  background: rgba(29, 233, 192, 0.1); /* Lignes du quadrillage */
+}
+
+.sonar-cell {
+  width: 40px;
+  height: 40px;
+  background: #030a10;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.cell-inner {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(29, 233, 192, 0.05);
+}
+
+/* État : Survol (Preview) */
+.sonar-cell.preview {
+  background: rgba(29, 233, 192, 0.3) !important;
+}
+.sonar-cell.preview.invalid {
+  background: rgba(248, 113, 113, 0.3) !important;
+}
+
+/* État : Bateau placé */
+.sonar-cell.ship {
+  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%) !important;
+  border: 1px solid #718096;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+/* --- ACTIONS --- */
+.grid-actions {
+  display: flex;
+  gap: 15px;
+  margin-top: 25px;
+}
+
+.btn-radar {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #1de9c0;
+  background: transparent;
+  color: #1de9c0;
+  font-family: "Rajdhani";
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-radar:hover:not(:disabled) {
+  background: rgba(29, 233, 192, 0.1);
+  box-shadow: 0 0 20px rgba(29, 233, 192, 0.2);
+}
+
+.btn-radar.validate {
+  background: #1de9c0;
+  color: #030a10;
+}
+
+.btn-radar.validate:disabled {
+  background: #1a3a34;
+  border-color: transparent;
+  color: #2e6b62;
+}
+
+/* --- FLEET PANEL --- */
+.fleet-panel {
+  width: 100%;
+  max-width: 320px;
+  background: rgba(6, 18, 26, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-header {
+  margin-bottom: 20px;
+}
+.tag {
+  font-size: 0.7rem;
+  color: rgba(29, 233, 192, 0.6);
+  margin-bottom: 10px;
+}
+
+.btn-rotation {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  cursor: pointer;
+  font-family: "Rajdhani";
+  font-weight: 700;
+}
+
+.btn-rotation svg {
+  transition: transform 0.3s;
+}
+.btn-rotation.vertical svg {
+  transform: rotate(90deg);
+}
+
+.fleet-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.ship-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ship-item:hover {
+  border-color: rgba(29, 233, 192, 0.4);
+  background: rgba(29, 233, 192, 0.03);
+}
+.ship-item.selected {
+  border-color: #1de9c0;
+  background: rgba(29, 233, 192, 0.08);
+  box-shadow: 0 0 15px rgba(29, 233, 192, 0.1);
+}
+.ship-item.isPlaced {
+  opacity: 0.4;
+  filter: grayscale(1);
+  cursor: default;
+}
+
+.ship-visual .ship-segments {
+  display: flex;
+  gap: 3px;
+}
+.segment {
+  width: 12px;
+  height: 6px;
+  background: #1de9c0;
+  border-radius: 1px;
+}
+
+.ship-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.ship-meta .name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.ship-meta .size-text {
+  font-size: 0.65rem;
+  color: rgba(29, 233, 192, 0.6);
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border: 1px solid #1de9c0;
+  border-radius: 50%;
+}
+.isPlaced .status-indicator {
+  background: #1de9c0;
+}
+
+.fleet-footer {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.remaining-count {
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  text-align: center;
+}
+.remaining-count span {
+  color: #1de9c0;
+  font-weight: 800;
+}
+
+@media (max-width: 850px) {
+  .place-ships-page {
+    padding: 20px 10px;
+  }
+
+  .tactical-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 15px;
+  }
+
+  .grid-wrapper {
+    /* Empêche la grille de forcer une largeur fixe */
+    max-width: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+  }
+
+  .tactical-layout {
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .grid-radar {
+    grid-template-columns: repeat(10, min(32px, 8.5vw));
+    grid-template-rows: repeat(10, min(32px, 8.5vw));
+    gap: 1px;
+  }
+
+  .grid-actions {
+    width: 100%;
+    flex-direction: column; /* Boutons l'un sur l'autre pour gagner de la largeur */
+    gap: 10px;
+  }
+
+  .sonar-cell {
+    width: min(32px, 8.5vw);
+    height: min(32px, 8.5vw);
+  }
+
+  .fleet-panel {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .fleet-list {
+    max-height: 300px; /* Limite la hauteur de la liste pour ne pas étirer l'écran */
+  }
+}
+
+.custom-scroll::-webkit-scrollbar {
+  width: 3px;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: rgba(29, 233, 192, 0.2);
+}
+</style>

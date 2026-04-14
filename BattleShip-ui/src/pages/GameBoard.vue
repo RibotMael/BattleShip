@@ -998,6 +998,8 @@ export default {
       // ── Récompenses ──────────────────────────────────────
       rewardData: null,
       rewardClaimed: false,
+      turnStartAt: null,
+      localTimerInterval: null,
     };
   },
   computed: {
@@ -1199,23 +1201,55 @@ export default {
     },
 
     /* ----------------- Timer ----------------- */
-    socketTurnTimer({ timeLeft }) {
+    socketTurnTimer({ timeLeft, turnStartAt }) {
       if (this.gameOver) return;
+
+      // Ancrage : on retient quand le tour a commencé côté serveur.
+      // Si le serveur envoie turnStartAt, on l'utilise directement.
+      // Sinon (fallback), on l'infère depuis timeLeft.
+      this.turnStartAt = turnStartAt
+        ? turnStartAt
+        : Date.now() - (7 - Math.max(0, timeLeft)) * 1000;
+
       if (timeLeft >= 7) {
         this.hasFiredThisTurn = false;
-        this.turnTimer = 7;
-      } else {
-        this.turnTimer = timeLeft;
+        this.clearPendingCells();
       }
-      this.$nextTick(this.updateCircle);
+
+      this._startLocalTick();
+    },
+
+    _startLocalTick() {
+      if (this.localTimerInterval) {
+        clearInterval(this.localTimerInterval);
+        this.localTimerInterval = null;
+      }
+
+      this.localTimerInterval = setInterval(() => {
+        if (!this.turnStartAt || this.gameOver) return;
+
+        const elapsed = (Date.now() - this.turnStartAt) / 1000;
+        const computed = Math.max(0, Math.ceil(7 - elapsed));
+
+        this.turnTimer = computed;
+        this.$nextTick(this.updateCircle);
+
+        if (computed <= 0) {
+          clearInterval(this.localTimerInterval);
+          this.localTimerInterval = null;
+        }
+      }, 200);
     },
 
     async resyncTimer() {
       try {
         const res = await fetch(`${API_BASE_URL}/api/games/${this.gameId}/timer`);
         const data = await res.json();
+
         if (data.success && typeof data.timeLeft === "number") {
+          this.turnStartAt = Date.now() - (7 - data.timeLeft) * 1000;
           this.turnTimer = data.timeLeft;
+          this._startLocalTick();
           this.$nextTick(this.updateCircle);
         }
       } catch (err) {
@@ -1225,10 +1259,16 @@ export default {
 
     endTurn() {
       if (this.gameOver) return;
+
+      if (this.localTimerInterval) {
+        clearInterval(this.localTimerInterval);
+        this.localTimerInterval = null;
+      }
+
       this.turnTimer = 0;
       this.updateCircle();
-      this.validateShot();
       this.hasFiredThisTurn = false;
+      this.validateShot();
     },
     updateCircle() {
       const circle = this.$el.querySelector(".progress-ring__circle");
@@ -1244,20 +1284,31 @@ export default {
     /* ----------------- Init ----------------- */
     handleGameStarted(data) {
       this.resetGameState();
+
       this.fetchInterval = setInterval(async () => {
         await this.fetchEnemyShots();
         await this.checkGameStatus();
       }, 2000);
+
       this.syncAllShots();
-      this.turnTimer = data.timeLeft || 7;
+
+      const tl = data.timeLeft || 7;
+      this.turnStartAt = data.turnStartAt ? data.turnStartAt : Date.now() - (7 - tl) * 1000;
+      this.turnTimer = tl;
+      this._startLocalTick();
       this.updateCircle();
     },
     resetGameState() {
       clearInterval(this.turnInterval);
       clearInterval(this.fetchInterval);
+      if (this.localTimerInterval) {
+        clearInterval(this.localTimerInterval);
+        this.localTimerInterval = null;
+      }
       this.fetchInterval = null;
       this.turnInterval = null;
       this.turnTimer = 7;
+      this.turnStartAt = null; // ← ajout
       this.gameOver = false;
       this.selectedCell = null;
       this.endPopup = false;

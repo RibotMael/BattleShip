@@ -318,6 +318,7 @@ h1 {
 .main-panel {
   flex: 1;
   padding: 20px;
+  overflow-y: auto; /* 🔥 C'EST ICI LE CORRECTIF PRINCIPAL */
 }
 
 .player-wall {
@@ -492,6 +493,7 @@ h1 {
   .friends-panel {
     width: 100%;
     height: 180px;
+    flex-shrink: 0; /* 🔥 Empêche le panneau d'amis de se faire écraser sur mobile */
   }
   .teams-grid {
     grid-template-columns: 1fr;

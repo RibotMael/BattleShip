@@ -1,4 +1,3 @@
-<!-- FriendsList.vue -->
 <template>
   <div class="popup-overlay" @click.self="$emit('close')">
     <div class="popup-content">
@@ -171,7 +170,12 @@
                   <span class="status-dot" :class="f.isOnline ? 'online' : 'offline'"></span>
                 </div>
                 <div class="friend-info">
-                  <span class="friend-pseudo" :class="{ muted: !f.isOnline }">{{ f.Pseudo }}</span>
+                  <div class="pseudo-row">
+                    <span class="friend-pseudo" :class="{ muted: !f.isOnline }">{{
+                      f.Pseudo
+                    }}</span>
+                    <span class="level-badge">LVL {{ f.niveau || 0 }}</span>
+                  </div>
                   <span class="friend-sub" :class="f.isOnline ? 'teal' : 'muted-sub'">
                     {{ f.isOnline ? "En ligne" : "Hors ligne" }}
                   </span>
@@ -250,6 +254,7 @@ export default {
           ID_Users: f.ID_Users ?? f.id,
           Pseudo: f.Pseudo ?? f.pseudo,
           isOnline: f.isOnline ?? false,
+          niveau: f.niveau ?? f.level ?? 0,
           avatarUrl: f.Avatar ? `data:${f.mime_type};base64,${f.Avatar}` : defaultAvatar,
         }));
       } catch (err) {
@@ -704,6 +709,30 @@ export default {
 
 .friend-pseudo.muted {
   color: #2e6560;
+}
+
+.pseudo-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.level-badge {
+  font-family: "Rajdhani", sans-serif;
+  font-size: 0.6rem;
+  font-weight: 700;
+  background: rgba(29, 233, 192, 0.1);
+  color: #1de9c0;
+  border: 1px solid rgba(29, 233, 192, 0.3);
+  padding: 1px 4px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.friend-pseudo.muted + .level-badge {
+  opacity: 0.5;
+  filter: grayscale(1);
 }
 
 .friend-sub {
