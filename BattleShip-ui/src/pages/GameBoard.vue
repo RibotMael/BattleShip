@@ -961,6 +961,7 @@ body {
 <script>
 import socket from "../services/socket.js";
 import heartbeatSrc from "@/assets/audio/BattementsDeCoeur.mp3";
+import { userBus } from "@/eventBus.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -1137,11 +1138,7 @@ export default {
           stored.xp = data.newXp;
           localStorage.setItem("user", JSON.stringify(stored));
           // Déclencher la mise à jour du menu principal
-          import("@/eventBus.js")
-            .then(({ userBus }) => {
-              userBus.userUpdated = !userBus.userUpdated;
-            })
-            .catch(() => {});
+          userBus.userUpdated = !userBus.userUpdated;
         }
       } catch (err) {
         console.error("Erreur claimReward :", err);
@@ -1153,7 +1150,7 @@ export default {
           xpIntoLevel: 0,
           xpNeededForNext: 100,
           levelUp: false,
-          newGold: null,
+          newGold: this.user.gold ?? 0,
         };
       }
     },
@@ -1818,6 +1815,12 @@ export default {
 
     showEndPopup(msg, isVictory = false) {
       this.popupMessage = msg;
+      if (!this.popupIcon) {
+        if (msg.includes("Victoire")) this.popupIcon = "🏆";
+        else if (msg.includes("Égalité")) this.popupIcon = "⚖️";
+        else if (msg.includes("abandon") || msg.includes("Abandon")) this.popupIcon = "🏳️";
+        else this.popupIcon = "💥";
+      }
       this.endPopup = true;
       this.gameOver = true;
       clearInterval(this.fetchInterval);

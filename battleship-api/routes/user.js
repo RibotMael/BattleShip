@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import { query } from '../db.js';
 import db from "../db.js";
+import { computeLevel } from "../utils/levelHelpers.js"
 
 
 const router = Router();
@@ -192,5 +193,66 @@ router.get("/check-user/:id", async (req, res) => {
     res.status(500).json({ message: "Erreur serveur" });
   }
 });
+
+router.post("/:id/reward", async (req, res) => {
+  const playerId  = parseInt(req.params.id);
+  const { isVictory, gameId } = req.body;
+ 
+  if (!playerId || typeof isVictory !== "boolean") {
+    return res.status(400).json({ success: false, message: "Paramètres invalides." });
+  }
+ 
+  const baseGold = isVictory ? 100 : 25;
+  const xpGain   = isVictory ? 50  : 25;
+ 
+  try {
+    const [rows] = await db.query(
+      "SELECT Gold, xp, niveau FROM users WHERE ID_Users = ?",
+      [playerId]
+    );
+    if (!rows.length) return res.status(404).json({ success: false, message: "Joueur introuvable." });
+ 
+    const { Gold: currentGold, xp: currentXp } = rows[0];
+ 
+    const lvlBefore   = computeLevel(currentXp);
+    const newXp       = currentXp + xpGain;
+    const lvlAfter    = computeLevel(newXp);
+    const levelsGained = lvlAfter.level - lvlBefore.level;
+    const levelUpGold  = levelsGained * 200;   // +200 gold par niveau gagné
+    const totalGold    = baseGold + levelUpGold;
+    const newGold      = currentGold + totalGold;
+ 
+    await db.query(
+      "UPDATE users SET Gold = ?, xp = ?, niveau = ? WHERE ID_Users = ?",
+      [newGold, newXp, lvlAfter.level, playerId]
+    );
+ 
+    const ratioField = isVictory ? "Win" : "Defeat";
+    await db.query(
+      `UPDATE ratio SET ${ratioField} = ${ratioField} + 1, Game_Played = Game_Played + 1 WHERE ID_Profil = ?`,
+      [playerId]
+    );
+ 
+    return res.json({
+      success:         true,
+      goldGain:        totalGold,
+      baseGoldGain:    baseGold,
+      levelUpGoldGain: levelUpGold,
+      xpGain,
+      levelsGained,
+      newGold,
+      newXp,
+      newLevel:        lvlAfter.level,
+      xpIntoLevel:     lvlAfter.xpIntoLevel,
+      xpNeededForNext: lvlAfter.xpNeededForNext,
+      levelUp:         levelsGained > 0,
+      levelUpTo:       levelsGained > 0 ? lvlAfter.level : null,
+    });
+  } catch (err) {
+    console.error("Erreur reward endpoint:", err);
+    return res.status(500).json({ success: false, message: "Erreur serveur." });
+  }
+});
+
 
 export default router;

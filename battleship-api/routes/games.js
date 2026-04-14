@@ -9,23 +9,6 @@ import { stopGameTimer } from "../index.js";
 const router = express.Router();
 const games = {};
 
-function xpForNextLevel(level) {
-  return Math.floor(100 * Math.pow(1.02, level));
-}
- 
-function computeLevel(totalXp) {
-  let level = 0;
-  let used  = 0;
-  while (true) {
-    const needed = xpForNextLevel(level);
-    if (used + needed > totalXp) {
-      return { level, xpIntoLevel: totalXp - used, xpNeededForNext: needed };
-    }
-    used += needed;
-    level++;
-  }
-}
-
 // Récupérer les parties publiques disponibles
 router.get("/public", async (req, res) => {
   try {
@@ -753,8 +736,7 @@ router.get("/:gameId/shots", async (req, res) => {
       if (rows.length) boardCache[tid] = JSON.parse(rows[0].board_json);
     }));
 
-    // Puis dans le map, remplacer la requête par :
-    const board = boardCache[shot.target_id];
+    //const board = boardCache[shot.target_id];
 
     const enhancedShots = await Promise.all(
       shots.map(async (s) => {
@@ -766,15 +748,10 @@ router.get("/:gameId/shots", async (req, res) => {
           target_id: Number(s.target_id)
         };
 
-        // Si c'est un bateau coulé, on doit renvoyer toutes les positions pour l'affichage
         if (shot.result === "sunk") {
-          const [rows] = await db.query(
-            "SELECT board_json FROM player_boards WHERE game_id = ? AND player_id = ?",
-            [gameId, shot.target_id]
-          );
-
-          if (rows.length) {
-            const board = JSON.parse(rows[0].board_json);
+          // ✅ Utiliser le cache ici, plus de requête DB répétée
+          const board = boardCache[shot.target_id];
+          if (board) {
             const cellValue = board[shot.target_y][shot.target_x];
             const positions = [];
             board.forEach((row, yIdx) =>
@@ -999,66 +976,6 @@ router.get("/:id/stats", async (req, res) => {
   } catch (err) {
     console.error("Erreur /stats :", err);
     return res.status(500).json({ success: false });
-  }
-});
-
-router.post("/:id/reward", async (req, res) => {
-  const playerId  = parseInt(req.params.id);
-  const { isVictory, gameId } = req.body;
- 
-  if (!playerId || typeof isVictory !== "boolean") {
-    return res.status(400).json({ success: false, message: "Paramètres invalides." });
-  }
- 
-  const baseGold = isVictory ? 100 : 25;
-  const xpGain   = isVictory ? 50  : 25;
- 
-  try {
-    const [rows] = await db.query(
-      "SELECT Gold, xp, niveau FROM users WHERE ID_Users = ?",
-      [playerId]
-    );
-    if (!rows.length) return res.status(404).json({ success: false, message: "Joueur introuvable." });
- 
-    const { Gold: currentGold, xp: currentXp } = rows[0];
- 
-    const lvlBefore   = computeLevel(currentXp);
-    const newXp       = currentXp + xpGain;
-    const lvlAfter    = computeLevel(newXp);
-    const levelsGained = lvlAfter.level - lvlBefore.level;
-    const levelUpGold  = levelsGained * 200;   // +200 gold par niveau gagné
-    const totalGold    = baseGold + levelUpGold;
-    const newGold      = currentGold + totalGold;
- 
-    await db.query(
-      "UPDATE users SET Gold = ?, xp = ?, niveau = ? WHERE ID_Users = ?",
-      [newGold, newXp, lvlAfter.level, playerId]
-    );
- 
-    const ratioField = isVictory ? "Win" : "Defeat";
-    await db.query(
-      `UPDATE ratio SET ${ratioField} = ${ratioField} + 1, Game_Played = Game_Played + 1 WHERE ID_Profil = ?`,
-      [playerId]
-    );
- 
-    return res.json({
-      success:         true,
-      goldGain:        totalGold,
-      baseGoldGain:    baseGold,
-      levelUpGoldGain: levelUpGold,
-      xpGain,
-      levelsGained,
-      newGold,
-      newXp,
-      newLevel:        lvlAfter.level,
-      xpIntoLevel:     lvlAfter.xpIntoLevel,
-      xpNeededForNext: lvlAfter.xpNeededForNext,
-      levelUp:         levelsGained > 0,
-      levelUpTo:       levelsGained > 0 ? lvlAfter.level : null,
-    });
-  } catch (err) {
-    console.error("Erreur reward endpoint:", err);
-    return res.status(500).json({ success: false, message: "Erreur serveur." });
   }
 });
 
