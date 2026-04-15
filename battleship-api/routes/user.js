@@ -72,7 +72,8 @@ router.get('/:id/list', async (req, res) => {
         id: f.id,
         pseudo: f.pseudo,
         avatar,
-        isOnline: !!f.isOnline
+        isOnline: !!f.isOnline,
+        niveau: f.niveau ?? 0,
       };
     });
 
@@ -176,6 +177,39 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+router.get('/:id/stats', async (req, res) => {
+  const userId = parseInt(req.params.id);
+  if (!userId) return res.status(400).json({ success: false });
+
+  try {
+    // ON JOINT LES DEUX TABLES
+    const [rows] = await db.query(
+      `SELECT u.Gold, u.xp, u.niveau, r.Win, r.Defeat, r.Game_Played 
+       FROM users u 
+       LEFT JOIN ratio r ON u.ID_Users = r.ID_Profil 
+       WHERE u.ID_Users = ?`,
+      [userId]
+    );
+
+    if (!rows.length) return res.status(404).json({ success: false });
+
+    const stats = rows[0];
+
+    return res.json({
+      success: true,
+      gold: stats.Gold,
+      xp: stats.xp,
+      level: stats.niveau,
+      // On renvoie les stats de la table ratio
+      win: stats.Win || 0,
+      defeat: stats.Defeat || 0,
+      game_played: stats.Game_Played || 0
+    });
+  } catch (err) {
+    console.error("Erreur /users/:id/stats :", err);
+    return res.status(500).json({ success: false });
+  }
+});
 
 // Vérifie si un utilisateur existe encore
 router.get("/check-user/:id", async (req, res) => {
@@ -225,6 +259,11 @@ router.post("/:id/reward", async (req, res) => {
     await db.query(
       "UPDATE users SET Gold = ?, xp = ?, niveau = ? WHERE ID_Users = ?",
       [newGold, newXp, lvlAfter.level, playerId]
+    );
+
+    await db.query(
+      "INSERT IGNORE INTO ratio (ID_Profil, Win, Defeat, Game_Played) VALUES (?, 0, 0, 0)",
+      [playerId]
     );
  
     const ratioField = isVictory ? "Win" : "Defeat";

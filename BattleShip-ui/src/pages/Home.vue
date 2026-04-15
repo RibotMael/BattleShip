@@ -174,7 +174,6 @@ export default {
     },
     handleLoginSuccess(userData) {
       if (!userData.avatar) userData.avatar = defaultAvatar;
-      // Valeurs par défaut
       if (userData.level === undefined) userData.level = userData.niveau ?? 0;
       if (userData.gold === undefined) userData.gold = userData.Gold ?? 0;
       if (userData.xp === undefined) userData.xp = 0;

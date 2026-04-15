@@ -61,6 +61,39 @@
         <div class="xp-block">
           <div class="xp-block-header">
             <span class="xp-label">
+              <span class="label-dot dot-purple"></span>
+              Statistiques de Match
+            </span>
+            <span class="xp-numbers winrate-text">{{ winPercentage }}% de Victoire</span>
+          </div>
+          <div class="stats-row" style="margin-top: 0.5rem">
+            <div class="stat-pill game-pill">
+              <span class="stat-pill-icon">🎮</span>
+              <div class="stat-info">
+                <span class="stat-pill-label">Jouées</span>
+                <span class="stat-pill-value">{{ gamesPlayed }}</span>
+              </div>
+            </div>
+            <div class="stat-pill win-pill">
+              <span class="stat-pill-icon">🏆</span>
+              <div class="stat-info">
+                <span class="stat-pill-label">Victoires</span>
+                <span class="stat-pill-value">{{ wins }}</span>
+              </div>
+            </div>
+            <div class="stat-pill defeat-pill">
+              <span class="stat-pill-icon">💀</span>
+              <div class="stat-info">
+                <span class="stat-pill-label">Défaites</span>
+                <span class="stat-pill-value">{{ defeats }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="xp-block">
+          <div class="xp-block-header">
+            <span class="xp-label">
               <span class="label-dot dot-blue"></span>
               Expérience
             </span>
@@ -141,6 +174,11 @@ export default {
       currentGold: 0,
       currentXp: 0,
       currentLevel: 0,
+
+      // Nouvelles variables pour le ratio
+      wins: 0,
+      defeats: 0,
+      gamesPlayed: 0,
     };
   },
   computed: {
@@ -162,6 +200,11 @@ export default {
       if (!needed) return 0;
       return Math.min(100, Math.floor((xpInto / needed) * 100));
     },
+    // Calcul du pourcentage de victoire
+    winPercentage() {
+      if (this.gamesPlayed === 0) return 0;
+      return Math.round((this.wins / this.gamesPlayed) * 100);
+    },
   },
   mounted() {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -173,6 +216,11 @@ export default {
       this.currentGold = user.gold ?? 0;
       this.currentXp = user.xp ?? 0;
       this.currentLevel = user.level ?? 0;
+
+      // Récupération optionnelle depuis le localStorage si stocké
+      this.wins = user.wins ?? 0;
+      this.defeats = user.defeats ?? 0;
+      this.gamesPlayed = user.gamesPlayed ?? 0;
     }
     this.fetchAvatars();
     if (this.userId) this.fetchUserStats();
@@ -196,10 +244,18 @@ export default {
           this.currentXp = res.data.xp ?? this.currentXp;
           this.currentLevel = res.data.level ?? this.currentLevel;
 
+          // Récupération des stats du ratio depuis l'API (à adapter selon les noms de clés de ton backend)
+          this.wins = res.data.win ?? this.wins;
+          this.defeats = res.data.defeat ?? this.defeats;
+          this.gamesPlayed = res.data.game_played ?? this.gamesPlayed;
+
           const stored = JSON.parse(localStorage.getItem("user")) || {};
           stored.gold = this.currentGold;
           stored.xp = this.currentXp;
           stored.level = this.currentLevel;
+          stored.wins = this.wins;
+          stored.defeats = this.defeats;
+          stored.gamesPlayed = this.gamesPlayed;
           localStorage.setItem("user", JSON.stringify(stored));
         }
       } catch (e) {
@@ -283,7 +339,6 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
-  /* Garde ton image de fond, mais on applique le filtre d'assombrissement Cyber-Tech */
   background-image:
     linear-gradient(rgba(3, 10, 16, 0.78), rgba(3, 10, 16, 0.85)),
     url("@/assets/images/BackGroundAccueil.png");
@@ -369,7 +424,7 @@ export default {
 }
 
 .spacer {
-  width: 32px; /* Pour équilibrer le flex et centrer le titre */
+  width: 32px;
 }
 
 /* ── Contenu ── */
@@ -407,6 +462,10 @@ export default {
 .dot-blue {
   background: #60a5fa;
   box-shadow: 0 0 6px rgba(96, 165, 250, 0.5);
+}
+.dot-purple {
+  background: #c084fc;
+  box-shadow: 0 0 6px rgba(192, 132, 252, 0.5);
 }
 
 /* ── Avatar ── */
@@ -503,6 +562,7 @@ export default {
   background: rgba(255, 255, 255, 0.025);
 }
 
+/* Couleurs spécifiques aux Pills */
 .gold-pill {
   border: 1px solid rgba(245, 158, 11, 0.2);
   background: rgba(245, 158, 11, 0.04);
@@ -510,6 +570,18 @@ export default {
 .level-pill {
   border: 1px solid rgba(29, 233, 192, 0.2);
   background: rgba(29, 233, 192, 0.04);
+}
+.game-pill {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(148, 163, 184, 0.04);
+}
+.win-pill {
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  background: rgba(74, 222, 128, 0.04);
+}
+.defeat-pill {
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  background: rgba(248, 113, 113, 0.04);
 }
 
 .stat-pill-icon {
@@ -533,12 +605,22 @@ export default {
 .gold-pill .stat-pill-label {
   color: rgba(245, 158, 11, 0.7);
 }
+.game-pill .stat-pill-label {
+  color: rgba(148, 163, 184, 0.7);
+}
+.win-pill .stat-pill-label {
+  color: rgba(74, 222, 128, 0.7);
+}
+.defeat-pill .stat-pill-label {
+  color: rgba(248, 113, 113, 0.7);
+}
 
 .stat-pill-value {
   font-family: "Inter", sans-serif;
   font-size: 1.1rem;
   font-weight: 600;
   line-height: 1.1;
+  color: #dff2ee;
 }
 .gold-pill .stat-pill-value {
   color: #f59e0b;
@@ -546,8 +628,14 @@ export default {
 .level-pill .stat-pill-value {
   color: #1de9c0;
 }
+.win-pill .stat-pill-value {
+  color: #4ade80;
+}
+.defeat-pill .stat-pill-value {
+  color: #f87171;
+}
 
-/* ── BARRE XP ── */
+/* ── BARRE XP / CONTAINERS BLOCKS ── */
 .xp-block {
   display: flex;
   flex-direction: column;
@@ -579,7 +667,10 @@ export default {
 .xp-numbers {
   font-size: 0.75rem;
   font-weight: 500;
-  color: #60a5fa; /* Bleu pour l'XP */
+  color: #60a5fa;
+}
+.winrate-text {
+  color: #c084fc;
 }
 
 .xp-track {

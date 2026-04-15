@@ -249,12 +249,12 @@ export default {
     async fetchFriends() {
       try {
         const res = await api.get(`/friends/list/${this.userId}`);
-        const data = res.data;
+        const data = res.data.friends || res.data || [];
         this.friends = (data || []).map((f) => ({
           ID_Users: f.ID_Users ?? f.id,
           Pseudo: f.Pseudo ?? f.pseudo,
           isOnline: f.isOnline ?? false,
-          niveau: f.niveau ?? f.level ?? 0,
+          niveau: f.niveau ?? 0,
           avatarUrl: f.Avatar ? `data:${f.mime_type};base64,${f.Avatar}` : defaultAvatar,
         }));
       } catch (err) {

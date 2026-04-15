@@ -22,7 +22,7 @@
       <div class="tactical-layout">
         <section class="grid-section">
           <div class="grid-wrapper">
-            <div class="grid-radar" @mouseleave="hoverCells = []">
+            <div class="grid-radar" v-if="gameLoaded" @mouseleave="hoverCells = []">
               <div
                 v-for="(cell, index) in grid"
                 :key="index"
@@ -104,6 +104,7 @@ export default {
   data() {
     return {
       game: { ID_Game: 0, TotalPlayers: 2, mode: "fr" },
+      gameLoaded: false,
       grid: Array.from({ length: 100 }, () => ({ hasShip: false, shipId: null })),
       readyPlayers: [],
       user: JSON.parse(localStorage.getItem("user")),
@@ -125,7 +126,7 @@ export default {
       return this.remainingShips === 0;
     },
     isFrenchMode() {
-      return this.game.mode === "fr";
+      return this.game.mode !== "be";
     },
     readyCount() {
       return this.readyPlayers.length;
@@ -136,6 +137,9 @@ export default {
     this.userId = Number(this.user?.id || this.user?.ID_Users);
     this.game.ID_Game = Number(this.gameId);
 
+    const savedLang = localStorage.getItem("currentLanguage");
+    if (savedLang) this.game.mode = savedLang;
+
     this.fetchGame().then((data) => {
       if (data && data.mode) {
         this.game.mode = data.mode;
@@ -144,7 +148,6 @@ export default {
       if (data && data.fleet && data.fleet.length > 0) {
         this.fleet = data.fleet.map((ship) => ({ ...ship, placed: false }));
       } else {
-        console.warn("⚠️ Utilisation de la flotte locale de secours (CORS error)");
         this.fleet = [
           { name: "Porte-avions", size: 5, placed: false },
           { name: "Croiseur", size: 4, placed: false },
@@ -153,6 +156,8 @@ export default {
           { name: "Torpilleur", size: 2, placed: false },
         ];
       }
+
+      this.gameLoaded = true;
     });
 
     this.readyInterval = setInterval(async () => {

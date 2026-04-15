@@ -932,7 +932,7 @@ router.get("/:id/status", async (req, res) => {
       io.to(String(gameId)).emit("game-over", {
         winnerId: game.winner_id,
         winnerTeam,
-        isDraw: data.winner_id === null && winnerTeam === null,
+        isDraw: game.winner_id === null && winnerTeam === null,
       });
 
       return res.json({

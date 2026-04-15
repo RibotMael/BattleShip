@@ -1,963 +1,262 @@
 <template>
-  <div class="battle-container">
-    <div class="header-actions">
-      <button class="btn-abandon" @click="abandonGame" title="Abandonner la partie">
-        <span class="btn-text">Abandonner</span>
-        <span class="btn-icon">✕</span>
-      </button>
-    </div>
-    <div v-if="isSpectator && !gameOver" class="spectator-banner">
-      👁️ Vous êtes éliminé — vous observez la partie
-    </div>
-
-    <!-- MODE ÉQUIPE : layout gauche/droite -->
-    <div v-if="isTeamMode" class="grids-wrapper team-layout">
-      <!-- GAUCHE : ma grille + grilles alliés -->
-      <div class="team-left">
-        <div class="grid-section player-section">
-          <h2 class="grid-title">Ma flotte</h2>
-          <div class="grid player-grid">
-            <div
-              v-for="(cell, index) in playerGrid"
-              :key="'me-' + index"
-              class="cell"
-              :class="{
-                ship: cell.shipNumber && cell.shipNumber !== 0,
-                hit: cell.status === 'hit',
-                miss: cell.status === 'miss',
-                sunk: cell.status === 'sunk',
-                pending: cell.status === 'pending',
-              }"
-            ></div>
-          </div>
-        </div>
-
-        <div v-for="ally in allies" :key="'ally-' + ally.id" class="grid-section ally-section">
-          <h2 class="grid-title ally-title">🤝 {{ ally.pseudo }}</h2>
-          <div class="grid ally-grid">
-            <div
-              v-for="(cell, index) in ally.grid"
-              :key="'ally-cell-' + index"
-              class="cell ally-cell"
-              :class="{
-                hit: cell === 'hit',
-                miss: cell === 'miss',
-                sunk: cell === 'sunk',
-              }"
-            ></div>
-          </div>
-        </div>
+  <div class="battle-page background-tactical">
+    <header class="tactical-header">
+      <div class="header-left">
+        <div class="radar-ping"></div>
+        <h1>SECTEUR D'ENGAGEMENT</h1>
       </div>
 
-      <!-- CENTRE : timer -->
-      <div class="timer-container">
-        <div class="timer-circle">
-          <svg class="progress-ring" width="100" height="100">
+      <div class="header-right">
+        <button class="btn-tactical abandon" @click="abandonGame" title="Abandonner la partie">
+          <span class="btn-text">ABANDONNER LA MISSION</span>
+          <span class="btn-icon">✕</span>
+        </button>
+      </div>
+    </header>
+
+    <div v-if="isSpectator && !gameOver" class="spectator-overlay">
+      <div class="overlay-msg">UNITÉ ÉLIMINÉE - TRANSMISSION SPECTATEUR ACTIVÉE</div>
+    </div>
+
+    <main v-if="isTeamMode" class="tactical-layout team-layout">
+      <section class="fleet-side team-left">
+        <div class="grid-container main-player">
+          <h2 class="grid-label"><span class="dot"></span> MA FLOTTE</h2>
+          <div class="grid-wrapper">
+            <div class="grid-radar player-grid">
+              <div
+                v-for="(cell, index) in playerGrid"
+                :key="'me-' + index"
+                class="cell"
+                :class="{
+                  ship: cell.shipNumber && cell.shipNumber !== 0,
+                  hit: cell.status === 'hit',
+                  miss: cell.status === 'miss',
+                  sunk: cell.status === 'sunk',
+                  pending: cell.status === 'pending',
+                }"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="allies-container">
+          <div v-for="ally in allies" :key="'ally-' + ally.id" class="ally-mini-block">
+            <h3 class="mini-label">🤝 {{ ally.pseudo }}</h3>
+            <div class="mini-grid ally-grid">
+              <div
+                v-for="(cell, index) in ally.grid"
+                :key="'ally-cell-' + index"
+                class="cell ally-cell"
+                :class="{
+                  hit: cell === 'hit',
+                  miss: cell === 'miss',
+                  sunk: cell === 'sunk',
+                }"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="system-status timer-container">
+        <div class="timer-module">
+          <svg class="progress-ring timer-svg" width="100" height="100">
+            <circle class="timer-bg" cx="50" cy="50" r="45" />
             <circle
-              class="progress-ring__circle"
-              stroke="white"
-              stroke-width="6"
-              fill="transparent"
-              r="45"
+              class="progress-ring__circle timer-bar"
               cx="50"
               cy="50"
+              r="45"
+              :class="{ 'timer-low': turnTimer <= 5 }"
             />
           </svg>
-          <div class="timer-text">{{ turnTimer }}s</div>
+          <div class="timer-data">
+            <span class="t-value">{{ turnTimer }}s</span>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <!-- DROITE : grilles ennemies -->
-      <div class="team-right">
+      <section class="fleet-side team-right">
         <div
           v-for="(enemy, i) in enemies"
           :key="'enemy-' + enemy.id"
-          class="grid-section enemy-section"
+          class="grid-container enemy-section"
         >
           <h2
-            class="grid-title enemy-title"
+            class="grid-label enemy clickable-title"
             :class="{ 'active-target': currentOpponentIndex === i }"
             @click="currentOpponentIndex = i"
-            style="cursor: pointer"
           >
-            ⚔️ {{ enemy.pseudo }}
-            <span v-if="currentOpponentIndex === i" class="target-indicator"> ◀ Ciblé</span>
+            <span class="dot"></span> ⚔️ {{ enemy.pseudo }}
+            <span v-if="currentOpponentIndex === i" class="target-indicator">◀ CIBLÉ</span>
           </h2>
-          <div class="grid opponent-grid">
-            <div
-              v-for="(cell, index) in enemy.grid"
-              :key="'enemy-cell-' + index"
-              class="cell"
-              :class="{
-                hit: cell === 'hit',
-                miss: cell === 'miss',
-                sunk: cell === 'sunk',
-                selected: cell === 'selected',
-                pending: cell === 'pending',
-              }"
-              @click="selectEnemyCell(i, index)"
-            ></div>
+          <div
+            class="grid-wrapper target-focus"
+            :class="{ 'is-targeted': currentOpponentIndex === i }"
+          >
+            <div class="grid-radar opponent-grid">
+              <div
+                v-for="(cell, index) in enemy.grid"
+                :key="'enemy-cell-' + index"
+                class="cell clickable-cell"
+                :class="{
+                  hit: cell === 'hit',
+                  miss: cell === 'miss',
+                  sunk: cell === 'sunk',
+                  selected: cell === 'selected',
+                  pending: cell === 'pending',
+                }"
+                @click="selectEnemyCell(i, index)"
+              ></div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
 
-    <!-- MODE 1v1 / BATTLE ROYALE : layout original inchangé -->
-    <div v-else class="grids-wrapper">
-      <div class="grid-section player-section">
-        <h2 class="grid-title">Notre flotte</h2>
-        <div class="grid player-grid">
-          <div
-            v-for="(cell, index) in playerGrid"
-            :key="'me-' + index"
-            class="cell"
-            :class="{
-              ship: cell.shipNumber && cell.shipNumber !== 0,
-              hit: cell.status === 'hit',
-              miss: cell.status === 'miss',
-              sunk: cell.status === 'sunk',
-              pending: cell.status === 'pending',
-            }"
-          ></div>
+    <main v-else class="tactical-layout br-layout grids-wrapper">
+      <section class="fleet-side player-side grid-section player-section">
+        <div class="grid-container main-player">
+          <h2 class="grid-label"><span class="dot"></span> NOTRE FLOTTE</h2>
+          <div class="grid-wrapper">
+            <div class="grid-radar player-grid">
+              <div
+                v-for="(cell, index) in playerGrid"
+                :key="'me-' + index"
+                class="cell"
+                :class="{
+                  ship: cell.shipNumber && cell.shipNumber !== 0,
+                  hit: cell.status === 'hit',
+                  miss: cell.status === 'miss',
+                  sunk: cell.status === 'sunk',
+                  pending: cell.status === 'pending',
+                }"
+              ></div>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div class="timer-container">
-        <div class="timer-circle">
-          <svg class="progress-ring" width="100" height="100">
+      <section class="system-status timer-container">
+        <div class="timer-module">
+          <svg class="progress-ring timer-svg" width="100" height="100">
+            <circle class="timer-bg" cx="50" cy="50" r="45" />
             <circle
-              class="progress-ring__circle"
-              stroke="white"
-              stroke-width="6"
-              fill="transparent"
-              r="45"
+              class="progress-ring__circle timer-bar"
               cx="50"
               cy="50"
+              r="45"
+              :class="{ 'timer-low': turnTimer <= 5 }"
             />
           </svg>
-          <div class="timer-text">{{ turnTimer }}s</div>
+          <div class="timer-data">
+            <span class="t-label">SÉQUENCE</span>
+            <span class="t-value">{{ turnTimer }}s</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="fleet-side enemy-side grid-section opponent-section">
+        <div class="grid-container">
+          <h2 class="grid-label enemy">
+            <span class="dot"></span> CIBLE :
+            <select
+              v-if="opponents.length > 1"
+              v-model="currentOpponentIndex"
+              class="target-select opponent-dropdown"
+            >
+              <option v-for="(opp, i) in opponents" :key="opp.id" :value="i">
+                {{ opp.pseudo }}
+              </option>
+            </select>
+            <span v-else>ADVERSAIRE</span>
+          </h2>
+          <div class="grid-wrapper target-focus is-targeted">
+            <div class="grid-radar opponent-grid">
+              <div
+                v-for="(cell, index) in currentOpponent.grid"
+                :key="'opp-cell-' + index"
+                class="cell clickable-cell"
+                :class="{
+                  hit: cell === 'hit',
+                  miss: cell === 'miss',
+                  sunk: cell === 'sunk',
+                  selected: cell === 'selected',
+                  pending: cell === 'pending',
+                }"
+                @click="selectCell(index)"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <transition name="hud-fade">
+      <div v-if="endPopup" class="hud-overlay popup-overlay">
+        <div class="hud-popup popup-content" :class="popupResultClass">
+          <div class="glow-line"></div>
+
+          <header class="popup-result-banner">
+            <span class="popup-result-icon">{{ popupIcon }}</span>
+            <h2 class="popup-result-title">{{ popupMessage }}</h2>
+          </header>
+
+          <div v-if="rewardData" class="reward-grid rewards-section">
+            <div class="rewards-row">
+              <div class="reward-box gold reward-card gold-card">
+                <span class="reward-card-icon">🪙</span>
+                <div class="reward-details">
+                  <span class="value reward-card-amount">+{{ rewardData.goldGain }}</span>
+                  <span class="label reward-card-label">CRÉDITS</span>
+                </div>
+              </div>
+
+              <div class="reward-box xp reward-card xp-card">
+                <span class="reward-card-icon">⭐</span>
+                <div class="reward-details">
+                  <span class="value reward-card-amount">+{{ rewardData.xpGain }}</span>
+                  <span class="label reward-card-label">EXPÉRIENCE</span>
+                </div>
+              </div>
+            </div>
+
+            <div
+              v-if="rewardData.levelUp && rewardData.levelUpGoldGain > 0"
+              class="levelup-gold-note"
+            >
+              <span>🎁 BONUS MONTÉE DE NIVEAU :</span>
+              <span class="levelup-gold-amount">+{{ rewardData.levelUpGoldGain }} 🪙</span>
+            </div>
+
+            <div v-if="rewardData.levelUp" class="levelup-banner">
+              🎉 NIVEAU {{ rewardData.newLevel }} ATTEINT !
+            </div>
+
+            <div class="xp-module xp-progress-block">
+              <div class="xp-info xp-progress-header">
+                <span>NIV. {{ rewardData.newLevel }}</span>
+                <span>{{ rewardData.xpIntoLevel }} / {{ rewardData.xpNeededForNext }} XP</span>
+              </div>
+              <div class="xp-track xp-bar-track">
+                <div class="xp-fill xp-bar-fill" :style="{ width: xpProgressPercent + '%' }"></div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="rewards-loading">
+            <span class="loading-dot"></span>
+            <span class="loading-dot"></span>
+            <span class="loading-dot"></span>
+          </div>
+
+          <button class="btn-radar validate btn-home" @click="goHome">RETOUR AU QG</button>
         </div>
       </div>
-
-      <div class="grid-section opponent-section">
-        <h2 class="grid-title">
-          Adversaire
-          <select
-            v-if="opponents.length > 1"
-            v-model="currentOpponentIndex"
-            class="opponent-dropdown"
-          >
-            <option v-for="(opp, i) in opponents" :key="opp.id" :value="i">
-              {{ opp.pseudo }}
-            </option>
-          </select>
-        </h2>
-        <div class="grid opponent-grid">
-          <div
-            v-for="(cell, index) in currentOpponent.grid"
-            :key="'opp-cell-' + index"
-            class="cell"
-            :class="{
-              hit: cell === 'hit',
-              miss: cell === 'miss',
-              sunk: cell === 'sunk',
-              selected: cell === 'selected',
-              pending: cell === 'pending',
-            }"
-            @click="selectCell(index)"
-          ></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════ -->
-    <!--  POPUP DE FIN DE PARTIE — REDESIGNÉE               -->
-    <!-- ═══════════════════════════════════════════════════ -->
-    <div v-if="endPopup" class="popup-overlay">
-      <div class="popup-content" :class="popupResultClass">
-        <!-- Titre résultat -->
-        <div class="popup-result-banner">
-          <span class="popup-result-icon">{{ popupIcon }}</span>
-          <h2 class="popup-result-title">{{ popupMessage }}</h2>
-        </div>
-
-        <!-- Bloc récompenses (affiché dès que claimReward a répondu) -->
-        <div v-if="rewardData" class="rewards-section">
-          <div class="rewards-row">
-            <!-- Gold -->
-            <div class="reward-card gold-card">
-              <span class="reward-card-icon">🪙</span>
-              <span class="reward-card-amount">+{{ rewardData.goldGain }}</span>
-              <span class="reward-card-label">GOLD</span>
-            </div>
-            <!-- XP -->
-            <div class="reward-card xp-card">
-              <span class="reward-card-icon">⭐</span>
-              <span class="reward-card-amount">+{{ rewardData.xpGain }}</span>
-              <span class="reward-card-label">XP</span>
-            </div>
-          </div>
-
-          <!-- Level-up banner -->
-          <!-- Détail bonus level-up -->
-          <div
-            v-if="rewardData.levelUp && rewardData.levelUpGoldGain > 0"
-            class="levelup-gold-note"
-          >
-            <span>🎁 Bonus montée de niveau :</span>
-            <span class="levelup-gold-amount">+{{ rewardData.levelUpGoldGain }} 🪙</span>
-          </div>
-
-          <div v-if="rewardData.levelUp" class="levelup-banner">
-            🎉 NIVEAU {{ rewardData.newLevel }} ATTEINT !
-          </div>
-
-          <!-- Barre de progression XP -->
-          <div class="xp-progress-block">
-            <div class="xp-progress-header">
-              <span>Niv. {{ rewardData.newLevel }}</span>
-              <span>{{ rewardData.xpIntoLevel }} / {{ rewardData.xpNeededForNext }} XP</span>
-            </div>
-            <div class="xp-bar-track">
-              <div class="xp-bar-fill" :style="{ width: xpProgressPercent + '%' }"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Chargement récompenses -->
-        <div v-else class="rewards-loading">
-          <span class="loading-dot"></span>
-          <span class="loading-dot"></span>
-          <span class="loading-dot"></span>
-        </div>
-
-        <button class="btn-home" @click="goHome">⚓ Retour à l'accueil</button>
-      </div>
-    </div>
+    </transition>
   </div>
 </template>
-
-<style scoped>
-html,
-body {
-  max-width: 100%;
-  overflow-x: hidden;
-  position: relative;
-}
-
-/* CONTENEUR PRINCIPAL */
-.battle-container {
-  width: 100%;
-  min-height: 100vh;
-  background: radial-gradient(circle at center, #1b2735 0%, #090a0f 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 80px 10px 40px 10px;
-  color: white;
-  font-family: "Orbitron", sans-serif;
-  box-sizing: border-box;
-  position: relative;
-}
-
-/* BOUTON ABANDONNER */
-.header-actions {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 100;
-}
-
-.btn-abandon {
-  width: auto;
-  min-width: 140px;
-  padding: 10px 20px;
-  background: rgba(198, 40, 40, 0.1);
-  border: 1px solid #ff4444;
-  border-radius: 5px;
-  color: #ff4444;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-transform: uppercase;
-  font-size: 0.8rem;
-  letter-spacing: 1px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-abandon:hover {
-  background: #c62828;
-  color: white;
-  box-shadow: 0 0 15px rgba(198, 40, 40, 0.5);
-}
-
-.btn-icon {
-  display: none;
-}
-
-/* WRAPPER DES GRILLES */
-.grids-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 30px;
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  flex-wrap: wrap;
-}
-
-.grid-section {
-  width: 100%;
-  max-width: 350px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.grid-title {
-  font-size: 1.1rem;
-  margin-bottom: 15px;
-  text-transform: uppercase;
-  color: #00d4ff;
-  text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  grid-template-rows: repeat(10, 1fr);
-  gap: 2px;
-  background: rgba(0, 212, 255, 0.15);
-  padding: 4px;
-  border: 1px solid rgba(0, 212, 255, 0.4);
-  border-radius: 4px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  box-sizing: border-box;
-}
-
-.cell {
-  width: 100%;
-  height: 100%;
-  aspect-ratio: 1 / 1;
-  background: rgba(10, 25, 47, 0.85);
-  border: 1px solid rgba(0, 212, 255, 0.05);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-}
-
-.player-grid .cell.ship {
-  background: #1e3a5f;
-  border: 1px solid #00d4ff;
-  box-shadow: inset 0 0 8px rgba(0, 212, 255, 0.3);
-}
-
-.cell.hit {
-  background: radial-gradient(circle, #ff4444 30%, #7f0000 100%) !important;
-  box-shadow: 0 0 12px #ff4444;
-  z-index: 1;
-}
-
-.cell.miss::after {
-  content: "";
-  width: 6px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.4);
-  border-radius: 50%;
-}
-
-.cell.sunk {
-  background: #1a1a1a !important;
-  border: 1px solid #444;
-}
-
-.cell.sunk::after {
-  content: "✕";
-  color: #ff4444;
-  font-size: 1.1rem;
-  font-weight: bold;
-  opacity: 0.7;
-}
-
-.cell.selected {
-  background: rgba(255, 235, 59, 0.2) !important;
-  outline: 2px solid #ffeb3b;
-  z-index: 2;
-}
-
-.cell.pending {
-  background-color: #f39c12 !important;
-  cursor: not-allowed;
-  opacity: 0.7;
-  position: relative;
-}
-.cell.pending::after {
-  content: "⏳";
-  position: absolute;
-  font-size: 10px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-/* TIMER */
-.timer-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 120px;
-  flex-shrink: 0;
-  align-self: center;
-}
-
-.timer-circle {
-  width: 100px;
-  height: 100px;
-  position: relative;
-}
-
-.progress-ring {
-  transform: rotate(-90deg);
-}
-
-.timer-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: white;
-}
-
-.opponent-dropdown {
-  background: #0a192f;
-  color: #00d4ff;
-  border: 1px solid #00d4ff;
-  padding: 4px 8px;
-  font-family: "Orbitron";
-  font-size: 0.8rem;
-  border-radius: 4px;
-  margin-left: 10px;
-}
-
-/* ═══════════════════════════════════════════════════════ */
-/*  POPUP DE FIN DE PARTIE — REDESIGNÉ                    */
-/* ═══════════════════════════════════════════════════════ */
-
-.popup-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.88);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-  backdrop-filter: blur(6px);
-}
-
-.popup-content {
-  background: linear-gradient(145deg, #0d1f35 0%, #091524 100%);
-  padding: 36px 40px 32px;
-  border-radius: 18px;
-  text-align: center;
-  max-width: 420px;
-  width: 92%;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.07),
-    0 30px 80px rgba(0, 0, 0, 0.7);
-  animation: popupIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-
-@keyframes popupIn {
-  from {
-    opacity: 0;
-    transform: scale(0.85) translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-/* Bordure colorée selon le résultat */
-.popup-victory {
-  border: 1px solid rgba(255, 215, 0, 0.5);
-  box-shadow:
-    0 0 0 1px rgba(255, 215, 0, 0.15),
-    0 30px 80px rgba(0, 0, 0, 0.7),
-    inset 0 0 60px rgba(255, 215, 0, 0.04);
-}
-
-.popup-defeat {
-  border: 1px solid rgba(255, 68, 68, 0.4);
-  box-shadow:
-    0 0 0 1px rgba(255, 68, 68, 0.12),
-    0 30px 80px rgba(0, 0, 0, 0.7),
-    inset 0 0 60px rgba(255, 68, 68, 0.04);
-}
-
-.popup-draw {
-  border: 1px solid rgba(0, 212, 255, 0.4);
-  box-shadow:
-    0 0 0 1px rgba(0, 212, 255, 0.12),
-    0 30px 80px rgba(0, 0, 0, 0.7),
-    inset 0 0 60px rgba(0, 212, 255, 0.04);
-}
-
-/* RÉSULTAT */
-.popup-result-banner {
-  margin-bottom: 24px;
-}
-
-.popup-result-icon {
-  display: block;
-  font-size: 3rem;
-  margin-bottom: 8px;
-  animation: bounceIn 0.5s 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-@keyframes bounceIn {
-  from {
-    opacity: 0;
-    transform: scale(0.5);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.popup-result-title {
-  font-size: 1.6rem;
-  font-weight: 900;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  margin: 0;
-}
-
-.popup-victory .popup-result-title {
-  color: #ffd700;
-  text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
-}
-.popup-defeat .popup-result-title {
-  color: #ff5555;
-  text-shadow: 0 0 20px rgba(255, 85, 85, 0.4);
-}
-.popup-draw .popup-result-title {
-  color: #00d4ff;
-  text-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
-}
-
-/* RÉCOMPENSES */
-.rewards-section {
-  animation: fadeSlideUp 0.4s 0.3s ease both;
-}
-
-@keyframes fadeSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.rewards-row {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  margin-bottom: 20px;
-}
-
-.reward-card {
-  flex: 1;
-  max-width: 140px;
-  padding: 16px 12px;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.gold-card {
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.12) 0%, rgba(255, 165, 0, 0.08) 100%);
-  border: 1px solid rgba(255, 215, 0, 0.3);
-}
-
-.xp-card {
-  background: linear-gradient(135deg, rgba(100, 200, 255, 0.12) 0%, rgba(0, 150, 255, 0.08) 100%);
-  border: 1px solid rgba(100, 200, 255, 0.3);
-}
-
-.reward-card-icon {
-  font-size: 1.8rem;
-}
-
-.reward-card-amount {
-  font-size: 1.5rem;
-  font-weight: 900;
-  letter-spacing: 1px;
-}
-
-.gold-card .reward-card-amount {
-  color: #ffd700;
-}
-.xp-card .reward-card-amount {
-  color: #64c8ff;
-}
-
-.reward-card-label {
-  font-size: 0.65rem;
-  letter-spacing: 2px;
-  opacity: 0.6;
-  text-transform: uppercase;
-}
-
-/* LEVEL-UP GOLD NOTE */
-.levelup-gold-note {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: rgba(255, 215, 0, 0.07);
-  border: 1px solid rgba(255, 215, 0, 0.2);
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-size: 0.72rem;
-  color: rgba(255, 215, 0, 0.75);
-  margin-bottom: 10px;
-  letter-spacing: 0.5px;
-}
-.levelup-gold-amount {
-  font-weight: 900;
-  color: #ffd700;
-}
-
-/* LEVEL UP */
-.levelup-banner {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 215, 0, 0.15),
-    rgba(255, 165, 0, 0.2),
-    rgba(255, 215, 0, 0.15)
-  );
-  border: 1px solid rgba(255, 215, 0, 0.5);
-  border-radius: 8px;
-  padding: 10px 16px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: #ffd700;
-  text-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
-  margin-bottom: 20px;
-  animation: levelUpPulse 1s ease infinite alternate;
-}
-
-@keyframes levelUpPulse {
-  from {
-    box-shadow: 0 0 8px rgba(255, 215, 0, 0.2);
-  }
-  to {
-    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
-  }
-}
-
-/* BARRE XP */
-.xp-progress-block {
-  margin-bottom: 24px;
-}
-
-.xp-progress-header {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.72rem;
-  letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.5);
-  margin-bottom: 6px;
-  text-transform: uppercase;
-}
-
-.xp-bar-track {
-  width: 100%;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.xp-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #00b4ff, #00e5ff);
-  border-radius: 10px;
-  box-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
-  transition: width 1s ease 0.5s;
-}
-
-/* LOADING RÉCOMPENSES */
-.rewards-loading {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  padding: 28px 0;
-}
-
-.loading-dot {
-  width: 8px;
-  height: 8px;
-  background: rgba(0, 212, 255, 0.5);
-  border-radius: 50%;
-  animation: dotBounce 1s ease infinite;
-}
-
-.loading-dot:nth-child(2) {
-  animation-delay: 0.15s;
-}
-.loading-dot:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-@keyframes dotBounce {
-  0%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.5;
-  }
-  50% {
-    transform: translateY(-8px);
-    opacity: 1;
-  }
-}
-
-/* BOUTON ACCUEIL */
-.btn-home {
-  margin-top: 4px;
-  padding: 13px 32px;
-  background: linear-gradient(135deg, #00b4ff, #0070cc);
-  border: none;
-  border-radius: 8px;
-  color: white;
-  font-weight: 700;
-  font-size: 0.8rem;
-  cursor: pointer;
-  font-family: "Orbitron";
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s;
-  box-shadow: 0 4px 20px rgba(0, 180, 255, 0.3);
-}
-
-.btn-home:hover {
-  transform: translateY(-2px) scale(1.03);
-  box-shadow: 0 8px 28px rgba(0, 180, 255, 0.5);
-}
-
-/* PROGRESS RING */
-.progress-ring {
-  transform: rotate(-90deg);
-  transition: stroke-dashoffset 0.3s linear;
-}
-
-.progress-ring__circle {
-  stroke-dasharray: 282.7;
-  stroke-dashoffset: 0;
-  stroke-linecap: round;
-  transition:
-    stroke-dashoffset 1s linear,
-    stroke 0.3s;
-}
-
-.timer-low {
-  stroke: #ff4444 !important;
-  filter: drop-shadow(0 0 5px #ff4444);
-}
-
-/* Layout mode équipe */
-.team-layout {
-  align-items: flex-start;
-}
-
-.team-left,
-.team-right {
-  display: flex;
-  flex-direction: column;
-  gap: 30px;
-  flex: 1 1 300px;
-  align-items: center;
-  width: 100%;
-}
-
-.ally-section {
-  width: 100%;
-  max-width: 250px;
-  background: rgba(0, 200, 80, 0.05);
-  border: 1px solid rgba(0, 200, 80, 0.2);
-  border-radius: 10px;
-  padding: 15px;
-  box-sizing: border-box;
-}
-
-.ally-title {
-  color: #4caf50 !important;
-  font-size: 0.9rem !important;
-}
-
-.enemy-title {
-  color: #ef5350 !important;
-  transition: opacity 0.2s;
-}
-
-.enemy-title:hover {
-  opacity: 0.8;
-}
-
-.active-target {
-  text-shadow: 0 0 8px rgba(255, 100, 100, 0.6);
-}
-
-.target-indicator {
-  font-size: 0.7rem;
-  color: #ff8a80;
-  margin-left: 6px;
-}
-
-.ally-grid {
-  display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  grid-template-rows: repeat(10, 1fr);
-  gap: 1px;
-  width: 100%;
-  max-width: 220px;
-  aspect-ratio: 1 / 1;
-}
-
-.ally-cell {
-  width: 100%;
-  height: 100%;
-  cursor: default;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.ally-cell:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.spectator-banner {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  background: rgba(239, 83, 80, 0.15);
-  border-bottom: 1px solid rgba(239, 83, 80, 0.4);
-  color: #ef5350;
-  text-align: center;
-  padding: 8px;
-  font-size: 0.85rem;
-  letter-spacing: 1px;
-  z-index: 50;
-}
-
-/* RESPONSIVE */
-@media (max-width: 850px) {
-  .team-left {
-    order: 1;
-  }
-  .timer-container {
-    order: 2;
-    position: static;
-    margin: 10px 0;
-  }
-  .team-right {
-    order: 3;
-  }
-
-  .battle-container {
-    padding-top: 80px;
-  }
-  .header-actions {
-    top: 15px;
-    right: 15px;
-  }
-
-  .btn-abandon {
-    width: 46px;
-    height: 46px;
-    min-width: 46px;
-    padding: 0;
-    border-radius: 50%;
-  }
-
-  .btn-text {
-    display: none;
-  }
-  .btn-icon {
-    display: block;
-    font-size: 1.4rem;
-    font-weight: bold;
-  }
-
-  .grids-wrapper,
-  .team-layout {
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-  }
-
-  .grid-title {
-    font-size: 0.9rem;
-    margin-bottom: 8px;
-  }
-  .player-section {
-    order: 1;
-  }
-  .timer-container {
-    order: 2;
-    margin: 5px 0;
-    transform: scale(0.85);
-  }
-  .opponent-section {
-    order: 3;
-  }
-  .grid-section {
-    max-width: 92vw;
-    margin: 0 auto;
-  }
-
-  .popup-content {
-    padding: 28px 22px 24px;
-  }
-  .popup-result-title {
-    font-size: 1.3rem;
-  }
-  .rewards-row {
-    gap: 10px;
-  }
-  .reward-card {
-    padding: 12px 8px;
-  }
-  .reward-card-amount {
-    font-size: 1.25rem;
-  }
-}
-</style>
-
 <script>
 import socket from "../services/socket.js";
 import heartbeatSrc from "@/assets/audio/BattementsDeCoeur.mp3";
@@ -995,7 +294,6 @@ export default {
       heartbeatAudio: null,
       detectedTeamMode: false,
       isSpectator: false,
-      // ── Récompenses ──────────────────────────────────────
       rewardData: null,
       rewardClaimed: false,
       turnStartAt: null,
@@ -1027,7 +325,6 @@ export default {
         }
       );
     },
-    // Classe CSS du popup selon victoire/défaite
     popupResultClass() {
       if (!this.popupMessage) return "";
       if (this.popupMessage.includes("Victoire")) return "popup-victory";
@@ -1035,7 +332,6 @@ export default {
       if (this.popupMessage.includes("Égalité")) return "popup-draw";
       return "popup-defeat";
     },
-    // Pourcentage de la barre XP
     xpProgressPercent() {
       if (!this.rewardData) return 0;
       const { xpIntoLevel, xpNeededForNext } = this.rewardData;
@@ -1107,17 +403,7 @@ export default {
       socket.off("cell-pending");
       socket.off("cell-unlocked");
     },
-
-    // ────────────────────────────────────────────────────────
-    // SYSTÈME DE RÉCOMPENSES
-    // ────────────────────────────────────────────────────────
-
-    /**
-     * Appel API pour créditer gold + XP.
-     * isVictory : true = victoire, false = défaite/abandon/égalité
-     */
     async claimReward(isVictory) {
-      // Ne récompenser qu'une seule fois et jamais les spectateurs
       if (this.rewardClaimed || this.isSpectator) return;
       this.rewardClaimed = true;
 
@@ -1132,19 +418,15 @@ export default {
 
         if (data.success) {
           this.rewardData = data;
-
-          // Mettre à jour le localStorage — clés homogènes avec HomeMenu/Profile
           const stored = JSON.parse(localStorage.getItem("user")) || {};
           stored.gold = data.newGold;
           stored.level = data.newLevel;
           stored.xp = data.newXp;
           localStorage.setItem("user", JSON.stringify(stored));
-          // Déclencher la mise à jour du menu principal
           userBus.userUpdated = !userBus.userUpdated;
         }
       } catch (err) {
         console.error("Erreur claimReward :", err);
-        // Fallback : afficher les montants localement même si l'API échoue
         this.rewardData = {
           goldGain: isVictory ? 100 : 25,
           xpGain: isVictory ? 50 : 25,
@@ -1156,10 +438,6 @@ export default {
         };
       }
     },
-
-    // ────────────────────────────────────────────────────────
-    // SYNC TIRS
-    // ────────────────────────────────────────────────────────
     async syncAllShots() {
       try {
         const res = await fetch(
@@ -1200,13 +478,8 @@ export default {
       }
     },
 
-    /* ----------------- Timer ----------------- */
     socketTurnTimer({ timeLeft, turnStartAt }) {
       if (this.gameOver) return;
-
-      // Ancrage : on retient quand le tour a commencé côté serveur.
-      // Si le serveur envoie turnStartAt, on l'utilise directement.
-      // Sinon (fallback), on l'infère depuis timeLeft.
       this.turnStartAt = turnStartAt
         ? turnStartAt
         : Date.now() - (7 - Math.max(0, timeLeft)) * 1000;
@@ -1281,7 +554,6 @@ export default {
       circle.style.strokeDashoffset = offset;
     },
 
-    /* ----------------- Init ----------------- */
     handleGameStarted(data) {
       this.resetGameState();
 
@@ -1308,7 +580,7 @@ export default {
       this.fetchInterval = null;
       this.turnInterval = null;
       this.turnTimer = 7;
-      this.turnStartAt = null; // ← ajout
+      this.turnStartAt = null;
       this.gameOver = false;
       this.selectedCell = null;
       this.endPopup = false;
@@ -1323,14 +595,11 @@ export default {
     async initGame() {
       this.resetGameState();
       await this.fetchPlayerBoard();
-
       if (this.is1v1) await this.fetchOpponent();
       else await this.fetchOpponents();
-
       await this.$nextTick();
       await this.syncAllShots();
       await this.fetchEnemyShots();
-
       socket.emit("join-game", { gameId: this.gameId, playerId: this.user.id });
       socket.emit("player-ready", { gameId: this.gameId, playerId: this.user.id });
 
@@ -1342,7 +611,6 @@ export default {
       }
     },
 
-    /* ----------------- Grilles ----------------- */
     async fetchPlayerBoard() {
       try {
         const res = await fetch(
@@ -1471,7 +739,6 @@ export default {
       }
     },
 
-    /* ----------------- Sélection & Tir ----------------- */
     selectCell(index) {
       if (
         this.gameOver ||
@@ -1806,7 +1073,6 @@ export default {
       }
     },
 
-    /* ----------------- Game Over / Abandon ----------------- */
     handleGameOver(payload) {
       if (this.gameOver) return;
       this.gameOver = true;
@@ -1831,7 +1097,6 @@ export default {
         icon = isVictory ? "🏆" : "💥";
       }
 
-      // Réclamer la récompense AVANT d'afficher le popup
       this.claimReward(isVictory);
       this.showEndPopup(`${icon} ${msg} !`, isVictory);
     },
@@ -1933,7 +1198,6 @@ export default {
       }
     },
 
-    /* ----------------- Audio ----------------- */
     initAudio() {
       this.heartbeatAudio = new Audio(heartbeatSrc);
       this.heartbeatAudio.loop = true;
@@ -1959,10 +1223,740 @@ export default {
       this.heartbeatAudio.playbackRate = Object.keys(ships).length === 1 ? 2.0 : 1.0;
     },
 
-    /* ----------------- Navigation ----------------- */
     goHome() {
       this.$router.push("/");
     },
   },
 };
 </script>
+
+<style scoped>
+@import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap");
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* =========================================
+   FOND ET LAYOUT GLOBAL
+   ========================================= */
+.battle-page {
+  width: 100%;
+  min-height: 100vh;
+  background: radial-gradient(circle at center, #061621 0%, #02080d 100%);
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  color: #dff2ee;
+  font-family: "Rajdhani", sans-serif;
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* =========================================
+   HEADER TACTIQUE
+   ========================================= */
+.tactical-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(29, 233, 192, 0.2);
+  padding-bottom: 15px;
+  margin-bottom: 30px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.radar-ping {
+  width: 12px;
+  height: 12px;
+  background: #1de9c0;
+  border-radius: 50%;
+  box-shadow: 0 0 15px #1de9c0;
+  animation: ping 1.5s infinite ease-out;
+}
+
+@keyframes ping {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(29, 233, 192, 0.7);
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+    box-shadow: 0 0 0 10px rgba(29, 233, 192, 0);
+  }
+}
+
+.tactical-header h1 {
+  font-size: 1.4rem;
+  letter-spacing: 4px;
+  margin: 0;
+  color: #1de9c0;
+  font-weight: 700;
+}
+
+/* BOUTON ABANDONNER */
+.btn-tactical {
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  color: #f87171;
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-family: "Rajdhani", sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-tactical:hover {
+  background: #f87171;
+  color: #02080d;
+  box-shadow: 0 0 15px rgba(248, 113, 113, 0.6);
+}
+
+.btn-icon {
+  display: none;
+}
+
+/* BANNIÈRE SPECTATEUR */
+.spectator-overlay {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(248, 113, 113, 0.15);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  color: #f87171;
+  padding: 8px 20px;
+  font-size: 1rem;
+  letter-spacing: 2px;
+  font-weight: 600;
+  border-radius: 4px;
+  z-index: 50;
+  backdrop-filter: blur(4px);
+}
+
+/* =========================================
+   LAYOUT GRILLES
+   ========================================= */
+.tactical-layout {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 30px;
+  width: 100%;
+  max-width: 1300px;
+  margin: 0 auto;
+  flex-wrap: wrap;
+}
+
+.fleet-side {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  flex: 1 1 320px;
+  align-items: center;
+  width: 100%;
+}
+
+.grid-container {
+  width: 100%;
+  max-width: 380px;
+}
+
+.grid-label {
+  font-size: 1.1rem;
+  letter-spacing: 2px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #1de9c0;
+  font-weight: 600;
+}
+
+.grid-label.enemy {
+  color: #f87171;
+}
+.grid-label .dot {
+  width: 8px;
+  height: 8px;
+  background: currentColor;
+  border-radius: 50%;
+}
+
+.clickable-title {
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.clickable-title:hover {
+  opacity: 0.8;
+}
+.active-target {
+  text-shadow: 0 0 10px rgba(248, 113, 113, 0.6);
+}
+.target-indicator {
+  font-size: 0.8rem;
+  color: #fca5a5;
+  margin-left: 8px;
+  animation: pulse 1s infinite alternate;
+}
+
+.target-select {
+  background: rgba(6, 22, 33, 0.8);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  padding: 4px 8px;
+  font-family: "Rajdhani";
+  font-size: 1rem;
+  border-radius: 4px;
+  margin-left: 10px;
+  outline: none;
+}
+
+/* =========================================
+   LE CŒUR : LES GRILLES STYLE HUD
+   ========================================= */
+.grid-wrapper {
+  background: rgba(29, 233, 192, 0.03);
+  padding: 8px;
+  border: 1px solid rgba(29, 233, 192, 0.15);
+  border-radius: 4px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.grid-wrapper.target-focus {
+  background: rgba(248, 113, 113, 0.03);
+  border-color: rgba(248, 113, 113, 0.15);
+}
+.grid-wrapper.is-targeted {
+  border-color: rgba(248, 113, 113, 0.5);
+  box-shadow: 0 0 15px rgba(248, 113, 113, 0.15);
+}
+
+.grid-radar {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  grid-template-rows: repeat(10, 1fr);
+  gap: 2px;
+  background: rgba(29, 233, 192, 0.1);
+  width: 100%;
+  aspect-ratio: 1 / 1;
+}
+
+.target-focus .grid-radar {
+  background: rgba(248, 113, 113, 0.1);
+}
+
+/* CELLULES DE BASE */
+.cell {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  background: #030a10;
+  border: 1px solid rgba(29, 233, 192, 0.05);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s;
+}
+
+.target-focus .cell {
+  border-color: rgba(248, 113, 113, 0.05);
+}
+
+.clickable-cell:hover:not(.hit):not(.miss):not(.sunk) {
+  background: rgba(248, 113, 113, 0.2);
+  cursor: crosshair;
+}
+
+/* ETATS DES CELLULES */
+.player-grid .cell.ship {
+  background: rgba(29, 233, 192, 0.2);
+  border: 1px solid rgba(29, 233, 192, 0.5);
+  box-shadow: inset 0 0 10px rgba(29, 233, 192, 0.2);
+}
+
+.cell.hit {
+  background: #f87171 !important;
+  box-shadow: inset 0 0 15px #000;
+  border-color: #f87171;
+  z-index: 1;
+}
+
+.cell.miss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cell.miss::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+}
+
+.cell.sunk {
+  background: #1a202c !important;
+  border: 1px solid #2d3748;
+}
+.cell.sunk::after {
+  content: "✕";
+  color: #f87171;
+  font-size: 1.2rem;
+  font-weight: bold;
+  opacity: 0.8;
+}
+
+.cell.selected {
+  outline: 2px solid #fbbf24;
+  background: rgba(251, 191, 36, 0.2) !important;
+  z-index: 2;
+  box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);
+}
+
+.cell.pending {
+  background-color: rgba(245, 158, 11, 0.6) !important;
+  cursor: not-allowed;
+  position: relative;
+}
+.cell.pending::after {
+  content: "⏳";
+  font-size: 12px;
+}
+
+/* =========================================
+   TIMER CENTRAL
+   ========================================= */
+.system-status {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 140px;
+  flex-shrink: 0;
+  align-self: center;
+  margin-top: 35px;
+}
+
+.timer-module {
+  position: relative;
+  width: 120px;
+  height: 120px;
+}
+
+.timer-svg {
+  transform: rotate(-90deg);
+  width: 100%;
+  height: 100%;
+}
+
+.timer-bg {
+  fill: none;
+  stroke: rgba(29, 233, 192, 0.1);
+  stroke-width: 4;
+}
+
+.timer-bar {
+  fill: none;
+  stroke: #1de9c0;
+  stroke-width: 4;
+  stroke-dasharray: 282.7;
+  stroke-dashoffset: 0; /* Géré par JS dans le composant d'origine */
+  stroke-linecap: round;
+  transition:
+    stroke-dashoffset 1s linear,
+    stroke 0.3s;
+  filter: drop-shadow(0 0 6px rgba(29, 233, 192, 0.5));
+}
+
+.timer-bar.timer-low {
+  stroke: #f87171 !important;
+  filter: drop-shadow(0 0 8px #f87171);
+}
+
+.timer-data {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.t-label {
+  font-size: 0.7rem;
+  letter-spacing: 2px;
+  color: rgba(223, 242, 238, 0.6);
+}
+
+.t-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+/* =========================================
+   ALLIÉS (MINI-GRILLES)
+   ========================================= */
+.allies-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.ally-mini-block {
+  background: rgba(29, 233, 192, 0.05);
+  border: 1px solid rgba(29, 233, 192, 0.2);
+  border-radius: 4px;
+  padding: 10px;
+}
+
+.mini-label {
+  color: #1de9c0;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.mini-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 1px;
+  background: rgba(29, 233, 192, 0.1);
+}
+
+.ally-cell {
+  background: #030a10;
+  border: none;
+  cursor: default;
+}
+
+/* =========================================
+   POPUP DE FIN (HUD OVERLAY)
+   ========================================= */
+.hud-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 8, 13, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.hud-popup {
+  width: 90%;
+  max-width: 450px;
+  background: #061621;
+  border: 1px solid rgba(29, 233, 192, 0.3);
+  padding: 40px 30px;
+  position: relative;
+  border-radius: 4px;
+  box-shadow:
+    0 0 50px rgba(0, 0, 0, 0.8),
+    inset 0 0 20px rgba(29, 233, 192, 0.05);
+  text-align: center;
+}
+
+.glow-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: #1de9c0;
+  box-shadow: 0 0 15px #1de9c0;
+}
+
+/* Couleurs selon résultat */
+.popup-victory {
+  border-color: rgba(251, 191, 36, 0.5);
+}
+.popup-victory .glow-line {
+  background: #fbbf24;
+  box-shadow: 0 0 15px #fbbf24;
+}
+.popup-victory .popup-result-title {
+  color: #fbbf24;
+  text-shadow: 0 0 15px rgba(251, 191, 36, 0.4);
+}
+
+.popup-defeat {
+  border-color: rgba(248, 113, 113, 0.5);
+}
+.popup-defeat .glow-line {
+  background: #f87171;
+  box-shadow: 0 0 15px #f87171;
+}
+.popup-defeat .popup-result-title {
+  color: #f87171;
+  text-shadow: 0 0 15px rgba(248, 113, 113, 0.4);
+}
+
+.popup-result-banner {
+  margin-bottom: 25px;
+}
+
+.popup-result-icon {
+  font-size: 3.5rem;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.popup-result-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: 4px;
+  margin: 0;
+}
+
+/* RÉCOMPENSES HUD */
+.reward-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.rewards-row {
+  display: flex;
+  gap: 15px;
+}
+
+.reward-box {
+  flex: 1;
+  background: rgba(29, 233, 192, 0.05);
+  border: 1px solid rgba(29, 233, 192, 0.2);
+  border-left: 4px solid #1de9c0;
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.reward-box.gold {
+  border-left-color: #fbbf24;
+}
+.reward-box.xp {
+  border-left-color: #60a5fa;
+}
+
+.reward-card-icon {
+  font-size: 2rem;
+}
+
+.reward-details {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.reward-details .value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+}
+
+.reward-box.gold .value {
+  color: #fbbf24;
+}
+.reward-box.xp .value {
+  color: #60a5fa;
+}
+
+.reward-details .label {
+  font-size: 0.7rem;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 4px;
+}
+
+.levelup-gold-note {
+  display: flex;
+  justify-content: space-between;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px dashed rgba(251, 191, 36, 0.4);
+  padding: 10px 15px;
+  font-size: 0.85rem;
+  color: rgba(251, 191, 36, 0.8);
+  letter-spacing: 1px;
+}
+.levelup-gold-amount {
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.levelup-banner {
+  background: rgba(251, 191, 36, 0.15);
+  border: 1px solid #fbbf24;
+  padding: 12px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: #fbbf24;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+  animation: pulse 1.5s infinite alternate;
+}
+
+@keyframes pulse {
+  from {
+    box-shadow: 0 0 5px rgba(251, 191, 36, 0.1);
+  }
+  to {
+    box-shadow: 0 0 15px rgba(251, 191, 36, 0.3);
+  }
+}
+
+.xp-module {
+  margin-top: 5px;
+}
+
+.xp-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 8px;
+}
+
+.xp-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.xp-fill {
+  height: 100%;
+  background: #1de9c0;
+  box-shadow: 0 0 10px #1de9c0;
+  transition: width 1s ease 0.5s;
+}
+
+.btn-radar {
+  width: 100%;
+  padding: 15px;
+  background: rgba(29, 233, 192, 0.15);
+  border: 1px solid #1de9c0;
+  color: #1de9c0;
+  font-family: "Rajdhani";
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-radar:hover {
+  background: #1de9c0;
+  color: #02080d;
+  box-shadow: 0 0 20px rgba(29, 233, 192, 0.4);
+}
+
+.rewards-loading {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 30px 0;
+}
+.loading-dot {
+  width: 8px;
+  height: 8px;
+  background: #1de9c0;
+  border-radius: 50%;
+  animation: dotBounce 1s infinite;
+}
+.loading-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.loading-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes dotBounce {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translateY(-10px);
+    opacity: 1;
+    box-shadow: 0 0 10px #1de9c0;
+  }
+}
+
+/* =========================================
+   RESPONSIVE
+   ========================================= */
+@media (max-width: 850px) {
+  .tactical-header h1 {
+    font-size: 1rem;
+  }
+
+  .btn-tactical {
+    padding: 8px;
+    min-width: 40px;
+    justify-content: center;
+  }
+  .btn-text {
+    display: none;
+  }
+  .btn-icon {
+    display: block;
+    font-size: 1.2rem;
+    margin: 0;
+  }
+
+  .tactical-layout {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .team-left {
+    order: 1;
+  }
+  .timer-container {
+    order: 2;
+    margin: 10px 0;
+    transform: scale(0.9);
+  }
+  .team-right {
+    order: 3;
+  }
+
+  .grid-container {
+    max-width: 100%;
+  }
+
+  .hud-popup {
+    padding: 30px 20px;
+  }
+  .rewards-row {
+    flex-direction: column;
+  }
+}
+</style>

@@ -20,7 +20,7 @@ const app = express();
 const server = http.createServer(app);
 
 /* ==========================
-   MIDDLEWARE CORS (FIXED)
+   MIDDLEWARE CORS 
 ========================== */
 const allowedOrigins = [
   "http://localhost:5173",
@@ -69,9 +69,6 @@ app.set("io", io);
 ========================== */
 const games = {};
 
-/**
- * Démarre ou réinitialise le tour d'une partie
- */
 async function startTurn(gameId, duration = 7) {
   const sId = String(gameId);
 
@@ -79,7 +76,7 @@ async function startTurn(gameId, duration = 7) {
 
   if (!games[sId]) games[sId] = { turnNumber: 0 };
 
-  const turnStartAt = Date.now(); // ms, ancre temporelle
+  const turnStartAt = Date.now(); 
   const unixNow = Math.floor(turnStartAt / 1000);
 
   games[sId].turnStartAt = turnStartAt;
@@ -88,7 +85,6 @@ async function startTurn(gameId, duration = 7) {
   games[sId].finished    = false;
   games[sId].turnNumber++;
 
-  // ✅ Mise à jour last_turn_timestamp en BDD à chaque nouveau tour
   try {
     await db.query(
       "UPDATE games SET last_turn_timestamp = ?, current_round = current_round + 1 WHERE id_Game = ?",
@@ -107,11 +103,10 @@ async function startTurn(gameId, duration = 7) {
     const elapsed  = (Date.now() - games[sId].turnStartAt) / 1000;
     const timeLeft = Math.max(0, Math.ceil(duration - elapsed));
 
-    // ✅ On envoie turnStartAt pour que le client puisse calculer localement
     io.to(sId).emit("turn-timer", {
       timeLeft,
       gameId:     sId,
-      turnStartAt: games[sId].turnStartAt, // ms timestamp serveur
+      turnStartAt: games[sId].turnStartAt, 
     });
 
     if (timeLeft <= 0 && !games[sId].ended) {
@@ -127,7 +122,6 @@ async function startTurn(gameId, duration = 7) {
 
   games[sId].timer = interval;
 
-  // ✅ Émission immédiate du premier tick (timeLeft = 7)
   io.to(sId).emit("turn-timer", {
     timeLeft: duration,
     gameId:   sId,
@@ -190,7 +184,6 @@ io.on("connection", (socket) => {
       const totalExpected = totalRows[0].count;
 
       if (readyCount >= totalExpected && totalExpected > 0) {
-        // On ne lance le timer que s'il n'est pas déjà actif
         if (!games[sId] || !games[sId].timer) {
           console.log(`🚀 Lancement partie ${sId}`);
           io.to(sId).emit("game-started", { timeLeft: 7 });
@@ -208,9 +201,7 @@ io.on("connection", (socket) => {
     console.log("🚫 Déconnexion socket");
   });
 
-  // Quand le serveur reçoit un verrouillage
   socket.on("lock-cell", (data) => {
-    // Il le renvoie à tous les joueurs de la room (gameId) SAUF à l'expéditeur
     socket.to(data.gameId).emit("cell-pending", {
       targetId: data.targetId,
       index: data.index,
@@ -218,7 +209,6 @@ io.on("connection", (socket) => {
     });
   });
 
-  // Quand le serveur reçoit un déverrouillage
   socket.on("unlock-cell", (data) => {
     socket.to(data.gameId).emit("cell-unlocked", {
       targetId: data.targetId,
