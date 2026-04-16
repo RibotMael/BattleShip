@@ -44,7 +44,7 @@ router.post('/login', async (req, res) => {
 
   try {
     const sql = `
-      SELECT u.ID_Users, u.Email, u.Pseudo, u.niveau, u.Password,
+      SELECT u.ID_Users, u.Email, u.Pseudo, u.niveau, u.Password, u.xp, u.Gold, 
              u.Avatar AS AvatarID, a.Avatar, a.mime_type
       FROM users u
       LEFT JOIN avatar a ON u.Avatar = a.ID_Avatar
@@ -68,6 +68,8 @@ router.post('/login', async (req, res) => {
         email: user.Email,
         pseudo: user.Pseudo,
         niveau: user.niveau,
+        xp: user.xp,
+        gold: user.Gold,
         avatar: avatarBase64,
         online: 1
       }

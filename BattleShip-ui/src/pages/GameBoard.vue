@@ -61,7 +61,7 @@
 
       <section class="system-status timer-container">
         <div class="timer-module">
-          <svg class="progress-ring timer-svg" width="100" height="100">
+          <svg class="progress-ring timer-svg" viewBox="0 0 100 100" width="100%" height="100%">
             <circle class="timer-bg" cx="50" cy="50" r="45" />
             <circle
               class="progress-ring__circle timer-bar"
@@ -151,7 +151,6 @@
             />
           </svg>
           <div class="timer-data">
-            <span class="t-label">SÉQUENCE</span>
             <span class="t-value">{{ turnTimer }}s</span>
           </div>
         </div>
@@ -257,6 +256,7 @@
     </transition>
   </div>
 </template>
+
 <script>
 import socket from "../services/socket.js";
 import heartbeatSrc from "@/assets/audio/BattementsDeCoeur.mp3";
@@ -1354,28 +1354,44 @@ body {
    LAYOUT GRILLES
    ========================================= */
 .tactical-layout {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 30px;
+  display: grid;
+  /* Grille : GrilleGauche(1fr)  Timer(Auto)  GrilleDroite(1fr) */
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
+  gap: 40px;
   width: 100%;
-  max-width: 1300px;
+  max-width: 1400px;
   margin: 0 auto;
-  flex-wrap: wrap;
+}
+
+.fleet-side,
+.grid-container,
+.grid-wrapper {
+  min-width: 0;
 }
 
 .fleet-side {
   display: flex;
   flex-direction: column;
   gap: 30px;
-  flex: 1 1 320px;
-  align-items: center;
   width: 100%;
+  /* On aligne la flotte du joueur à droite et l'ennemi à gauche pour "encadrer" le timer */
+}
+
+.team-left,
+.player-side {
+  align-items: flex-end;
+}
+
+.team-right,
+.enemy-side {
+  align-items: flex-start;
 }
 
 .grid-container {
   width: 100%;
   max-width: 380px;
+  margin: 0 auto;
 }
 
 .grid-label {
@@ -1456,6 +1472,9 @@ body {
   background: rgba(29, 233, 192, 0.1);
   width: 100%;
   aspect-ratio: 1 / 1;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .target-focus .grid-radar {
@@ -1474,6 +1493,8 @@ body {
   align-items: center;
   justify-content: center;
   transition: all 0.1s;
+  min-width: 0;
+  min-height: 0;
 }
 
 .target-focus .cell {
@@ -1546,18 +1567,16 @@ body {
    ========================================= */
 .system-status {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  width: 140px;
-  flex-shrink: 0;
-  align-self: center;
-  margin-top: 35px;
+  width: 120px;
+  padding-top: 40px; /* Aligne le timer avec le haut des grilles de jeu */
 }
 
 .timer-module {
   position: relative;
-  width: 120px;
-  height: 120px;
+  width: 100px;
+  height: 100px;
 }
 
 .timer-svg {
@@ -1618,7 +1637,7 @@ body {
    ========================================= */
 .allies-container {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 15px;
   width: 100%;
   max-width: 380px;
@@ -1931,21 +1950,35 @@ body {
     margin: 0;
   }
 
+  /* CORRECTION DU LAYOUT MOBILE ICI */
   .tactical-layout {
-    flex-direction: column;
+    grid-template-columns: 1fr; /* Passe tout sur une seule colonne */
+    justify-items: center; /* Centre les éléments dans la colonne */
+    gap: 20px;
+    justify-content: center;
+    align-items: start;
+  }
+
+  /* On recentre le contenu des flottes sur mobile */
+  .team-left,
+  .team-right,
+  .player-side,
+  .enemy-side {
     align-items: center;
   }
 
-  .team-left {
-    order: 1;
+  .team-left,
+  .team-right {
+    display: flex;
+    justify-content: center;
   }
+
+  /* Le timer passe tout en haut */
   .timer-container {
-    order: 2;
+    order: -1;
+    padding-top: 0;
     margin: 10px 0;
     transform: scale(0.9);
-  }
-  .team-right {
-    order: 3;
   }
 
   .grid-container {

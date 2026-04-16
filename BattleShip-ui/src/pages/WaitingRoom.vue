@@ -581,11 +581,19 @@ export default {
 
     // SOCKETS
     socket.emit("user_online", this.userId);
+    socket.emit("join-room", this.localGameId);
     socket.on("update_friends_status", (onlineIds) => {
       this.friends = this.friends.map((f) => ({
         ...f,
         isOnline: onlineIds.includes(Number(this.getUserId(f))),
       }));
+    });
+    socket.on("player-kicked", ({ playerId }) => {
+      if (Number(playerId) === this.userId) this.$router.push("/gamemode");
+      else this.fetchGame();
+    });
+    socket.on("room-closed", () => {
+      this.exitDueToClosure("La salle a été fermée par l'hôte.");
     });
   },
   beforeUnmount() {
@@ -593,8 +601,11 @@ export default {
       clearInterval(this.fetchInterval);
       this.fetchInterval = null;
     }
+    socket.emit("leave-room", this.localGameId);
     clearInterval(this.polling);
     socket.off("update_friends_status");
+    socket.off("player-kicked");
+    socket.off("room-closed");
   },
   methods: {
     getUserId(obj) {
@@ -628,7 +639,6 @@ export default {
           ID_Game: g.id_Game || g.ID_Game,
           id_creator: g.id_creator || g.ID_Creator,
           status: g.status,
-          // On s'assure que le mode est bien détecté
           mode: Number(g.id_game_type) === 1 ? "battle_royale" : "classic",
           TotalPlayers: g.TotalPlayers || 2,
         };
@@ -636,11 +646,19 @@ export default {
         this.players = Array.isArray(data.players) ? data.players : [];
         this.isHost = Number(this.userId) === Number(this.game.id_creator);
 
-        // CORRECTION ICI : Utilisation de team_number pour la synchronisation
+        if (!this.isHost) {
+          const stillPresent = this.players.some(
+            (p) => Number(this.getUserId(p)) === Number(this.userId),
+          );
+          if (!stillPresent) {
+            this.exitDueToClosure("Vous avez été exclu de la salle.");
+            return false;
+          }
+        }
+
         const newAssign = {};
         this.players.forEach((p) => {
           const pId = this.getUserId(p);
-          // On vérifie team_number qui vient de ta BDD
           if (p.team_number !== undefined && p.team_number !== null) {
             newAssign[pId] = Number(p.team_number);
           }
@@ -652,7 +670,9 @@ export default {
         }
         return true;
       } catch (err) {
-        console.error("Erreur fetchGame:", err);
+        if (err.response?.status === 404 || err.response?.status === 410) {
+          this.exitDueToClosure("La salle a été fermée par l'hôte.");
+        }
         return false;
       }
     },
@@ -723,7 +743,8 @@ export default {
       try {
         await api.post("/games/kick", {
           gameId: this.game.ID_Game,
-          playerId: Number(playerId),
+          hostId: Number(this.userId),
+          targetPlayerId: Number(playerId),
         });
         await this.fetchGame();
       } catch (err) {

@@ -175,7 +175,7 @@ export default {
     handleLoginSuccess(userData) {
       if (!userData.avatar) userData.avatar = defaultAvatar;
       if (userData.level === undefined) userData.level = userData.niveau ?? 0;
-      if (userData.gold === undefined) userData.gold = userData.Gold ?? 0;
+      if (userData.gold === undefined) userData.gold = userData.gold ?? 0;
       if (userData.xp === undefined) userData.xp = 0;
 
       localStorage.setItem("user", JSON.stringify(userData));
@@ -249,16 +249,22 @@ export default {
   background: rgba(29, 233, 192, 0.05);
   border: 1px solid rgba(29, 233, 192, 0.2);
   color: #1de9c0;
-  padding: 0.5rem 1rem;
+  padding: 0.75rem 1.25rem;
+  font-size: 1.1rem;
   border-radius: 8px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   cursor: pointer;
   font-family: "Rajdhani", sans-serif;
   font-weight: 600;
   transition: all 0.2s;
   position: relative;
+}
+
+.btn-friends svg {
+  width: 24px;
+  height: 24px;
 }
 
 .btn-friends:hover {
@@ -272,9 +278,9 @@ export default {
   right: -5px;
   background: #f87171;
   color: white;
-  font-size: 0.7rem;
-  padding: 2px 6px;
-  border-radius: 10px;
+  font-size: 0.85rem;
+  padding: 3px 8px;
+  border-radius: 12px;
   border: 2px solid #06121a;
 }
 
@@ -337,10 +343,10 @@ export default {
 .user-trigger {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   cursor: pointer;
-  padding: 4px 4px 4px 12px;
-  border-radius: 25px;
+  padding: 6px 6px 6px 16px;
+  border-radius: 35px;
   transition: background 0.2s;
   border: 1px solid transparent;
 }
@@ -354,12 +360,12 @@ export default {
 .pseudo {
   color: #dff2ee;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 1.1rem;
 }
 
 .avatar-wrap {
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   border: 2px solid #1de9c0;
   padding: 2px;
@@ -375,32 +381,32 @@ export default {
 /* Dropdown */
 .user-dropdown {
   position: absolute;
-  top: calc(100% + 10px);
+  top: calc(100% + 15px);
   right: 1.5rem;
-  width: 200px;
+  width: 240px;
   background: rgba(10, 25, 47, 0.95);
   border: 1px solid rgba(29, 233, 192, 0.2);
   border-radius: 12px;
   backdrop-filter: blur(15px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  padding: 8px;
+  padding: 10px;
 }
 
 .user-dropdown button {
   width: 100%;
-  padding: 10px 12px;
+  padding: 12px 16px;
   background: none;
   border: none;
   color: #c0ddd8;
   text-align: left;
   font-family: "Rajdhani", sans-serif;
-  font-size: 0.9rem;
+  font-size: 1.05rem;
   font-weight: 600;
   cursor: pointer;
   border-radius: 8px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .user-dropdown button:hover {

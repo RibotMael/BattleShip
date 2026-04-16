@@ -17,6 +17,8 @@ export function computeLevel(totalXp) {
     level++;
     
     // Sécurité ultime pour éviter une boucle infinie si bug
-    if (level > 1000) break; 
+    if (level > 1000) {
+      return { level: 1000, xpIntoLevel: 0, xpNeededForNext: xpForNextLevel(1000) };
+    }
   }
 }
