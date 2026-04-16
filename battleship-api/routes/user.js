@@ -40,7 +40,6 @@ router.get('/:id', async (req, res) => {
       avatar
     });
   } catch (err) {
-    console.error("Erreur SQL GET user:", err);
     res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
 });
@@ -79,7 +78,6 @@ router.get('/:id/list', async (req, res) => {
 
     res.json({ success: true, friends: friendsWithAvatar });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
@@ -156,7 +154,6 @@ router.put('/:id', async (req, res) => {
     });
 
   } catch (err) {
-    console.error("Erreur SQL PUT user:", err);
     res.status(500).json({ message: "Erreur serveur" });
   }
 });
@@ -172,7 +169,6 @@ router.delete('/:id', async (req, res) => {
 
     res.json({ success: true, message: "Utilisateur supprimé avec succès." });
   } catch (err) {
-    console.error("Erreur suppression utilisateur:", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
@@ -206,7 +202,6 @@ router.get('/:id/stats', async (req, res) => {
       game_played: stats.Game_Played || 0
     });
   } catch (err) {
-    console.error("Erreur /users/:id/stats :", err);
     return res.status(500).json({ success: false });
   }
 });
@@ -223,7 +218,6 @@ router.get("/check-user/:id", async (req, res) => {
 
     res.json({ success: true, message: "Utilisateur valide" });
   } catch (err) {
-    console.error("Erreur check-user :", err);
     res.status(500).json({ message: "Erreur serveur" });
   }
 });
@@ -288,7 +282,6 @@ router.post("/:id/reward", async (req, res) => {
       levelUpTo:       levelsGained > 0 ? lvlAfter.level : null,
     });
   } catch (err) {
-    console.error("Erreur reward endpoint:", err);
     return res.status(500).json({ success: false, message: "Erreur serveur." });
   }
 });

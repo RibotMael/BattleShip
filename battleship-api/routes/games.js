@@ -86,7 +86,6 @@ router.get("/public", async (req, res) => {
 
     res.json({ success: true, games: normalizedGames });
   } catch (err) {
-    console.error("❌ Erreur /public :", err);
     res
       .status(500)
       .json({
@@ -181,7 +180,6 @@ router.post("/create", async (req, res) => {
       mode: langKey,
     });
   } catch (err) {
-    console.error("❌ Erreur création partie :", err);
     res
       .status(500)
       .json({
@@ -193,7 +191,6 @@ router.post("/create", async (req, res) => {
 
 // Rejoindre une partie
 router.post("/join", async (req, res) => {
-  console.log("📩 Requête reçue sur /join :", req.body);
   const { gameId, playerId } = req.body;
   if (!gameId || !playerId)
     return res
@@ -245,9 +242,6 @@ router.post("/join", async (req, res) => {
       "SELECT COUNT(*) AS count FROM game_players WHERE id_game = ?",
       [gameId]
     );
-    console.log(
-      `👥 [JOIN GAME] Joueur ${playerId} rejoint la partie ${gameId} (${players[0].count} joueurs présents)`
-    );
 
     res.json({
       success: true,
@@ -255,7 +249,6 @@ router.post("/join", async (req, res) => {
       mode: langKey,
     });
   } catch (err) {
-    console.error("❌ Erreur join-game:", err);
     res
       .status(500)
       .json({
@@ -347,7 +340,6 @@ router.get("/:id", async (req, res) => {
       mode: langKey,
     });
   } catch (err) {
-    console.error("❌ Erreur get-game:", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
@@ -390,7 +382,6 @@ router.post("/assign-team", async (req, res) => {
 
     res.json({ success: true, message: "Équipe mise à jour" });
   } catch (err) {
-    console.error("Erreur assign-team:", err);
     res
       .status(500)
       .json({ success: false, message: "Erreur lors de l'assignation" });
@@ -453,12 +444,8 @@ router.post("/start", async (req, res) => {
       [gameId]
     );
 
-    console.log(
-      `🚀 [START GAME] Partie ${gameId} démarrée par l'hôte ${userId}`
-    );
     res.json({ success: true, message: "Partie démarrée !" });
   } catch (err) {
-    console.error("❌ Erreur start-game:", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
@@ -557,7 +544,6 @@ router.post("/leave", async (req, res) => {
       });
     }
   } catch (err) {
-    console.error("❌ Erreur leave-game:", err);
     res
       .status(500)
       .json({
@@ -583,7 +569,6 @@ router.get("/:gameId/timer", async (req, res) => {
 
     res.json({ success: true, timeLeft });
   } catch (err) {
-    console.error("❌ Erreur /timer :", err);
     res.status(500).json({ success: false });
   }
 });
@@ -623,12 +608,8 @@ router.delete("/delete/:gameId", async (req, res) => {
     );
     await db.execute("DELETE FROM games WHERE id_Game = ?", [gameId]);
 
-    console.log(
-      `✅ [DELETE GAME] Partie ${gameId} supprimée par l'hôte ${playerId}`
-    );
     res.json({ success: true, message: "Partie supprimée avec succès" });
   } catch (err) {
-    console.error("❌ Erreur delete-game :", err);
     res
       .status(500)
       .json({
@@ -640,7 +621,6 @@ router.delete("/delete/:gameId", async (req, res) => {
 
 // Enregistrer le placement des bateaux
 router.post("/place-ships", async (req, res) => {
-  console.log("🚀 Route /place-ships appelée", req.body);
   const { gameId, playerId, ships, mode } = req.body;
 
   if (!gameId || !playerId || !Array.isArray(ships)) {
@@ -700,15 +680,10 @@ router.post("/place-ships", async (req, res) => {
         "UPDATE game_players SET player_status = 'in_game' WHERE id_game = ?",
         [gameId]
       );
-
-      console.log(
-        `⚔️ [GAME START] La partie ${gameId} est officiellement lancée par Node.js !`
-      );
     }
 
     res.json({ success: true, message: "Bateaux validés avec succès !" });
   } catch (err) {
-    console.error("❌ [PLACE SHIPS ERROR]", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
@@ -739,7 +714,6 @@ router.get("/:gameId/board", async (req, res) => {
     );
 
     if (rows.length === 0) {
-      console.warn(`⚠️ Aucun plateau pour G:${gameId} P:${playerId}`);
       return res
         .status(404)
         .json({ success: false, message: "Aucun plateau trouvé." });
@@ -752,7 +726,6 @@ router.get("/:gameId/board", async (req, res) => {
       finalBoard =
         typeof boardData === "string" ? JSON.parse(boardData) : boardData;
     } catch (parseErr) {
-      console.error("❌ Erreur format JSON board:", parseErr);
       return res
         .status(500)
         .json({
@@ -763,24 +736,12 @@ router.get("/:gameId/board", async (req, res) => {
 
     res.json({ success: true, board: finalBoard });
   } catch (err) {
-    console.error("❌ Erreur critique récupération plateau :", err);
     res
       .status(500)
       .json({ success: false, message: "Erreur interne serveur." });
   }
 });
 
-// ─────────────────────────────────────────────────────────────
-// MODIFIÉ : /shoot — insère le tir en PENDING uniquement.
-//
-// La résolution (hit/miss/sunk), la détection des morts et la
-// vérification de victoire sont désormais gérées par resolveTurn()
-// dans index.js, appelée 1.2s après chaque fin de tour.
-//
-// Cela rend le système compatible avec PHP et Unity qui insèrent
-// aussi leurs tirs en pending et s'attendent à une résolution
-// synchronisée en fin de tour.
-// ─────────────────────────────────────────────────────────────
 router.post("/shoot", async (req, res) => {
   const { gameId, playerId, targetId, x, y } = req.body;
 
@@ -820,10 +781,6 @@ router.post("/shoot", async (req, res) => {
       [gameId, playerId, targetId, x, y]
     );
 
-    console.log(
-      `🎯 [SHOT PENDING] Partie ${gameId} — Joueur ${playerId} → Cible ${targetId} (${x},${y})`
-    );
-
     // Répondre immédiatement avec "pending"
     // Le vrai résultat sera émis par socket (shot-fired) quand resolveTurn() s'exécute
     res.json({
@@ -834,7 +791,6 @@ router.post("/shoot", async (req, res) => {
       gameOver: false,
     });
   } catch (err) {
-    console.error("❌ Erreur /shoot :", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
@@ -910,7 +866,6 @@ router.get("/:gameId/shots", async (req, res) => {
       allShots: enhancedShots,
     });
   } catch (err) {
-    console.error("❌ Erreur /shots :", err);
     res.status(500).json({
       success: false,
       message: "Erreur serveur",
@@ -1059,7 +1014,6 @@ router.post("/eliminate-player", async (req, res) => {
     });
   } catch (err) {
     await conn.rollback();
-    console.error("Erreur eliminate-player:", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
   } finally {
     conn.release();
@@ -1111,7 +1065,6 @@ router.get("/:id/status", async (req, res) => {
 
     return res.json({ success: true, status: game.status });
   } catch (err) {
-    console.error("Erreur /status :", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
@@ -1139,7 +1092,6 @@ router.get("/:id/stats", async (req, res) => {
       xpNeededForNext: lvl.xpNeededForNext,
     });
   } catch (err) {
-    console.error("Erreur /stats :", err);
     return res.status(500).json({ success: false });
   }
 });
@@ -1194,10 +1146,6 @@ router.post("/join/:id", async (req, res) => {
       [gameId, playerId]
     );
 
-    console.log(
-      `👥 [JOIN GAME] Joueur ${playerId} rejoint la partie ${gameId} (statut=${game.status})`
-    );
-
     res.json({
       success: true,
       message: "Vous avez rejoint la partie avec succès !",
@@ -1208,7 +1156,6 @@ router.post("/join/:id", async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("❌ Erreur rejoindre partie :", err);
     res
       .status(500)
       .json({

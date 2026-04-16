@@ -123,7 +123,6 @@ router.post("/join", async (req, res) => {
       players,
     });
   } catch (err) {
-    console.error("❌ join-game", err);
     res.status(500).json({
       success: false,
       message: "Erreur serveur",

@@ -32,7 +32,6 @@ router.post('/register', async (req, res) => {
 
     return res.json({ success: true, user: { id: result.insertId, pseudo, avatar: avatarId } });
   } catch (err) {
-    console.error("Erreur d'inscription:", err);
     return res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
@@ -75,7 +74,6 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (err) {
-    console.error("Erreur login:", err);
     return res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
@@ -89,7 +87,6 @@ router.post('/logout', async (req, res) => {
     await query("UPDATE users SET Online = 0 WHERE ID_Users = ?", [userId]);
     return res.json({ success: true, message: "Déconnecté avec succès" });
   } catch (err) {
-    console.error("Erreur logout:", err);
     return res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
@@ -121,7 +118,6 @@ router.get('/users/:id', async (req, res) => {
       }
     });
   } catch (err) {
-    console.error("Erreur GET user:", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
@@ -137,7 +133,6 @@ router.get('/check-user/:id', async (req, res) => {
     }
     res.json({ success: true });
   } catch (err) {
-    console.error("Erreur check-user:", err);
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });

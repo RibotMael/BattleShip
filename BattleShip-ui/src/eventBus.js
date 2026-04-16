@@ -41,13 +41,10 @@ export async function fetchInvitations(userId) {
 
     if (data.success && Array.isArray(data.invitations)) {
       invitationStore.invitations = data.invitations;
-      console.log("📨 Invitations chargées :", data.invitations);
     } else {
-      console.warn("⚠️ Aucune invitation reçue ou format invalide :", data);
       invitationStore.invitations = [];
     }
   } catch (err) {
-    console.error("❌ Erreur fetchInvitations :", err);
     invitationStore.invitations = [];
   }
 }

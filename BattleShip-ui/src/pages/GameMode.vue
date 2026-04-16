@@ -209,7 +209,6 @@ const startGame = async () => {
       params: { gameId: normalizedGame.ID_Game },
     });
   } catch (err) {
-    console.error("❌ Erreur dans startGame:", err);
     const errorMsg = err.response?.data?.message || "Impossible de contacter le serveur.";
     alert(errorMsg);
   } finally {

@@ -99,13 +99,9 @@ async function resolveTurn(gameId) {
     );
 
     if (!pendingShots.length) {
-      console.log(`ℹ️  [RESOLVE] Partie ${sId} : aucun tir pending`);
       return;
     }
 
-    console.log(
-      `🔍 [RESOLVE] Partie ${sId} : ${pendingShots.length} tir(s) à résoudre`
-    );
 
     // 2. Charger les plateaux des cibles (cache pour éviter les requêtes répétées)
     const targetIds = [
@@ -126,9 +122,6 @@ async function resolveTurn(gameId) {
     for (const shot of pendingShots) {
       const board = boardCache[Number(shot.target_id)];
       if (!board) {
-        console.warn(
-          `⚠️  [RESOLVE] Plateau introuvable pour cible ${shot.target_id}`
-        );
         continue;
       }
 
@@ -207,9 +200,6 @@ async function resolveTurn(gameId) {
           [gameId, tid]
         );
         if (upd.affectedRows > 0) {
-          console.log(
-            `💀 [RESOLVE] Joueur ${tid} éliminé dans la partie ${sId}`
-          );
           io.to(sId).emit("player-eliminated", {
             playerId: tid,
             reason: "shot",
@@ -261,9 +251,6 @@ async function resolveTurn(gameId) {
       );
       if (updGame.affectedRows > 0) {
         stopGameTimer(gameId);
-        console.log(
-          `🏁 [RESOLVE] Partie ${sId} terminée. Gagnant : ${winnerId ?? "égalité"}`
-        );
         io.to(sId).emit("game-over", {
           winnerId,
           winnerTeam,
@@ -273,14 +260,10 @@ async function resolveTurn(gameId) {
       }
     }
   } catch (err) {
-    console.error("❌ Erreur resolveTurn:", err);
+    // Mode silencieux 
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// MODIFIÉ : Boucle de tick séparée de startTurn pour la réutiliser
-// après un resync depuis la DB
-// ─────────────────────────────────────────────────────────────
 function _startTick(sId, duration) {
   if (games[sId]?.timer) clearInterval(games[sId].timer);
 
@@ -337,9 +320,6 @@ async function startTurn(gameId, duration = 7) {
     );
 
     if (!gameRow || gameRow.status !== "in_progress") {
-      console.log(
-        `ℹ️  [TIMER] Partie ${sId} : statut '${gameRow?.status}', timer non démarré`
-      );
       return;
     }
 
@@ -347,11 +327,6 @@ async function startTurn(gameId, duration = 7) {
     const turnStartAt = Date.now();
     const unixNow = Math.floor(turnStartAt / 1000);
 
-    // ── GUARD ANTI-DOUBLON ────────────────────────────────────
-    // On n'avance le timestamp QUE si personne d'autre ne l'a déjà fait.
-    // Si Unity ou PHP a mis à jour last_turn_timestamp entre notre lecture
-    // et cette requête, affectedRows sera 0 et on resynchronise.
-    // ─────────────────────────────────────────────────────────
     const [upd] = await db.query(
       `UPDATE games
        SET last_turn_timestamp = ?, current_round = current_round + 1
@@ -362,10 +337,6 @@ async function startTurn(gameId, duration = 7) {
     );
 
     if (upd.affectedRows === 0) {
-      // Un autre système (Unity/PHP) a déjà avancé le tour → resync depuis DB
-      console.log(
-        `⚠️  [TIMER GUARD] Partie ${sId} : timestamp déjà avancé par Unity/PHP, resync…`
-      );
 
       const [[freshRow]] = await db.query(
         "SELECT last_turn_timestamp FROM games WHERE id_Game = ?",
@@ -408,7 +379,7 @@ async function startTurn(gameId, duration = 7) {
 
     _startTick(sId, duration);
   } catch (err) {
-    console.error("❌ Erreur startTurn:", err);
+    // Mode silencieux 
   }
 }
 
@@ -418,7 +389,6 @@ function stopGameTimer(gameId) {
     clearInterval(games[sId].timer);
     games[sId].finished = true;
     delete games[sId];
-    console.log(`🛑 Timer arrêté : ${sId}`);
   }
 }
 
@@ -447,7 +417,6 @@ io.on("connection", (socket) => {
     if (!gameId) return;
     const room = String(gameId);
     socket.join(room);
-    console.log(`👤 Joueur ${socket.id} -> Room ${room}`);
   });
 
   socket.on("player-ready", async ({ gameId, playerId }) => {
@@ -468,7 +437,6 @@ io.on("connection", (socket) => {
 
       if (readyCount >= totalExpected && totalExpected > 0) {
         if (!games[sId] || !games[sId].timer) {
-          console.log(`🚀 Lancement partie ${sId}`);
           io.to(sId).emit("game-started", { timeLeft: 7 });
           startTurn(sId);
         }
@@ -479,7 +447,7 @@ io.on("connection", (socket) => {
         });
       }
     } catch (err) {
-      console.error("❌ Erreur player-ready:", err);
+      // Mode silencieux 
     }
   });
 

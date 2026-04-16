@@ -189,7 +189,6 @@ export default {
           return { fleet: data.fleet, mode: data.game.mode };
         }
       } catch (err) {
-        console.error("[FETCH GAME] - API injoignable", err);
         return null;
       }
     },
@@ -212,8 +211,7 @@ export default {
           alert("Erreur : " + res.data.message);
         }
       } catch (err) {
-        console.error("[VALIDATE PLACEMENT]", err);
-        alert("Impossible d'envoyer le placement au serveur (vérifiez le CORS).");
+        // Mode silencieux
       }
     },
 
@@ -230,7 +228,7 @@ export default {
           return this.readyPlayers.length === this.game.TotalPlayers;
         }
       } catch (err) {
-        // Mode silencieux pour éviter de spammer la console avec l'intervalle
+        // Mode silencieux
       }
       return false;
     },

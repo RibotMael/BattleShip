@@ -20,7 +20,6 @@ router.get('/avatars', async (req, res) => {
 
     res.json({ avatars });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: 'Erreur récupération avatars' });
   }
 });

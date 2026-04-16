@@ -232,7 +232,7 @@ export default {
         this.avatars = res.data.avatars;
         if (this.avatar) this.updatePreview(this.avatar);
       } catch (e) {
-        console.error("Erreur récupération avatars :", e);
+        // Mode silencieux
       }
     },
 
@@ -307,8 +307,7 @@ export default {
         userBus.userUpdated = !userBus.userUpdated;
         alert("Profil mis à jour !");
       } catch (err) {
-        console.error("Erreur mise à jour :", err);
-        alert(err.response?.data?.message || "Erreur lors de la mise à jour.");
+        // Mode silencieux
       }
     },
 
@@ -321,8 +320,7 @@ export default {
         alert("Compte supprimé avec succès.");
         this.$router.push("/");
       } catch (err) {
-        console.error("Erreur suppression :", err);
-        alert("Impossible de supprimer le compte.");
+        // Mode silencieux
       }
     },
   },

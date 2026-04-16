@@ -16,7 +16,6 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      console.warn("Utilisateur non autorisé — redirection.");
       localStorage.removeItem("user");
       router.push("/login");
     }

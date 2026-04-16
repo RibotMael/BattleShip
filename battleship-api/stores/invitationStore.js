@@ -20,7 +20,6 @@ export async function sendInviteToDB({ gameId, senderId, receiverId }) {
     );
     return result.insertId;
   } catch (err) {
-    console.error("[SEND INVITE ERROR]", err.message);
     throw err;
   }
 }

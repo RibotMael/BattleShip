@@ -1,5 +1,10 @@
 <template>
   <div class="battle-page background-tactical">
+    <div
+      v-if="lostShipsCount > 0 && !gameOver"
+      class="damage-overlay"
+      :style="heartbeatStyle"
+    ></div>
     <header class="tactical-header">
       <div class="header-left">
         <div class="radar-ping"></div>
@@ -307,6 +312,27 @@ export default {
     is1v1() {
       return this.gameType === "1v1";
     },
+    lostShipsCount() {
+      const sunkCells = this.playerGrid.filter((cell) => cell.status === "sunk").length;
+
+      return Math.floor(sunkCells / 3);
+    },
+    heartbeatStyle() {
+      if (this.lostShipsCount <= 0 || this.gameOver) return { display: "none" };
+
+      const maxShips = 5;
+      const ratio = Math.min(this.lostShipsCount / maxShips, 1);
+
+      const duration = 2 - ratio * 1.5;
+      const intensity = 0.2 + ratio * 0.6;
+      const spread = 30 + ratio * 40;
+
+      return {
+        animationDuration: `${duration}s`,
+        background: `radial-gradient(circle, transparent ${100 - spread}%, rgba(180, 0, 0, ${intensity}) 100%)`,
+        display: "block",
+      };
+    },
     currentOpponent() {
       return (
         this.opponents[this.currentOpponentIndex] || {
@@ -426,7 +452,6 @@ export default {
           userBus.userUpdated = !userBus.userUpdated;
         }
       } catch (err) {
-        console.error("Erreur claimReward :", err);
         this.rewardData = {
           goldGain: isVictory ? 100 : 25,
           xpGain: isVictory ? 50 : 25,
@@ -474,7 +499,7 @@ export default {
           });
         }
       } catch (err) {
-        console.error("Erreur syncAllShots:", err);
+        // Mode silencieux
       }
     },
 
@@ -526,7 +551,7 @@ export default {
           this.$nextTick(this.updateCircle);
         }
       } catch (err) {
-        console.error("Erreur resyncTimer:", err);
+        // Mode silencieux
       }
     },
 
@@ -622,7 +647,7 @@ export default {
           .flat()
           .map((cell) => ({ shipNumber: cell > 0 ? cell : 0, status: "" }));
       } catch (err) {
-        console.error("Erreur fetchPlayerBoard :", err);
+        // Mode silencieux
       }
     },
     async fetchOpponent() {
@@ -641,7 +666,7 @@ export default {
         ];
         this.currentOpponentIndex = 0;
       } catch (err) {
-        console.error(err);
+        // Mode silencieux
       }
     },
     async fetchOpponents() {
@@ -681,7 +706,7 @@ export default {
           }
         }
       } catch (err) {
-        console.error("Erreur fetchOpponents:", err);
+        // Mode silencieux
       }
     },
     updateGridCell(targetId, index, value, positions = []) {
@@ -735,7 +760,7 @@ export default {
           });
         }
       } catch (err) {
-        console.error("Erreur checkGameStatus:", err);
+        // Mode silencieux
       }
     },
 
@@ -916,7 +941,7 @@ export default {
         }
         this.selectedCell = null;
       } catch (err) {
-        console.error("Erreur sendShoot:", err);
+        // Mode silencieux
       }
     },
 
@@ -1064,7 +1089,7 @@ export default {
           });
         }
       } catch (err) {
-        console.error("Erreur Sync Shots:", err);
+        // Mode silencieux
       }
       this.opponents = [...this.opponents];
       if (this.isTeamMode) {
@@ -1125,7 +1150,7 @@ export default {
           this.showEndPopup("🏳️ Abandon confirmé.", false);
         }
       } catch (err) {
-        console.error(err);
+        // Mode silencieux
       }
     },
 
@@ -1194,7 +1219,7 @@ export default {
           this.showEndPopup("💥 Tous vos bateaux sont coulés !", false);
         }
       } catch (err) {
-        console.error(err);
+        // Mode silencieux
       }
     },
 
@@ -1238,6 +1263,41 @@ body {
   max-width: 100%;
   overflow-x: hidden;
   position: relative;
+}
+/* =========================================
+   EFFET DÉGÂTS CRITIQUES (BATTEMENT)
+   ========================================= */
+.damage-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none; /* TRÈS IMPORTANT : Empêche l'overlay de bloquer les clics de la souris */
+  z-index: 9998; /* Juste en dessous du hud-overlay (10000) pour ne pas gêner la popup de fin */
+  animation: heartbeat infinite ease-in-out;
+  /* Optionnel : Ajoute un léger flou rouge global quand les dégâts sont élevés */
+  box-shadow: inset 0 0 100px rgba(150, 0, 0, 0.2);
+}
+
+@keyframes heartbeat {
+  0% {
+    opacity: 0.2;
+    transform: scale(1);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  40% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  60% {
+    opacity: 0.8;
+    transform: scale(1.01);
+  }
+  100% {
+    opacity: 0.2;
+    transform: scale(1);
+  }
 }
 
 /* =========================================

@@ -258,7 +258,7 @@ export default {
           avatarUrl: f.Avatar ? `data:${f.mime_type};base64,${f.Avatar}` : defaultAvatar,
         }));
       } catch (err) {
-        console.error("❌ Erreur récupération amis :", err);
+        // Mode silencieux
       }
     },
 
@@ -273,7 +273,7 @@ export default {
           avatarUrl: r.Avatar ? `data:${r.mime_type};base64,${r.Avatar}` : defaultAvatar,
         }));
       } catch (err) {
-        console.error("❌ Erreur récupération demandes :", err);
+        // Mode silencieux
       }
     },
 
@@ -284,7 +284,6 @@ export default {
           ? res.data.invitations
           : [];
       } catch (err) {
-        console.error("❌ Erreur récupération invitations :", err);
         invitationStore.invitations = [];
       }
     },
@@ -299,7 +298,6 @@ export default {
         this.identifier = "";
         this.fetchFriends();
       } catch (err) {
-        console.error("❌ Erreur addFriend :", err);
         alert("Utilisateur introuvable ou déjà ajouté.");
       }
     },
@@ -319,7 +317,6 @@ export default {
           this.$emit("close");
         }
       } catch (err) {
-        console.error("Erreur lors de l'acceptation :", err);
         alert("Impossible de rejoindre la partie.");
       }
     },
@@ -335,7 +332,7 @@ export default {
         });
         removeInvitation(inv.ID);
       } catch (err) {
-        console.error("❌ Erreur refuseInvitation :", err);
+        // Mode silencieux
       }
     },
 
@@ -345,7 +342,7 @@ export default {
         this.fetchFriends();
         this.fetchRequests();
       } catch (err) {
-        console.error("❌ Erreur acceptRequest :", err);
+        // Mode silencieux
       }
     },
 
@@ -356,7 +353,7 @@ export default {
         this.fetchFriends();
         this.fetchRequests();
       } catch (err) {
-        console.error("❌ Erreur removeFriend :", err);
+        // Mode silencieux
       }
     },
   },

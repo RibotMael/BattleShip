@@ -687,9 +687,6 @@ export default {
       this.polling = setInterval(() => this.fetchGame(), 3000);
     },
     async inviteFriend(friendId) {
-      // Debug pour vérifier que l'ID est bien là au moment du clic
-      console.log("Invitation envoyée pour le jeu :", this.game?.ID_Game, "à l'ami :", friendId);
-
       if (!this.game?.ID_Game || !friendId) {
         this.errorMsg = "Données d'invitation manquantes.";
         return;
@@ -701,15 +698,7 @@ export default {
           senderId: Number(this.userId),
           receiverId: Number(friendId),
         });
-
-        if (response.data.success) {
-          // Optionnel : un petit feedback visuel
-          console.log("Invitation réussie");
-        } else {
-          alert("Erreur : " + response.data.message);
-        }
       } catch (err) {
-        console.error("Erreur serveur lors de l'invitation:", err.response?.data || err.message);
         this.errorMsg = "Impossible de joindre le service d'invitation.";
       }
     },
@@ -725,7 +714,6 @@ export default {
         // On rafraîchit immédiatement les données pour déplacer le joueur visuellement
         await this.fetchGame();
       } catch (err) {
-        console.error("Erreur assignation équipe:", err);
         this.errorMsg = "Erreur lors du changement d'équipe.";
       }
     },
@@ -734,7 +722,7 @@ export default {
         await api.post("/games/leave", { gameId: this.game.ID_Game, playerId: this.userId });
         this.$router.push("/gamemode");
       } catch (err) {
-        console.error(err);
+        // Mode silencieux
       }
     },
     async kickPlayer(playerId) {
@@ -748,7 +736,7 @@ export default {
         });
         await this.fetchGame();
       } catch (err) {
-        console.error("Erreur lors du kick:", err);
+        // Mode silencieux
       }
     },
 

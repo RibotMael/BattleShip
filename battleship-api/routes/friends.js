@@ -6,7 +6,6 @@ const router = express.Router();
 // Ajouter un ami par pseudo ou email
 router.post("/add", async (req, res) => {
   const { userId, identifier } = req.body;
-  console.log("[FRIENDS] POST /add", req.body);
 
   if (!userId || !identifier) {
     return res.status(400).json({ success: false, message: "Champs manquants" });
@@ -52,7 +51,6 @@ router.post("/add", async (req, res) => {
       [userId, friendId]
     );
 
-    console.log(`[FRIENDS] Invitation envoyée, ID: ${result.insertId}`);
     res.json({ 
       success: true, 
       message: "Demande d'ami envoyée", 
@@ -61,7 +59,6 @@ router.post("/add", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("Erreur SQL friends/add:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -69,7 +66,6 @@ router.post("/add", async (req, res) => {
 // Accepter une demande
 router.post("/accept", async (req, res) => {
   const { userId, friendId } = req.body;
-  console.log("[FRIENDS] POST /accept", req.body);
 
   if (!userId || !friendId) return res.status(400).json({ success: false, message: "Champs manquants" });
 
@@ -82,10 +78,8 @@ router.post("/accept", async (req, res) => {
     if (result.affectedRows === 0)
       return res.status(400).json({ success: false, message: "Pas de demande en attente" });
 
-    console.log(`[FRIENDS] Demande acceptée entre ${friendId} -> ${userId}`);
     res.json({ success: true, message: "Demande acceptée", friendId });
   } catch (err) {
-    console.error("Erreur SQL friends/accept:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -124,7 +118,6 @@ router.get("/list/:userId", async (req, res) => {
 
     res.json(friends);
   } catch (err) {
-    console.error("Erreur SQL friends/list:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -163,7 +156,6 @@ router.get("/requests/:userId", async (req, res) => {
 
     res.json(requests);
   } catch (err) {
-    console.error("Erreur SQL friends/requests:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -171,7 +163,6 @@ router.get("/requests/:userId", async (req, res) => {
 // Supprimer un ami
 router.post("/remove", async (req, res) => {
   const { userId, friendId } = req.body;
-  console.log("[FRIENDS] POST /remove", req.body);
 
   if (!userId || !friendId) return res.status(400).json({ success: false, message: "Champs manquants" });
 
@@ -183,10 +174,8 @@ router.post("/remove", async (req, res) => {
 
     if (result.affectedRows === 0) return res.status(404).json({ success: false, message: "Relation introuvable" });
 
-    console.log(`[FRIENDS] Relation supprimée entre ${userId} et ${friendId}`);
     res.json({ success: true, message: "Ami supprimé", friendId });
   } catch (err) {
-    console.error("Erreur SQL friends/remove:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });

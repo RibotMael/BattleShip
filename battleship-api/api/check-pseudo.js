@@ -18,7 +18,6 @@ router.post('/check-pseudo', async (req, res) => {
 
     return res.json({ available: results.length === 0 });
   } catch (err) {
-    console.error("Erreur vérification pseudo:", err);
     return res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });

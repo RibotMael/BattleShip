@@ -134,7 +134,7 @@ export default {
           this.publicGames = res.data.games;
         }
       } catch (err) {
-        console.error("❌ Erreur récupération parties :", err);
+        // Mode silencieux
       } finally {
         this.loading = false;
         setTimeout(() => (this.refreshing = false), 500);
@@ -163,7 +163,6 @@ export default {
           alert(res.data.message || "Impossible de rejoindre la partie.");
         }
       } catch (err) {
-        console.error("❌ Erreur joinGame :", err);
         alert(err.response?.data?.message || "Erreur lors de la connexion.");
       }
     },

@@ -336,7 +336,7 @@ export default {
         const res = await api.get("/avatars");
         this.avatars = res.data.avatars;
       } catch (e) {
-        console.error("Erreur récupération avatars :", e);
+        // Mode silencieux
       }
     },
 
@@ -359,7 +359,7 @@ export default {
           this.errorMsg = "";
         }
       } catch (err) {
-        console.error("Erreur vérification pseudo:", err);
+        // Mode silencieux
       }
     },
 

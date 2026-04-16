@@ -63,7 +63,6 @@ router.post("/:gameId", async (req, res) => {
 
     res.json({ success: true, message: "Partie démarrée !" });
   } catch (err) {
-    console.error("❌ start-games", err);
     res.status(500).json({
       success: false,
       message: "Erreur serveur lors du démarrage de la partie",

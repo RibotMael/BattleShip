@@ -15,7 +15,6 @@ router.post('/api/check-pseudo', async (req, res) => {
     const [rows] = await db.execute('SELECT ID_Users FROM users WHERE pseudo = ?', [pseudo]);
     res.json({ available: rows.length === 0 });
   } catch (error) {
-    console.error("Erreur vérification pseudo :", error);
     res.status(500).json({ available: false, message: "Erreur serveur." });
   }
 });
