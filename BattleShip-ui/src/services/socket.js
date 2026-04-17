@@ -15,6 +15,8 @@ const socket = io(SOCKET_URL, {
 
 socket.on("connect", () => {
   console.log("⚡ Socket connecté :", socket.id);
+  const userId = localStorage.getItem("userId");
+  if (userId) socket.emit("user-online", { userId });
 });
 
 socket.on("disconnect", (reason) => {
@@ -24,5 +26,9 @@ socket.on("disconnect", (reason) => {
 socket.on("connect_error", (err) => {
   console.error("❌ Erreur de connexion Socket:", err.message);
 });
+
+export function registerOnline(userId) {
+  if (userId) socket.emit("user-online", { userId });
+}
 
 export default socket;

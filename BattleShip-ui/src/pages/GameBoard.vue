@@ -12,6 +12,10 @@
       </div>
 
       <div class="header-right">
+        <button class="btn-tactical settings" @click="goToSettings" title="Paramètres">
+          <span class="btn-text">PARAMÈTRES</span>
+          <span class="btn-icon">⚙️</span>
+        </button>
         <button class="btn-tactical abandon" @click="abandonGame" title="Abandonner la partie">
           <span class="btn-text">ABANDONNER LA MISSION</span>
           <span class="btn-icon">✕</span>
@@ -26,26 +30,39 @@
     <main v-if="isTeamMode" class="tactical-layout team-layout">
       <section class="fleet-side team-left">
         <div class="grid-container main-player">
-          <h2 class="grid-label"><span class="dot"></span> MA FLOTTE</h2>
-          <div class="grid-wrapper">
-            <div class="grid-radar player-grid">
-              <div
-                v-for="(cell, index) in playerGrid"
-                :key="'me-' + index"
-                class="cell"
-                :class="{
-                  ship: cell.shipNumber && cell.shipNumber !== 0,
-                  hit: cell.status === 'hit',
-                  miss: cell.status === 'miss',
-                  sunk: cell.status === 'sunk',
-                  pending: cell.status === 'pending',
-                }"
-              ></div>
+          <h2 class="grid-label">
+            <span class="dot"></span> MA FLOTTE
+            <button class="btn-hide-grid" @click="isGridHidden = !isGridHidden">
+              <span class="hide-label">{{ isGridHidden ? "RÉVÉLER" : "MASQUER" }}</span>
+            </button>
+          </h2>
+          <div class="grid-zone">
+            <transition name="mask-fade">
+              <div v-if="isGridHidden" class="grid-mask">
+                <span class="grid-mask-icon">🔒</span>
+                <span class="grid-mask-text">FLOTTE MASQUÉE</span>
+              </div>
+            </transition>
+            <div class="grid-wrapper" :class="{ 'grid-blurred': isGridHidden }">
+              <div class="grid-radar player-grid">
+                <div
+                  v-for="(cell, index) in playerGrid"
+                  :key="'me-' + index"
+                  class="cell"
+                  :class="{
+                    ship: cell.shipNumber && cell.shipNumber !== 0,
+                    hit: cell.status === 'hit',
+                    miss: cell.status === 'miss',
+                    sunk: cell.status === 'sunk',
+                    pending: cell.status === 'pending',
+                  }"
+                ></div>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="allies-container">
+        <div class="allies-container" :class="{ 'grid-blurred': isGridHidden }">
           <div v-for="ally in allies" :key="'ally-' + ally.id" class="ally-mini-block">
             <h3 class="mini-label">🤝 {{ ally.pseudo }}</h3>
             <div class="mini-grid ally-grid">
@@ -123,21 +140,34 @@
     <main v-else class="tactical-layout br-layout grids-wrapper">
       <section class="fleet-side player-side grid-section player-section">
         <div class="grid-container main-player">
-          <h2 class="grid-label"><span class="dot"></span> NOTRE FLOTTE</h2>
-          <div class="grid-wrapper">
-            <div class="grid-radar player-grid">
-              <div
-                v-for="(cell, index) in playerGrid"
-                :key="'me-' + index"
-                class="cell"
-                :class="{
-                  ship: cell.shipNumber && cell.shipNumber !== 0,
-                  hit: cell.status === 'hit',
-                  miss: cell.status === 'miss',
-                  sunk: cell.status === 'sunk',
-                  pending: cell.status === 'pending',
-                }"
-              ></div>
+          <h2 class="grid-label">
+            <span class="dot"></span> NOTRE FLOTTE
+            <button class="btn-hide-grid" @click="isGridHidden = !isGridHidden">
+              <span class="hide-label">{{ isGridHidden ? "RÉVÉLER" : "MASQUER" }}</span>
+            </button>
+          </h2>
+          <div class="grid-zone">
+            <transition name="mask-fade">
+              <div v-if="isGridHidden" class="grid-mask">
+                <span class="grid-mask-icon">🔒</span>
+                <span class="grid-mask-text">FLOTTE MASQUÉE</span>
+              </div>
+            </transition>
+            <div class="grid-wrapper" :class="{ 'grid-blurred': isGridHidden }">
+              <div class="grid-radar player-grid">
+                <div
+                  v-for="(cell, index) in playerGrid"
+                  :key="'me-' + index"
+                  class="cell"
+                  :class="{
+                    ship: cell.shipNumber && cell.shipNumber !== 0,
+                    hit: cell.status === 'hit',
+                    miss: cell.status === 'miss',
+                    sunk: cell.status === 'sunk',
+                    pending: cell.status === 'pending',
+                  }"
+                ></div>
+              </div>
             </div>
           </div>
         </div>
@@ -266,6 +296,8 @@
 import socket from "../services/socket.js";
 import heartbeatSrc from "@/assets/audio/BattementsDeCoeur.mp3";
 import { userBus } from "@/eventBus.js";
+import { settingsStore } from "@/stores/settings";
+import shootSrc from "@/assets/audio/shoot.mp3";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -273,7 +305,9 @@ export default {
   name: "GameBoard",
   props: {
     gameId: { type: String, required: true },
-    gameType: { type: String, required: true },
+    // default "" pour éviter le warning quand le prop est absent au montage,
+    // sans déclencher is1v1 = true qui appelle fetchOpponent() (route inexistante)
+    gameType: { type: String, default: "" },
   },
   data() {
     return {
@@ -303,6 +337,10 @@ export default {
       rewardClaimed: false,
       turnStartAt: null,
       localTimerInterval: null,
+      isGridHidden: false,
+      settingsStore,
+      _firingLock: false,
+      shootAudio: null,
     };
   },
   computed: {
@@ -314,19 +352,17 @@ export default {
     },
     lostShipsCount() {
       const sunkCells = this.playerGrid.filter((cell) => cell.status === "sunk").length;
-
       return Math.floor(sunkCells / 3);
     },
     heartbeatStyle() {
-      if (this.lostShipsCount <= 0 || this.gameOver) return { display: "none" };
-
+      if (!this.settingsStore.showHeartbeat || this.lostShipsCount <= 0 || this.gameOver) {
+        return { display: "none" };
+      }
       const maxShips = 5;
       const ratio = Math.min(this.lostShipsCount / maxShips, 1);
-
       const duration = 2 - ratio * 1.5;
       const intensity = 0.2 + ratio * 0.6;
       const spread = 30 + ratio * 40;
-
       return {
         animationDuration: `${duration}s`,
         background: `radial-gradient(circle, transparent ${100 - spread}%, rgba(180, 0, 0, ${intensity}) 100%)`,
@@ -411,6 +447,18 @@ export default {
         this.updateGridCell(targetId, index, "");
       }
     });
+
+    this.$watch(
+      () => this.settingsStore.effectsVolume,
+      (newVolume) => {
+        if (this.heartbeatAudio) {
+          this.heartbeatAudio.volume = newVolume / 100;
+        }
+        if (this.shootAudio) {
+          this.shootAudio.volume = newVolume / 100;
+        }
+      },
+    );
   },
   beforeUnmount() {
     clearInterval(this.fetchInterval);
@@ -429,10 +477,10 @@ export default {
       socket.off("cell-pending");
       socket.off("cell-unlocked");
     },
+
     async claimReward(isVictory) {
       if (this.rewardClaimed || this.isSpectator) return;
       this.rewardClaimed = true;
-
       try {
         const res = await fetch(`${API_BASE_URL}/api/users/${this.user.id}/reward`, {
           method: "POST",
@@ -441,7 +489,6 @@ export default {
           body: JSON.stringify({ isVictory, gameId: this.gameId }),
         });
         const data = await res.json();
-
         if (data.success) {
           this.rewardData = data;
           const stored = JSON.parse(localStorage.getItem("user")) || {};
@@ -451,7 +498,7 @@ export default {
           localStorage.setItem("user", JSON.stringify(stored));
           userBus.userUpdated = !userBus.userUpdated;
         }
-      } catch (err) {
+      } catch (_) {
         this.rewardData = {
           goldGain: isVictory ? 100 : 25,
           xpGain: isVictory ? 50 : 25,
@@ -463,6 +510,7 @@ export default {
         };
       }
     },
+
     async syncAllShots() {
       try {
         const res = await fetch(
@@ -498,23 +546,49 @@ export default {
             }
           });
         }
-      } catch (err) {
-        // Mode silencieux
-      }
+      } catch (_) {}
     },
 
+    // ─── RÉCEPTION TIMER DEPUIS LE SERVEUR ──────────────────────────────────
+    // Le serveur calcule timeLeft à partir de last_turn_timestamp BDD.
+    // FIX CRITIQUE : si le timer tombe à <= 2 secondes et qu'on n'a pas encore
+    // tiré, on envoie le tir MAINTENANT pour que PHP/Unity puisse le résoudre.
     socketTurnTimer({ timeLeft, turnStartAt }) {
       if (this.gameOver) return;
+
       this.turnStartAt = turnStartAt
         ? turnStartAt
         : Date.now() - (7 - Math.max(0, timeLeft)) * 1000;
 
       if (timeLeft >= 7) {
         this.hasFiredThisTurn = false;
+        this._firingLock = false;
         this.clearPendingCells();
+
+        // FIX : force l'affichage immédiat de 7 sans attendre le premier tick
+        // local. Sans ça, si le tick démarre 200ms après, il affiche 6 puis
+        // remonte jamais à 7 — le chrono semble bloqué au tour précédent.
+        this.turnTimer = 7;
+        this.$nextTick(this.updateCircle);
       }
 
       this._startLocalTick();
+
+      // ── ENVOI ANTICIPÉ DU TIR ─────────────────────────────────────────────
+      // À 2 secondes restantes, on envoie le tir sélectionné (ou aléatoire)
+      // pour laisser à PHP/Unity le temps de l'inclure dans la résolution.
+      // Condition: timer entre 1 et 2s, pas encore tiré, pas de verrou actif.
+      if (
+        timeLeft <= 2 &&
+        timeLeft > 0 &&
+        !this.hasFiredThisTurn &&
+        !this._firingLock &&
+        this.playerStatus === "in_game" &&
+        !this.gameOver
+      ) {
+        this._firingLock = true;
+        this.validateShot();
+      }
     },
 
     _startLocalTick() {
@@ -545,16 +619,30 @@ export default {
         const data = await res.json();
 
         if (data.success && typeof data.timeLeft === "number") {
-          this.turnStartAt = Date.now() - (7 - data.timeLeft) * 1000;
-          this.turnTimer = data.timeLeft;
-          this._startLocalTick();
-          this.$nextTick(this.updateCircle);
+          const newTs = data.turnStartAt
+            ? data.turnStartAt * 1000
+            : Date.now() - (7 - data.timeLeft) * 1000;
+
+          const isNewTurn = this.turnStartAt && Math.abs(newTs - this.turnStartAt) > 2000;
+          if (isNewTurn || this.turnTimer === 0) {
+            this.turnStartAt = newTs;
+            this.turnTimer = data.timeLeft;
+            if (data.timeLeft >= 6) {
+              this.hasFiredThisTurn = false;
+              this._firingLock = false;
+              this.clearPendingCells();
+            }
+            this._startLocalTick();
+            this.$nextTick(this.updateCircle);
+          }
         }
-      } catch (err) {
-        // Mode silencieux
-      }
+      } catch (_) {}
     },
 
+    // ─── FIN DE TOUR ─────────────────────────────────────────────────────────
+    // Reçu via socket depuis le serveur Node.
+    // Sert de FILET DE SÉCURITÉ pour les tirs pas encore envoyés
+    // (ex: joueur qui n'avait pas encore sélectionné de cellule = tir aléatoire).
     endTurn() {
       if (this.gameOver) return;
 
@@ -565,9 +653,13 @@ export default {
 
       this.turnTimer = 0;
       this.updateCircle();
-      this.hasFiredThisTurn = false;
-      this.validateShot();
+
+      if (!this.hasFiredThisTurn && !this._firingLock) {
+        this._firingLock = true;
+        this.validateShot();
+      }
     },
+
     updateCircle() {
       const circle = this.$el.querySelector(".progress-ring__circle");
       if (!circle) return;
@@ -595,6 +687,7 @@ export default {
       this._startLocalTick();
       this.updateCircle();
     },
+
     resetGameState() {
       clearInterval(this.turnInterval);
       clearInterval(this.fetchInterval);
@@ -613,15 +706,16 @@ export default {
       this.popupIcon = "";
       this.playerStatus = "in_game";
       this.hasFiredThisTurn = false;
+      this._firingLock = false;
       this.isSelecting = false;
       this.rewardData = null;
       this.rewardClaimed = false;
     },
+
     async initGame() {
       this.resetGameState();
       await this.fetchPlayerBoard();
-      if (this.is1v1) await this.fetchOpponent();
-      else await this.fetchOpponents();
+      await this.fetchOpponents();
       await this.$nextTick();
       await this.syncAllShots();
       await this.fetchEnemyShots();
@@ -632,6 +726,9 @@ export default {
         this.fetchInterval = setInterval(async () => {
           await this.fetchEnemyShots();
           await this.checkGameStatus();
+          if (this.turnTimer === 0 && !this.gameOver) {
+            await this.resyncTimer();
+          }
         }, 2000);
       }
     },
@@ -642,21 +739,20 @@ export default {
           `${API_BASE_URL}/api/games/${this.gameId}/board?playerId=${this.user.id}`,
         );
         const data = await res.json();
-        if (!data.success) return console.warn(data.message);
+        if (!data.success) return;
         this.playerGrid = data.board
           .flat()
           .map((cell) => ({ shipNumber: cell > 0 ? cell : 0, status: "" }));
-      } catch (err) {
-        // Mode silencieux
-      }
+      } catch (_) {}
     },
+
     async fetchOpponent() {
       try {
         const res = await fetch(
           `${API_BASE_URL}/api/games/${this.gameId}/opponent?playerId=${this.user.id}`,
         );
         const data = await res.json();
-        if (!data.success) return console.warn(data.message);
+        if (!data.success) return;
         this.opponents = [
           {
             id: data.opponentId,
@@ -665,10 +761,9 @@ export default {
           },
         ];
         this.currentOpponentIndex = 0;
-      } catch (err) {
-        // Mode silencieux
-      }
+      } catch (_) {}
     },
+
     async fetchOpponents() {
       try {
         const res = await fetch(
@@ -705,10 +800,9 @@ export default {
             this.currentOpponentIndex = finalIndex !== -1 ? finalIndex : 0;
           }
         }
-      } catch (err) {
-        // Mode silencieux
-      }
+      } catch (_) {}
     },
+
     updateGridCell(targetId, index, value, positions = []) {
       const resClean = String(value).toLowerCase();
 
@@ -717,13 +811,11 @@ export default {
         if (idxInArray !== -1) {
           const newGrid = [...array[idxInArray].grid];
           newGrid[index] = resClean;
-
           if (positions && positions.length > 0) {
             positions.forEach((p) => {
               newGrid[p.y * 10 + p.x] = "sunk";
             });
           }
-
           array[idxInArray] = { ...array[idxInArray], grid: newGrid };
           return true;
         }
@@ -731,17 +823,13 @@ export default {
       };
 
       const hasChanged = patchArray(this.opponents);
-
       if (this.isTeamMode) {
         patchArray(this.enemies);
         patchArray(this.allies);
         this.enemies = [...this.enemies];
         this.allies = [...this.allies];
       }
-
-      if (hasChanged) {
-        this.opponents = [...this.opponents];
-      }
+      if (hasChanged) this.opponents = [...this.opponents];
     },
 
     async checkGameStatus() {
@@ -759,9 +847,7 @@ export default {
             isDraw: data.winner_id === null && data.winner_team === null,
           });
         }
-      } catch (err) {
-        // Mode silencieux
-      }
+      } catch (_) {}
     },
 
     selectCell(index) {
@@ -868,6 +954,7 @@ export default {
 
       let index = this.selectedCell;
       if (index === null) {
+        // Aucune cellule sélectionnée → tir aléatoire
         const available = [];
         target.grid.forEach((v, i) => {
           if (!["hit", "miss", "sunk"].includes(v)) available.push(i);
@@ -876,6 +963,7 @@ export default {
         index = available[Math.floor(Math.random() * available.length)];
       }
 
+      // Marquer comme tiré AVANT l'await pour éviter tout double appel
       this.hasFiredThisTurn = true;
       await this.sendShoot(index, target);
     },
@@ -916,6 +1004,16 @@ export default {
       this.opponents = this.opponents.filter((o) => o.id !== data.playerId);
     },
 
+    playShootSound() {
+      if (!this.shootAudio) {
+        this.shootAudio = new Audio(shootSrc);
+      }
+
+      this.shootAudio.currentTime = 0; // permet de rejouer rapidement
+      this.shootAudio.volume = this.settingsStore.effectsVolume / 100;
+      this.shootAudio.play().catch(() => {});
+    },
+
     async sendShoot(index, targetOverride = null) {
       const target = targetOverride || (this.isTeamMode ? this.currentEnemy : this.currentOpponent);
       const x = index % 10;
@@ -940,9 +1038,7 @@ export default {
           this.applyShot(target.id, x, y, finalResult, data.positions);
         }
         this.selectedCell = null;
-      } catch (err) {
-        // Mode silencieux
-      }
+      } catch (_) {}
     },
 
     applyShot(targetId, x, y, result, positions) {
@@ -964,6 +1060,7 @@ export default {
     },
 
     onShotFired(data) {
+      this.playShootSound();
       const { targetId, x, y, result, positions } = data;
       const idx = parseInt(y) * 10 + parseInt(x);
       const safeResult = result ? String(result).toLowerCase() : "pending";
@@ -1054,7 +1151,6 @@ export default {
             if (!target) return;
 
             const currentVal = target.grid[idx];
-
             if (s.state === "pending" && s.result === null) {
               if (!["hit", "miss", "sunk"].includes(currentVal)) {
                 this.updateGridCell(s.target_id, idx, "pending");
@@ -1073,7 +1169,6 @@ export default {
               (s) => Number(s.target_id) === Number(ally.id) && s.result && s.state === "resolved",
             );
             if (!allyShots.length) return;
-
             const newGrid = [...ally.grid];
             allyShots.forEach((s) => {
               const idx = parseInt(s.target_y) * 10 + parseInt(s.target_x);
@@ -1088,9 +1183,8 @@ export default {
             ally.grid = newGrid;
           });
         }
-      } catch (err) {
-        // Mode silencieux
-      }
+      } catch (_) {}
+
       this.opponents = [...this.opponents];
       if (this.isTeamMode) {
         this.enemies = [...this.enemies];
@@ -1135,7 +1229,7 @@ export default {
           body: JSON.stringify({ gameId: this.gameId, playerId: this.user.id, reason: "abandon" }),
         });
         const data = await res.json();
-        if (!data.success) return console.warn(data.message);
+        if (!data.success) return;
 
         this.playerStatus = "dead";
         const myTeamWon = this.isTeamMode ? data.winner_team === this.myTeamNumber : false;
@@ -1149,9 +1243,7 @@ export default {
           this.claimReward(false);
           this.showEndPopup("🏳️ Abandon confirmé.", false);
         }
-      } catch (err) {
-        // Mode silencieux
-      }
+      } catch (_) {}
     },
 
     showEndPopup(msg, isVictory = false) {
@@ -1192,7 +1284,7 @@ export default {
           body: JSON.stringify({ gameId: this.gameId, playerId: this.user.id, reason: "shot" }),
         });
         const data = await res.json();
-        if (!data.success) return console.warn(data.message);
+        if (!data.success) return;
 
         if (data.finished) {
           const myTeamWon = this.isTeamMode
@@ -1218,34 +1310,58 @@ export default {
           this.claimReward(false);
           this.showEndPopup("💥 Tous vos bateaux sont coulés !", false);
         }
-      } catch (err) {
-        // Mode silencieux
-      }
+      } catch (_) {}
     },
 
     initAudio() {
       this.heartbeatAudio = new Audio(heartbeatSrc);
       this.heartbeatAudio.loop = true;
-      this.heartbeatAudio.volume = 1;
+      this.heartbeatAudio.volume = this.settingsStore.effectsVolume / 100;
+      this.shootAudio = new Audio(shootSrc);
+      this.shootAudio.volume = this.settingsStore.effectsVolume / 100;
     },
     playHeartbeat() {
       this.heartbeatAudio?.play().catch(() => {});
     },
+    startHeartbeat() {
+      if (this.heartbeatAudio) return;
+      this.heartbeatAudio = new Audio(heartbeatSrc);
+      this.heartbeatAudio.loop = true;
+      this.heartbeatAudio.volume = this.settingsStore.effectsVolume / 100;
+      this.heartbeatAudio.play().catch(() => {});
+    },
     stopHeartbeat() {
       if (this.heartbeatAudio) {
         this.heartbeatAudio.pause();
-        this.heartbeatAudio.currentTime = 0;
+        this.heartbeatAudio = null;
       }
     },
     updateHeartbeatSpeed() {
-      if (!this.heartbeatAudio) return;
-      const ships = {};
-      this.playerGrid.forEach((cell) => {
-        if (cell.shipNumber > 0 && cell.status !== "hit" && cell.status !== "sunk") {
-          ships[cell.shipNumber] = true;
+      if (!this.settingsStore.showHeartbeat) {
+        this.stopHeartbeat();
+        return;
+      }
+      if (this.lostShipsCount > 0 && !this.gameOver) {
+        this.startHeartbeat();
+        if (this.heartbeatAudio) {
+          const ratio = Math.min(this.lostShipsCount / 5, 1);
+          this.heartbeatAudio.playbackRate = 1 + ratio * 0.8;
         }
+      } else {
+        this.stopHeartbeat();
+      }
+    },
+
+    goToSettings() {
+      // On passe l'origine + les paramètres de la partie pour pouvoir revenir
+      this.$router.push({
+        path: "/settings",
+        query: {
+          from: "game",
+          gameId: this.gameId,
+          gameType: this.gameType,
+        },
       });
-      this.heartbeatAudio.playbackRate = Object.keys(ships).length === 1 ? 2.0 : 1.0;
     },
 
     goHome() {
@@ -1264,16 +1380,12 @@ body {
   overflow-x: hidden;
   position: relative;
 }
-/* =========================================
-   EFFET DÉGÂTS CRITIQUES (BATTEMENT)
-   ========================================= */
 .damage-overlay {
   position: fixed;
   inset: 0;
-  pointer-events: none; /* TRÈS IMPORTANT : Empêche l'overlay de bloquer les clics de la souris */
-  z-index: 9998; /* Juste en dessous du hud-overlay (10000) pour ne pas gêner la popup de fin */
+  pointer-events: none;
+  z-index: 9998;
   animation: heartbeat infinite ease-in-out;
-  /* Optionnel : Ajoute un léger flou rouge global quand les dégâts sont élevés */
   box-shadow: inset 0 0 100px rgba(150, 0, 0, 0.2);
 }
 
@@ -1300,9 +1412,6 @@ body {
   }
 }
 
-/* =========================================
-   FOND ET LAYOUT GLOBAL
-   ========================================= */
 .battle-page {
   width: 100%;
   min-height: 100vh;
@@ -1316,9 +1425,6 @@ body {
   position: relative;
 }
 
-/* =========================================
-   HEADER TACTIQUE
-   ========================================= */
 .tactical-header {
   display: flex;
   justify-content: space-between;
@@ -1364,7 +1470,6 @@ body {
   font-weight: 700;
 }
 
-/* BOUTON ABANDONNER */
 .btn-tactical {
   background: rgba(248, 113, 113, 0.1);
   border: 1px solid rgba(248, 113, 113, 0.5);
@@ -1388,11 +1493,28 @@ body {
   box-shadow: 0 0 15px rgba(248, 113, 113, 0.6);
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-tactical.settings {
+  background: rgba(29, 233, 192, 0.08);
+  border: 1px solid rgba(29, 233, 192, 0.4);
+  color: #1de9c0;
+}
+
+.btn-tactical.settings:hover {
+  background: #1de9c0;
+  color: #02080d;
+  box-shadow: 0 0 15px rgba(29, 233, 192, 0.5);
+}
+
 .btn-icon {
   display: none;
 }
 
-/* BANNIÈRE SPECTATEUR */
 .spectator-overlay {
   position: absolute;
   top: 80px;
@@ -1410,12 +1532,8 @@ body {
   backdrop-filter: blur(4px);
 }
 
-/* =========================================
-   LAYOUT GRILLES
-   ========================================= */
 .tactical-layout {
   display: grid;
-  /* Grille : GrilleGauche(1fr)  Timer(Auto)  GrilleDroite(1fr) */
   grid-template-columns: 1fr auto 1fr;
   align-items: start;
   gap: 40px;
@@ -1435,14 +1553,12 @@ body {
   flex-direction: column;
   gap: 30px;
   width: 100%;
-  /* On aligne la flotte du joueur à droite et l'ennemi à gauche pour "encadrer" le timer */
 }
 
 .team-left,
 .player-side {
   align-items: flex-end;
 }
-
 .team-right,
 .enemy-side {
   align-items: flex-start;
@@ -1504,9 +1620,6 @@ body {
   outline: none;
 }
 
-/* =========================================
-   LE CŒUR : LES GRILLES STYLE HUD
-   ========================================= */
 .grid-wrapper {
   background: rgba(29, 233, 192, 0.03);
   padding: 8px;
@@ -1532,7 +1645,6 @@ body {
   background: rgba(29, 233, 192, 0.1);
   width: 100%;
   aspect-ratio: 1 / 1;
-  width: 100%;
   max-width: 100%;
   min-width: 0;
 }
@@ -1541,7 +1653,6 @@ body {
   background: rgba(248, 113, 113, 0.1);
 }
 
-/* CELLULES DE BASE */
 .cell {
   width: 100%;
   height: 100%;
@@ -1566,7 +1677,6 @@ body {
   cursor: crosshair;
 }
 
-/* ETATS DES CELLULES */
 .player-grid .cell.ship {
   background: rgba(29, 233, 192, 0.2);
   border: 1px solid rgba(29, 233, 192, 0.5);
@@ -1622,15 +1732,12 @@ body {
   font-size: 12px;
 }
 
-/* =========================================
-   TIMER CENTRAL
-   ========================================= */
 .system-status {
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 120px;
-  padding-top: 40px; /* Aligne le timer avec le haut des grilles de jeu */
+  padding-top: 40px;
 }
 
 .timer-module {
@@ -1656,7 +1763,7 @@ body {
   stroke: #1de9c0;
   stroke-width: 4;
   stroke-dasharray: 282.7;
-  stroke-dashoffset: 0; /* Géré par JS dans le composant d'origine */
+  stroke-dashoffset: 0;
   stroke-linecap: round;
   transition:
     stroke-dashoffset 1s linear,
@@ -1679,12 +1786,6 @@ body {
   text-align: center;
 }
 
-.t-label {
-  font-size: 0.7rem;
-  letter-spacing: 2px;
-  color: rgba(223, 242, 238, 0.6);
-}
-
 .t-value {
   font-size: 1.8rem;
   font-weight: 700;
@@ -1692,9 +1793,6 @@ body {
   text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 }
 
-/* =========================================
-   ALLIÉS (MINI-GRILLES)
-   ========================================= */
 .allies-container {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -1730,9 +1828,6 @@ body {
   cursor: default;
 }
 
-/* =========================================
-   POPUP DE FIN (HUD OVERLAY)
-   ========================================= */
 .hud-overlay {
   position: fixed;
   inset: 0;
@@ -1768,7 +1863,6 @@ body {
   box-shadow: 0 0 15px #1de9c0;
 }
 
-/* Couleurs selon résultat */
 .popup-victory {
   border-color: rgba(251, 191, 36, 0.5);
 }
@@ -1796,13 +1890,11 @@ body {
 .popup-result-banner {
   margin-bottom: 25px;
 }
-
 .popup-result-icon {
   font-size: 3.5rem;
   display: block;
   margin-bottom: 10px;
 }
-
 .popup-result-title {
   font-size: 1.8rem;
   font-weight: 700;
@@ -1810,14 +1902,12 @@ body {
   margin: 0;
 }
 
-/* RÉCOMPENSES HUD */
 .reward-grid {
   display: flex;
   flex-direction: column;
   gap: 20px;
   margin-bottom: 30px;
 }
-
 .rewards-row {
   display: flex;
   gap: 15px;
@@ -1840,31 +1930,26 @@ body {
 .reward-box.xp {
   border-left-color: #60a5fa;
 }
-
 .reward-card-icon {
   font-size: 2rem;
 }
-
 .reward-details {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
 }
-
 .reward-details .value {
   font-size: 1.6rem;
   font-weight: 700;
   color: #fff;
   line-height: 1;
 }
-
 .reward-box.gold .value {
   color: #fbbf24;
 }
 .reward-box.xp .value {
   color: #60a5fa;
 }
-
 .reward-details .label {
   font-size: 0.7rem;
   letter-spacing: 2px;
@@ -1910,7 +1995,6 @@ body {
 .xp-module {
   margin-top: 5px;
 }
-
 .xp-info {
   display: flex;
   justify-content: space-between;
@@ -1919,7 +2003,6 @@ body {
   color: rgba(255, 255, 255, 0.7);
   margin-bottom: 8px;
 }
-
 .xp-track {
   width: 100%;
   height: 6px;
@@ -1927,7 +2010,6 @@ body {
   border-radius: 3px;
   overflow: hidden;
 }
-
 .xp-fill {
   height: 100%;
   background: #1de9c0;
@@ -1988,14 +2070,10 @@ body {
   }
 }
 
-/* =========================================
-   RESPONSIVE
-   ========================================= */
 @media (max-width: 850px) {
   .tactical-header h1 {
     font-size: 1rem;
   }
-
   .btn-tactical {
     padding: 8px;
     min-width: 40px;
@@ -2010,46 +2088,121 @@ body {
     margin: 0;
   }
 
-  /* CORRECTION DU LAYOUT MOBILE ICI */
   .tactical-layout {
-    grid-template-columns: 1fr; /* Passe tout sur une seule colonne */
-    justify-items: center; /* Centre les éléments dans la colonne */
+    grid-template-columns: 1fr;
+    justify-items: center;
     gap: 20px;
     justify-content: center;
     align-items: start;
   }
 
-  /* On recentre le contenu des flottes sur mobile */
   .team-left,
   .team-right,
   .player-side,
   .enemy-side {
     align-items: center;
   }
-
   .team-left,
   .team-right {
     display: flex;
     justify-content: center;
   }
 
-  /* Le timer passe tout en haut */
   .timer-container {
     order: -1;
     padding-top: 0;
     margin: 10px 0;
     transform: scale(0.9);
   }
-
   .grid-container {
     max-width: 100%;
   }
-
   .hud-popup {
     padding: 30px 20px;
   }
   .rewards-row {
     flex-direction: column;
+  }
+}
+
+.btn-hide-grid {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(29, 233, 192, 0.08);
+  border: 1px solid rgba(29, 233, 192, 0.3);
+  color: #1de9c0;
+  padding: 3px 10px;
+  border-radius: 3px;
+  font-family: "Rajdhani", sans-serif;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    box-shadow 0.2s;
+  white-space: nowrap;
+}
+
+.btn-hide-grid:hover {
+  background: rgba(29, 233, 192, 0.18);
+  box-shadow: 0 0 8px rgba(29, 233, 192, 0.2);
+}
+
+.grid-zone {
+  position: relative;
+}
+
+.grid-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(3, 10, 16, 0.92);
+  border: 1px solid rgba(29, 233, 192, 0.15);
+  border-radius: 4px;
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+
+.grid-mask-icon {
+  font-size: 1.8rem;
+  opacity: 0.6;
+}
+.grid-mask-text {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: rgba(29, 233, 192, 0.4);
+}
+
+.grid-blurred {
+  filter: blur(6px);
+  pointer-events: none;
+  user-select: none;
+}
+
+.mask-fade-enter-active,
+.mask-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+.mask-fade-enter-from,
+.mask-fade-leave-to {
+  opacity: 0;
+}
+
+@media (max-width: 850px) {
+  .hide-label {
+    display: none;
+  }
+  .btn-hide-grid {
+    padding: 3px 7px;
   }
 }
 </style>

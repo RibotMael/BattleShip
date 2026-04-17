@@ -10,12 +10,21 @@
 
 <script>
 import { settingsStore } from "@/stores/settings";
+import socket, { registerOnline } from "@/services/socket";
 
 export default {
   setup() {
     return { settingsStore };
   },
   mounted() {
+    socket.on("connect", () => {
+      const userId = localStorage.getItem("userId");
+      if (userId) registerOnline(userId);
+    });
+    if (socket.connected) {
+      const userId = localStorage.getItem("userId");
+      if (userId) registerOnline(userId);
+    }
     const audio = document.getElementById("background-music");
     audio.volume = settingsStore.musicVolume / 100;
 
@@ -34,6 +43,9 @@ export default {
     };
 
     document.addEventListener("click", playMusic);
+  },
+  beforeUnmount() {
+    socket.off("connect");
   },
 };
 </script>

@@ -1,9 +1,10 @@
-import { reactive } from "vue";
+import { reactive, watch } from "vue";
 
 const defaultSettings = {
   musicVolume: 50,
   effectsVolume: 50,
-  notificationsEnabled: true,
+  graphicsQuality: "medium",
+  showHeartbeat: true,      
   language: "fr",
 };
 
@@ -11,6 +12,11 @@ const saved = JSON.parse(localStorage.getItem("gameSettings") || "null");
 
 export const settingsStore = reactive(saved || defaultSettings);
 
-export function saveSettings() {
-  localStorage.setItem("gameSettings", JSON.stringify(settingsStore));
-}
+watch(
+  settingsStore,
+  (newSettings) => {
+    localStorage.setItem("gameSettings", JSON.stringify(newSettings));
+    console.log("Paramètres sauvegardés :", newSettings);
+  },
+  { deep: true }
+);

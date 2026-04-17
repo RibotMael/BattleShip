@@ -288,6 +288,7 @@
 
 <script>
 import api from "@/api/api.js";
+import socket, { registerOnline } from "@/services/socket";
 
 export default {
   data() {
@@ -400,6 +401,8 @@ export default {
         if (data.success) {
           if (this.isLogin) {
             this.$emit("login-success", data.user);
+            localStorage.setItem("userId", data.user.id);
+            registerOnline(data.user.id);
             this.$router.push("/");
           } else {
             alert("Inscription réussie ! Connecte-toi maintenant.");

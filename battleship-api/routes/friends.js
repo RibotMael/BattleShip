@@ -94,6 +94,7 @@ router.get("/list/:userId", async (req, res) => {
           u.ID_Users AS id,
           u.Pseudo AS pseudo,
           u.Online,
+          u.niveau, 
           a.Avatar AS avatar_blob,
           a.mime_type
        FROM friends f
@@ -113,7 +114,8 @@ router.get("/list/:userId", async (req, res) => {
         ? r.avatar_blob.toString("base64")
         : null,
       mime_type: r.mime_type || "image/png",
-      isOnline: r.Online === 1
+      isOnline: r.Online === 1,
+      niveau: r.niveau ?? 0,
     }));
 
     res.json(friends);
