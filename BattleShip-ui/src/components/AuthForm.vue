@@ -29,7 +29,7 @@
             errorMsg = '';
           "
         >
-          Connexion
+          {{ i18nStore.t("auth_login_tab") }}
         </button>
         <button
           type="button"
@@ -40,13 +40,13 @@
             errorMsg = '';
           "
         >
-          Inscription
+          {{ i18nStore.t("auth_register_tab") }}
         </button>
       </div>
 
       <form @submit.prevent="handleSubmit" class="auth-form-body">
         <div class="field-group">
-          <label class="field-label">Email</label>
+          <label class="field-label">{{ i18nStore.t("auth_email") }}</label>
           <div class="input-wrapper">
             <svg class="input-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
               <rect
@@ -71,7 +71,7 @@
         </div>
 
         <div class="field-group">
-          <label class="field-label">Mot de passe</label>
+          <label class="field-label">{{ i18nStore.t("auth_password") }}</label>
           <div class="input-wrapper">
             <svg class="input-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
               <rect
@@ -116,7 +116,7 @@
 
         <template v-if="!isLogin">
           <div class="field-group">
-            <label class="field-label">Confirmer le mot de passe</label>
+            <label class="field-label">{{ i18nStore.t("auth_confirm_password") }}</label>
             <div class="input-wrapper">
               <svg class="input-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
                 <rect
@@ -171,7 +171,7 @@
 
           <div class="field-row">
             <div class="field-group">
-              <label class="field-label">Pseudo</label>
+              <label class="field-label">{{ i18nStore.t("auth_pseudo") }}</label>
               <div class="input-wrapper">
                 <svg class="input-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
                   <circle cx="8" cy="5.5" r="3" stroke="currentColor" stroke-width="1.3" />
@@ -193,7 +193,7 @@
               </div>
             </div>
             <div class="field-group">
-              <label class="field-label">Naissance</label>
+              <label class="field-label">{{ i18nStore.t("auth_birthday") }}</label>
               <div class="input-wrapper">
                 <svg class="input-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
                   <rect
@@ -224,7 +224,7 @@
           </div>
 
           <div class="field-group">
-            <label class="field-label">Avatar</label>
+            <label class="field-label">{{ i18nStore.t("auth_avatar") }}</label>
             <div class="avatar-row">
               <div class="avatar-grid">
                 <div
@@ -259,9 +259,9 @@
               class="legal-checkbox"
             />
             <label for="legal" class="legal-label">
-              J'accepte les
+              {{ i18nStore.t("auth_terms") }}
               <a href="#" @click.prevent="showLegal" class="legal-link">CGU</a>
-              de BattleShip Arena.
+              {{ i18nStore.t("auth_terms_suffix") }}
             </label>
           </div>
         </template>
@@ -275,11 +275,13 @@
         </p>
 
         <button type="submit" class="submit-btn">
-          {{ isLogin ? "Se connecter" : "S'inscrire" }}
+          {{ isLogin ? i18nStore.t("auth_submit_login") : i18nStore.t("auth_submit_register") }}
         </button>
 
         <p class="toggle-link" @click="toggleForm">
-          {{ isLogin ? "Pas encore de compte ? Inscris-toi" : "Déjà inscrit ? Connecte-toi" }}
+          {{
+            isLogin ? i18nStore.t("auth_toggle_to_register") : i18nStore.t("auth_toggle_to_login")
+          }}
         </p>
       </form>
     </div>
@@ -289,6 +291,7 @@
 <script>
 import api from "@/api/api.js";
 import socket, { registerOnline } from "@/services/socket";
+import { i18nStore } from "@/stores/i18n";
 
 export default {
   data() {
@@ -307,6 +310,7 @@ export default {
       legalAccepted: false,
       showPassword: false,
       showConfirmPassword: false,
+      i18nStore,
     };
   },
 

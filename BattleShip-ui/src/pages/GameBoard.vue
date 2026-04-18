@@ -8,39 +8,41 @@
     <header class="tactical-header">
       <div class="header-left">
         <div class="radar-ping"></div>
-        <h1>SECTEUR D'ENGAGEMENT</h1>
+        <h1>{{ i18nStore.t("game_sector") }}</h1>
       </div>
 
       <div class="header-right">
         <button class="btn-tactical settings" @click="goToSettings" title="Paramètres">
-          <span class="btn-text">PARAMÈTRES</span>
+          <span class="btn-text">{{ i18nStore.t("game_params") }}</span>
           <span class="btn-icon">⚙️</span>
         </button>
         <button class="btn-tactical abandon" @click="abandonGame" title="Abandonner la partie">
-          <span class="btn-text">ABANDONNER LA MISSION</span>
+          <span class="btn-text">{{ i18nStore.t("game_abandon") }}</span>
           <span class="btn-icon">✕</span>
         </button>
       </div>
     </header>
 
     <div v-if="isSpectator && !gameOver" class="spectator-overlay">
-      <div class="overlay-msg">UNITÉ ÉLIMINÉE - TRANSMISSION SPECTATEUR ACTIVÉE</div>
+      <div class="overlay-msg">{{ i18nStore.t("game_eliminated") }}</div>
     </div>
 
     <main v-if="isTeamMode" class="tactical-layout team-layout">
       <section class="fleet-side team-left">
         <div class="grid-container main-player">
           <h2 class="grid-label">
-            <span class="dot"></span> MA FLOTTE
+            <span class="dot"></span>{{ i18nStore.t("game_my_fleet") }}
             <button class="btn-hide-grid" @click="isGridHidden = !isGridHidden">
-              <span class="hide-label">{{ isGridHidden ? "RÉVÉLER" : "MASQUER" }}</span>
+              <span class="hide-label">{{
+                isGridHidden ? i18nStore.t("game_reveal") : i18nStore.t("game_hide")
+              }}</span>
             </button>
           </h2>
           <div class="grid-zone">
             <transition name="mask-fade">
               <div v-if="isGridHidden" class="grid-mask">
                 <span class="grid-mask-icon">🔒</span>
-                <span class="grid-mask-text">FLOTTE MASQUÉE</span>
+                <span class="grid-mask-text">{{ i18nStore.t("game_fleet_hidden") }}</span>
               </div>
             </transition>
             <div class="grid-wrapper" :class="{ 'grid-blurred': isGridHidden }">
@@ -141,7 +143,7 @@
       <section class="fleet-side player-side grid-section player-section">
         <div class="grid-container main-player">
           <h2 class="grid-label">
-            <span class="dot"></span> NOTRE FLOTTE
+            <span class="dot"></span>{{ i18nStore.t("game_my_fleet") }}
             <button class="btn-hide-grid" @click="isGridHidden = !isGridHidden">
               <span class="hide-label">{{ isGridHidden ? "RÉVÉLER" : "MASQUER" }}</span>
             </button>
@@ -150,7 +152,7 @@
             <transition name="mask-fade">
               <div v-if="isGridHidden" class="grid-mask">
                 <span class="grid-mask-icon">🔒</span>
-                <span class="grid-mask-text">FLOTTE MASQUÉE</span>
+                <span class="grid-mask-text">{{ i18nStore.t("game_fleet_hidden") }}</span>
               </div>
             </transition>
             <div class="grid-wrapper" :class="{ 'grid-blurred': isGridHidden }">
@@ -243,15 +245,14 @@
                 <span class="reward-card-icon">🪙</span>
                 <div class="reward-details">
                   <span class="value reward-card-amount">+{{ rewardData.goldGain }}</span>
-                  <span class="label reward-card-label">CRÉDITS</span>
+                  <span class="label reward-card-label">{{ i18nStore.t("game_credits") }}</span>
                 </div>
               </div>
-
               <div class="reward-box xp reward-card xp-card">
                 <span class="reward-card-icon">⭐</span>
                 <div class="reward-details">
                   <span class="value reward-card-amount">+{{ rewardData.xpGain }}</span>
-                  <span class="label reward-card-label">EXPÉRIENCE</span>
+                  <span class="label reward-card-label">{{ i18nStore.t("game_xp") }}</span>
                 </div>
               </div>
             </div>
@@ -265,13 +266,16 @@
             </div>
 
             <div v-if="rewardData.levelUp" class="levelup-banner">
-              🎉 NIVEAU {{ rewardData.newLevel }} ATTEINT !
+              🎉 {{ i18nStore.t("game_level_reached", { n: rewardData.newLevel }) }}
             </div>
 
             <div class="xp-module xp-progress-block">
               <div class="xp-info xp-progress-header">
                 <span>NIV. {{ rewardData.newLevel }}</span>
-                <span>{{ rewardData.xpIntoLevel }} / {{ rewardData.xpNeededForNext }} XP</span>
+                <span
+                  >{{ rewardData.xpIntoLevel }} / {{ rewardData.xpNeededForNext }}
+                  {{ i18nStore.t("game_level_bonus") }}</span
+                >
               </div>
               <div class="xp-track xp-bar-track">
                 <div class="xp-fill xp-bar-fill" :style="{ width: xpProgressPercent + '%' }"></div>
@@ -285,7 +289,78 @@
             <span class="loading-dot"></span>
           </div>
 
-          <button class="btn-radar validate btn-home" @click="goHome">RETOUR AU QG</button>
+          <button class="btn-radar validate btn-home" @click="goHome">
+            {{ i18nStore.t("game_return_hq") }}
+          </button>
+        </div>
+      </div>
+    </transition>
+
+    <transition name="hud-fade">
+      <div
+        v-if="showSettings"
+        class="hud-overlay settings-modal-overlay"
+        @click.self="showSettings = false"
+      >
+        <div class="hud-popup settings-modal-content">
+          <div class="glow-line"></div>
+
+          <header class="popup-result-banner">
+            <h2 class="popup-result-title" style="font-size: 1.2rem; letter-spacing: 3px">
+              ⚙️ CONFIGURATION
+            </h2>
+          </header>
+
+          <div class="settings-modal-body">
+            <section class="settings-modal-section">
+              <p class="settings-modal-label">VOLUME MUSIQUE</p>
+              <div class="settings-modal-row">
+                <input
+                  type="range"
+                  v-model="settingsStore.musicVolume"
+                  min="0"
+                  max="100"
+                  class="settings-modal-slider"
+                />
+                <span class="settings-modal-value">{{ settingsStore.musicVolume }}%</span>
+              </div>
+            </section>
+
+            <section class="settings-modal-section">
+              <p class="settings-modal-label">EFFETS SONORES</p>
+              <div class="settings-modal-row">
+                <input
+                  type="range"
+                  v-model="settingsStore.effectsVolume"
+                  min="0"
+                  max="100"
+                  class="settings-modal-slider"
+                />
+                <span class="settings-modal-value">{{ settingsStore.effectsVolume }}%</span>
+              </div>
+            </section>
+
+            <section class="settings-modal-section">
+              <div class="settings-modal-row settings-modal-switch-row">
+                <p class="settings-modal-label" style="margin: 0">EFFET HEARTBEAT</p>
+                <label class="switch">
+                  <input type="checkbox" v-model="settingsStore.showHeartbeat" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </section>
+
+            <section class="settings-modal-section">
+              <p class="settings-modal-label">QUALITÉ GRAPHIQUE</p>
+              <select v-model="settingsStore.graphicsQuality" class="settings-modal-select">
+                <option value="low">BASSE</option>
+                <option value="medium">OPTIMISÉE</option>
+                <option value="high">HAUTE</option>
+              </select>
+            </section>
+          </div>
+
+          <button class="btn-radar" @click="showSettings = false">FERMER</button>
         </div>
       </div>
     </transition>
@@ -298,6 +373,7 @@ import heartbeatSrc from "@/assets/audio/BattementsDeCoeur.mp3";
 import { userBus } from "@/eventBus.js";
 import { settingsStore } from "@/stores/settings";
 import shootSrc from "@/assets/audio/shoot.mp3";
+import { i18nStore } from "@/stores/i18n";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -341,6 +417,8 @@ export default {
       settingsStore,
       _firingLock: false,
       shootAudio: null,
+      showSettings: false,
+      i18nStore,
     };
   },
   computed: {
@@ -1353,15 +1431,7 @@ export default {
     },
 
     goToSettings() {
-      // On passe l'origine + les paramètres de la partie pour pouvoir revenir
-      this.$router.push({
-        path: "/settings",
-        query: {
-          from: "game",
-          gameId: this.gameId,
-          gameType: this.gameType,
-        },
-      });
+      this.showSettings = true;
     },
 
     goHome() {
@@ -2204,5 +2274,90 @@ body {
   .btn-hide-grid {
     padding: 3px 7px;
   }
+}
+
+.settings-modal-overlay {
+  z-index: 9999;
+}
+
+.settings-modal-content {
+  max-width: 400px;
+  padding: 30px 25px;
+}
+
+.settings-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: 25px;
+  text-align: left;
+}
+
+.settings-modal-section {
+  background: rgba(29, 233, 192, 0.04);
+  border: 1px solid rgba(29, 233, 192, 0.12);
+  border-radius: 4px;
+  padding: 12px 15px;
+}
+
+.settings-modal-label {
+  font-size: 0.75rem;
+  letter-spacing: 2px;
+  color: #1de9c0;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+
+.settings-modal-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-modal-switch-row {
+  justify-content: space-between;
+}
+
+.settings-modal-slider {
+  -webkit-appearance: none;
+  flex: 1;
+  height: 4px;
+  background: rgba(29, 233, 192, 0.2);
+  outline: none;
+  border-radius: 2px;
+}
+
+.settings-modal-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 18px;
+  background: #1de9c0;
+  cursor: pointer;
+  border-radius: 1px;
+  box-shadow: 0 0 5px rgba(29, 233, 192, 0.5);
+}
+
+.settings-modal-value {
+  font-family: monospace;
+  background: rgba(29, 233, 192, 0.1);
+  border: 1px solid rgba(29, 233, 192, 0.3);
+  color: #1de9c0;
+  padding: 3px 8px;
+  min-width: 46px;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.settings-modal-select {
+  width: 100%;
+  background: rgba(3, 10, 16, 0.9);
+  color: #1de9c0;
+  border: 1px solid rgba(29, 233, 192, 0.4);
+  padding: 8px 12px;
+  font-family: "Rajdhani", sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+  outline: none;
+  border-radius: 2px;
 }
 </style>

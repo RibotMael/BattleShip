@@ -24,7 +24,7 @@
                   <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                 </svg>
               </span>
-              <span class="btn-label">Amis</span>
+              <span class="btn-label">{{ i18nStore.t("menu_friends") }}</span>
               <span v-if="invitationCount > 0" class="invite-badge">{{ invitationCount }}</span>
             </button>
           </div>
@@ -38,7 +38,9 @@
 
               <div class="stat-pill level-pill" title="Niveau">
                 <div class="level-info">
-                  <span class="level-text">NIV. {{ levelInfo.level }}</span>
+                  <span class="level-text"
+                    >{{ i18nStore.t("menu_level") }} {{ levelInfo.level }}</span
+                  >
                   <div class="mini-xp-track">
                     <div class="mini-xp-fill" :style="{ width: xpPercent + '%' }"></div>
                   </div>
@@ -55,11 +57,17 @@
 
             <transition name="dropdown">
               <div v-if="showUserMenu" class="user-dropdown">
-                <button @click="viewProfile"><span class="icon">👤</span> Mon Profil</button>
-                <button @click="goToSettings"><span class="icon">⚙️</span> Paramètres</button>
+                <button @click="viewProfile">
+                  <span class="icon">👤</span> {{ i18nStore.t("menu_profile") }}
+                </button>
+                <button @click="goToSettings">
+                  <span class="icon">⚙️</span> {{ i18nStore.t("menu_settings") }}
+                </button>
                 <div class="dropdown-divider"></div>
                 <button @click="logout" class="logout-btn">
-                  <span class="icon">🔓</span> Déconnexion
+                  <button @click="logout" class="logout-btn">
+                    <span class="icon">🔓</span> {{ i18nStore.t("menu_logout") }}
+                  </button>
                 </button>
               </div>
             </transition>
@@ -74,15 +82,21 @@
           <transition name="view-slide" mode="out-in">
             <div v-if="!showPlayOptions" class="button-stack" key="main">
               <button class="btn-cyber btn-primary" @click="showPlayOptions = true">
-                <span class="btn-text">DÉPLOYER LA FLOTTE</span>
+                <span class="btn-text">{{ i18nStore.t("menu_deploy") }}</span>
                 <span class="btn-glitch"></span>
               </button>
-              <button class="btn-cyber btn-secondary" @click="showRules">ARCHIVES (RÈGLES)</button>
+              <button class="btn-cyber btn-secondary" @click="showRules">
+                {{ i18nStore.t("menu_rules") }}
+              </button>
             </div>
 
             <div v-else class="button-stack" key="play">
-              <button class="btn-cyber btn-primary" @click="goToCreate">CRÉER UNE SALLE</button>
-              <button class="btn-cyber btn-secondary" @click="goToJoin">REJOINDRE</button>
+              <button class="btn-cyber btn-primary" @click="goToCreate">
+                {{ i18nStore.t("menu_create_room") }}
+              </button>
+              <button class="btn-cyber btn-secondary" @click="goToJoin">
+                {{ i18nStore.t("menu_join_room") }}
+              </button>
               <button class="btn-back" @click="showPlayOptions = false">
                 <svg
                   width="16"
@@ -94,7 +108,7 @@
                 >
                   <path d="M19 12H5M5 12L12 19M5 12L12 5" />
                 </svg>
-                RETOUR
+                {{ i18nStore.t("menu_back") }}
               </button>
             </div>
           </transition>
@@ -112,6 +126,7 @@ import FriendsPopup from "../components/FriendsPopup.vue";
 import logo from "@/assets/images/BATTLESHIPLOGO.png";
 import { invitationStore, userBus } from "@/eventBus.js";
 import { watch } from "vue";
+import { i18nStore } from "@/stores/i18n";
 
 const defaultAvatar =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAHklEQVR42u3PAQ0AAAwCoNm/9HI4gAAAAAAAAAAAOBwG4cAAfNmS7sAAAAASUVORK5CYII=";
@@ -126,6 +141,7 @@ export default {
       showFriendsPopup: false,
       showPlayOptions: false,
       avatarPreviewUrl: defaultAvatar,
+      i18nStore,
     };
   },
   computed: {

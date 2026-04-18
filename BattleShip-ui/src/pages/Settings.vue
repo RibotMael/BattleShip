@@ -3,11 +3,13 @@
     <header class="tactical-header">
       <div class="header-left">
         <div class="radar-ping"></div>
-        <h1>CONFIGURATION SYSTÈME</h1>
+        <h1>{{ i18nStore.t("settings_title") }}</h1>
       </div>
       <div class="header-right">
         <button class="btn-tactical" @click="goBack">
-          <span class="btn-text">{{ backLabel }}</span>
+          <span class="btn-text">{{
+            i18nStore.t(fromGame ? "settings_back_game" : "settings_back_home")
+          }}</span>
           <span class="btn-icon">⬅</span>
         </button>
       </div>
@@ -16,10 +18,10 @@
     <main class="tactical-layout settings-layout">
       <div class="settings-container">
         <section class="settings-section">
-          <h2 class="grid-label"><span class="dot"></span> MODULE AUDIO</h2>
+          <h2 class="grid-label"><span class="dot"></span>{{ i18nStore.t("settings_audio") }}</h2>
           <div class="settings-content">
             <div class="field-tactical">
-              <label>VOLUME MUSIQUE D'AMBIANCE</label>
+              <label>{{ i18nStore.t("settings_music") }}</label>
               <div class="input-wrapper">
                 <input
                   type="range"
@@ -32,7 +34,7 @@
               </div>
             </div>
             <div class="field-tactical">
-              <label>EFFETS SONORES DE COMBAT</label>
+              <label>{{ i18nStore.t("settings_effects") }}</label>
               <div class="input-wrapper">
                 <input
                   type="range"
@@ -48,18 +50,20 @@
         </section>
 
         <section class="settings-section">
-          <h2 class="grid-label"><span class="dot"></span> PARAMÈTRES VISUELS</h2>
+          <h2 class="grid-label"><span class="dot"></span>{{ i18nStore.t("settings_visuals") }}</h2>
           <div class="settings-content">
             <div class="field-tactical">
-              <label>QUALITÉ DES RENDUS</label>
+              <label>{{ i18nStore.t("settings_quality") }}</label>
               <select v-model="settingsStore.graphicsQuality" class="select-tactical">
-                <option value="low" class="opt-tactical">BASSE (PERFORMANCE)</option>
-                <option value="medium" class="opt-tactical">OPTIMISÉE</option>
-                <option value="high" class="opt-tactical">HAUTE RÉSOLUTION</option>
+                <option value="low" class="opt-tactical">
+                  {{ i18nStore.t("settings_quality_low") }}
+                </option>
+                <option value="medium">{{ i18nStore.t("settings_quality_med") }}</option>
+                <option value="high">{{ i18nStore.t("settings_quality_high") }}</option>
               </select>
             </div>
             <div class="field-tactical switch-wrapper">
-              <label>EFFET D'IMMERSION (HEARTBEAT)</label>
+              <label>{{ i18nStore.t("settings_heartbeat") }}</label>
               <label class="switch">
                 <input type="checkbox" v-model="settingsStore.showHeartbeat" />
                 <span class="slider"></span>
@@ -69,10 +73,10 @@
         </section>
 
         <section class="settings-section">
-          <h2 class="grid-label"><span class="dot"></span> SYSTÈME ET LANGUE</h2>
+          <h2 class="grid-label"><span class="dot"></span>{{ i18nStore.t("settings_system") }}</h2>
           <div class="settings-content">
             <div class="field-tactical">
-              <label>LANGUE D'INTERFACE</label>
+              <label>{{ i18nStore.t("settings_language") }}</label>
               <select v-model="settingsStore.language" class="select-tactical">
                 <option value="fr" class="opt-tactical">FRANÇAIS (HQ)</option>
                 <option value="en" class="opt-tactical">ENGLISH (NATO)</option>
@@ -87,10 +91,11 @@
 
 <script>
 import { settingsStore } from "@/stores/settings";
+import { i18nStore } from "@/stores/i18n";
 
 export default {
   setup() {
-    return { settingsStore };
+    return { settingsStore, i18nStore };
   },
   computed: {
     // Détermine si on vient d'une partie en cours
@@ -98,7 +103,9 @@ export default {
       return this.$route.query.from === "game";
     },
     backLabel() {
-      return this.fromGame ? "RETOUR PARTIE" : "RETOUR BASE";
+      return this.fromGame
+        ? this.i18nStore.t("settings_back_game")
+        : this.i18nStore.t("settings_back_home");
     },
   },
   methods: {
