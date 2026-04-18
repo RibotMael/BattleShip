@@ -35,7 +35,6 @@
                 <span class="pill-icon">🪙</span>
                 <span class="pill-value">{{ user.gold ?? 0 }}</span>
               </div>
-
               <div class="stat-pill level-pill" title="Niveau">
                 <div class="level-info">
                   <span class="level-text"
@@ -65,9 +64,7 @@
                 </button>
                 <div class="dropdown-divider"></div>
                 <button @click="logout" class="logout-btn">
-                  <button @click="logout" class="logout-btn">
-                    <span class="icon">🔓</span> {{ i18nStore.t("menu_logout") }}
-                  </button>
+                  <span class="icon">🔓</span> {{ i18nStore.t("menu_logout") }}
                 </button>
               </div>
             </transition>
@@ -87,6 +84,26 @@
               </button>
               <button class="btn-cyber btn-secondary" @click="showRules">
                 {{ i18nStore.t("menu_rules") }}
+              </button>
+              <!-- ── NOUVEAU BOUTON SKINS ── -->
+              <button class="btn-cyber btn-skins" @click="goToShop">
+                <span class="btn-skins-icon">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                    <path d="M4.93 4.93a10 10 0 0 0 0 14.14"></path>
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                    <path d="M8.46 8.46a5 5 0 0 0 0 7.07"></path>
+                  </svg>
+                </span>
+                {{ i18nStore.t("menu_skins") || "SKINS" }}
               </button>
             </div>
 
@@ -152,10 +169,6 @@ export default {
     invitationCount() {
       return invitationStore.invitations.length;
     },
-    /**
-     * Niveau et progression XP calculés depuis user.xp.
-     * Niveau n → n+1 : floor(100 × 1.02^n) XP.
-     */
     levelInfo() {
       const totalXp = this.user?.xp ?? 0;
       let level = 0;
@@ -193,7 +206,6 @@ export default {
       if (userData.level === undefined) userData.level = userData.niveau ?? 0;
       if (userData.gold === undefined) userData.gold = userData.gold ?? 0;
       if (userData.xp === undefined) userData.xp = 0;
-
       localStorage.setItem("user", JSON.stringify(userData));
       this.user = userData;
     },
@@ -227,6 +239,9 @@ export default {
     goToJoin() {
       this.$router.push("/join");
     },
+    goToShop() {
+      this.$router.push("/shop");
+    }, // ← nouvelle route
   },
 };
 </script>
@@ -260,7 +275,6 @@ export default {
   z-index: 100;
 }
 
-/* Amis */
 .btn-friends {
   background: rgba(29, 233, 192, 0.05);
   border: 1px solid rgba(29, 233, 192, 0.2);
@@ -277,12 +291,10 @@ export default {
   transition: all 0.2s;
   position: relative;
 }
-
 .btn-friends svg {
   width: 24px;
   height: 24px;
 }
-
 .btn-friends:hover {
   background: rgba(29, 233, 192, 0.15);
   box-shadow: 0 0 15px rgba(29, 233, 192, 0.2);
@@ -300,7 +312,6 @@ export default {
   border: 2px solid #06121a;
 }
 
-/* Stats */
 .player-stats {
   display: flex;
   gap: 12px;
@@ -316,7 +327,6 @@ export default {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
 }
-
 .gold-pill {
   border-color: rgba(245, 158, 11, 0.3);
   color: #f59e0b;
@@ -324,12 +334,10 @@ export default {
 .level-pill {
   border-color: rgba(29, 233, 192, 0.3);
 }
-
 .pill-value {
   font-weight: 600;
   font-size: 0.9rem;
 }
-
 .level-info {
   display: flex;
   flex-direction: column;
@@ -341,21 +349,18 @@ export default {
   font-weight: 700;
   color: #1de9c0;
 }
-
 .mini-xp-track {
   width: 60px;
   height: 3px;
   background: rgba(29, 233, 192, 0.1);
   border-radius: 2px;
 }
-
 .mini-xp-fill {
   height: 100%;
   background: #1de9c0;
   box-shadow: 0 0 5px #1de9c0;
 }
 
-/* Profil Trigger */
 .user-trigger {
   display: flex;
   align-items: center;
@@ -366,19 +371,16 @@ export default {
   transition: background 0.2s;
   border: 1px solid transparent;
 }
-
 .user-trigger:hover,
 .user-trigger.active {
   background: rgba(29, 233, 192, 0.08);
   border-color: rgba(29, 233, 192, 0.1);
 }
-
 .pseudo {
   color: #dff2ee;
   font-weight: 600;
   font-size: 1.1rem;
 }
-
 .avatar-wrap {
   width: 48px;
   height: 48px;
@@ -386,7 +388,6 @@ export default {
   border: 2px solid #1de9c0;
   padding: 2px;
 }
-
 .avatar-img {
   width: 100%;
   height: 100%;
@@ -394,7 +395,6 @@ export default {
   object-fit: cover;
 }
 
-/* Dropdown */
 .user-dropdown {
   position: absolute;
   top: calc(100% + 15px);
@@ -407,7 +407,6 @@ export default {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   padding: 10px;
 }
-
 .user-dropdown button {
   width: 100%;
   padding: 12px 16px;
@@ -424,18 +423,15 @@ export default {
   align-items: center;
   gap: 12px;
 }
-
 .user-dropdown button:hover {
   background: rgba(29, 233, 192, 0.1);
   color: #1de9c0;
 }
-
 .dropdown-divider {
   height: 1px;
   background: rgba(29, 233, 192, 0.1);
   margin: 6px 0;
 }
-
 .logout-btn {
   color: #f87171 !important;
 }
@@ -454,13 +450,11 @@ export default {
   margin-bottom: 3rem;
   perspective: 1000px;
 }
-
 .menu-logo {
   width: 80vw;
   filter: drop-shadow(0 0 30px rgba(29, 233, 192, 0.2));
   animation: logo-float 4s ease-in-out infinite;
 }
-
 @keyframes logo-float {
   0%,
   100% {
@@ -479,7 +473,6 @@ export default {
   max-width: 320px;
 }
 
-/* Cyber Button Style */
 .btn-cyber {
   position: relative;
   padding: 1.1rem;
@@ -500,7 +493,6 @@ export default {
   color: #030a10;
   box-shadow: 0 0 20px rgba(29, 233, 192, 0.3);
 }
-
 .btn-primary:hover {
   background: #14c9a5;
   box-shadow: 0 0 30px rgba(29, 233, 192, 0.5);
@@ -512,10 +504,30 @@ export default {
   color: #1de9c0;
   border: 1px solid rgba(29, 233, 192, 0.3);
 }
-
 .btn-secondary:hover {
   background: rgba(29, 233, 192, 0.15);
   border-color: #1de9c0;
+}
+
+/* ── BOUTON SKINS ── */
+.btn-skins {
+  background: rgba(168, 85, 247, 0.07);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.btn-skins:hover {
+  background: rgba(168, 85, 247, 0.18);
+  border-color: #c084fc;
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.25);
+  transform: scale(1.02);
+}
+.btn-skins-icon {
+  display: flex;
+  align-items: center;
 }
 
 .btn-back {
@@ -532,12 +544,11 @@ export default {
   margin-top: 10px;
   transition: color 0.2s;
 }
-
 .btn-back:hover {
   color: #f87171;
 }
 
-/* Transitions */
+/* ── TRANSITIONS ── */
 .dropdown-enter-active,
 .dropdown-leave-active {
   transition: all 0.2s ease-out;
@@ -561,7 +572,7 @@ export default {
   transform: translateX(-20px);
 }
 
-/* Mobile */
+/* ── MOBILE ── */
 @media (max-width: 600px) {
   .btn-label,
   .pseudo {

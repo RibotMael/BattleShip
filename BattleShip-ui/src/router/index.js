@@ -37,7 +37,12 @@ const routes = [
     path: "/join",
     name: "JoinGame",
     component: () => import("../pages/JoinGame.vue")
-  }
+  },
+  { 
+    path: '/shop', 
+    name: "Shop",
+    component: () => import('../pages/Shopview.vue') 
+}
 
 ];
 
