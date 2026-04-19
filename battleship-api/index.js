@@ -15,6 +15,7 @@ import avatarRouter from "./api/avatar.js";
 import friendsRouter from "./routes/friends.js";
 import invitationsRouter from "./routes/invitations.js";
 import gamesRouter from "./routes/games.js";
+import shopRoutes from "./routes/shop.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -397,6 +398,7 @@ function stopGameTimer(gameId) {
 ========================== */
 app.use("/api", authRoutes);
 app.use("/api/users", userProfileRoutes);
+app.use("/api/shop", shopRoutes);
 app.use("/api", checkPseudoRoute);
 app.use("/api/friends", friendsRouter);
 app.use("/api/invitation", invitationsRouter);

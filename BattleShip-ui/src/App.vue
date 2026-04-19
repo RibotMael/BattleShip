@@ -11,11 +11,26 @@
 <script>
 import { settingsStore } from "@/stores/settings";
 import socket, { registerOnline } from "@/services/socket";
+import { useShopStore } from "@/stores/shopStore";
 
 export default {
   setup() {
-    return { settingsStore };
+    const shopStore = useShopStore();
+    // Exposer pour que this.shopStore fonctionne dans les hooks Options API
+    return { settingsStore, shopStore };
   },
+
+  async created() {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const userId = user.id || user.ID_Users;
+    if (userId) {
+      await this.shopStore.fetchShop(userId);
+    } else {
+      // Pas connecté : appliquer quand même le thème par défaut
+      this.shopStore.applyThemeToDOM();
+    }
+  },
+
   mounted() {
     socket.on("connect", () => {
       const userId = localStorage.getItem("userId");
@@ -25,6 +40,7 @@ export default {
       const userId = localStorage.getItem("userId");
       if (userId) registerOnline(userId);
     }
+
     const audio = document.getElementById("background-music");
     audio.volume = settingsStore.musicVolume / 100;
 
@@ -36,14 +52,12 @@ export default {
     );
 
     const playMusic = () => {
-      audio.play().catch((err) => {
-        console.warn("Autoplay bloqué :", err);
-      });
+      audio.play().catch((err) => console.warn("Autoplay bloqué :", err));
       document.removeEventListener("click", playMusic);
     };
-
     document.addEventListener("click", playMusic);
   },
+
   beforeUnmount() {
     socket.off("connect");
   },

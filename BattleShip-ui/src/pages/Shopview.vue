@@ -1,12 +1,10 @@
 <template>
   <div class="shop-bg">
-    <!-- Particules décoratives -->
     <div class="particles">
       <span v-for="i in 18" :key="i" class="particle" :style="particleStyle(i)"></span>
     </div>
 
     <div class="shop-wrapper">
-      <!-- Header -->
       <header class="shop-header">
         <button class="btn-back" @click="$router.back()">
           <svg
@@ -33,7 +31,7 @@
 
         <div class="gold-display">
           <span class="gold-icon">🪙</span>
-          <span class="gold-amount">{{ userGold }}</span>
+          <span class="gold-amount">{{ shopStore.gold }}</span>
         </div>
       </header>
 
@@ -53,7 +51,7 @@
       </div>
 
       <!-- Loader -->
-      <div v-if="loading" class="loading-state">
+      <div v-if="shopStore.loading" class="loading-state">
         <div class="sonar-ring"></div>
         <p>Chargement de l'arsenal…</p>
       </div>
@@ -67,11 +65,10 @@
           :class="{
             owned: isOwned(item.id),
             equipped: isEquipped(item.slug),
-            'can-afford': !isOwned(item.id) && userGold >= item.price,
-            'cant-afford': !isOwned(item.id) && userGold < item.price,
+            'can-afford': !isOwned(item.id) && shopStore.gold >= item.price,
+            'cant-afford': !isOwned(item.id) && shopStore.gold < item.price,
           }"
         >
-          <!-- Prévisualisation visuelle du thème -->
           <div class="item-preview" :style="buildPreview(item)">
             <div class="preview-grid">
               <div
@@ -89,18 +86,15 @@
             <div class="preview-ship-bar" :style="{ background: getVar(item, '--brass') }"></div>
             <div class="preview-label">{{ item.name }}</div>
 
-            <!-- Badge statut -->
             <div v-if="isEquipped(item.slug)" class="status-badge equipped-badge">✓ ÉQUIPÉ</div>
             <div v-else-if="isOwned(item.id)" class="status-badge owned-badge">POSSÉDÉ</div>
             <div v-else-if="item.price === 0" class="status-badge free-badge">GRATUIT</div>
           </div>
 
-          <!-- Infos -->
           <div class="item-body">
             <h3 class="item-name">{{ item.name }}</h3>
             <p class="item-desc">{{ item.description }}</p>
 
-            <!-- Palette de couleurs -->
             <div class="color-palette" v-if="item.css_vars">
               <span
                 v-for="(color, varName) in parsedVars(item)"
@@ -111,7 +105,6 @@
               ></span>
             </div>
 
-            <!-- Actions -->
             <div class="item-actions">
               <template v-if="isEquipped(item.slug)">
                 <button class="btn-equipped" disabled><span>◈</span> Thème actif</button>
@@ -122,8 +115,8 @@
               <template v-else>
                 <button
                   class="btn-buy"
-                  :class="{ disabled: userGold < item.price }"
-                  :disabled="userGold < item.price || buyingId === item.id"
+                  :class="{ disabled: shopStore.gold < item.price }"
+                  :disabled="shopStore.gold < item.price || buyingId === item.id"
                   @click="buyItem(item)"
                 >
                   <span v-if="buyingId === item.id" class="spinner">⟳</span>
@@ -138,7 +131,6 @@
         </div>
       </div>
 
-      <!-- Toast notification -->
       <transition name="toast">
         <div v-if="toast.visible" class="toast" :class="toast.type">
           {{ toast.message }}
@@ -149,18 +141,21 @@
 </template>
 
 <script>
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost/api";
+import { useShopStore } from "@/stores/shopStore.js";
+import { userBus } from "@/eventBus.js";
 
 export default {
   name: "ShopView",
+
+  setup() {
+    const shopStore = useShopStore();
+    return { shopStore };
+  },
+
   data() {
     return {
-      items: [],
-      ownedIds: [],
-      loading: true,
       activeCategory: "theme",
       buyingId: null,
-      equippingSlug: null,
       toast: { visible: false, message: "", type: "success" },
       categories: [
         { id: "theme", label: "Thèmes", icon: "🎨" },
@@ -169,119 +164,28 @@ export default {
       ],
     };
   },
+
   computed: {
     user() {
-      const raw = localStorage.getItem("user");
-      return raw ? JSON.parse(raw) : null;
-    },
-    userGold() {
-      return this.user?.gold ?? 0;
-    },
-    activeTheme() {
-      return this.user?.active_theme ?? "default";
-    },
-    filteredItems() {
-      return this.items.filter((i) => i.category === this.activeCategory);
-    },
-  },
-  async created() {
-    await this.loadItems();
-  },
-  methods: {
-    /* ── Data fetching ── */
-    async loadItems() {
-      this.loading = true;
       try {
-        const [shopRes, purchasedRes] = await Promise.all([
-          fetch(`${API_BASE}/shop/items.php`),
-          fetch(`${API_BASE}/shop/purchased.php?user_id=${this.user?.id}`),
-        ]);
-        this.items = await shopRes.json();
-        const purchased = await purchasedRes.json();
-        this.ownedIds = purchased.map((p) => p.item_id ?? p.id);
+        return JSON.parse(localStorage.getItem("user")) || null;
       } catch {
-        // Fallback : données statiques issues de la BDD pour le développement
-        this.items = [
-          {
-            id: 1,
-            slug: "default",
-            name: "Classique",
-            description: "Le theme naval par defaut. Gratuit.",
-            category: "theme",
-            price: 0,
-            css_vars:
-              '{"--ocean-deep":"#071520","--ocean-mid":"#0d2137","--brass":"#c8933e","--brass-light":"#eac040","--accent":"#5eead4"}',
-            preview_color: "#0d2137",
-            sort_order: 1,
-          },
-          {
-            id: 2,
-            slug: "crimson",
-            name: "Amiral Rouge",
-            description: "Tons rouges et or — pour les commandants aguerris.",
-            category: "theme",
-            price: 200,
-            css_vars:
-              '{"--ocean-deep":"#1a0a0a","--ocean-mid":"#2d1111","--brass":"#d4443c","--brass-light":"#ff6b5e","--accent":"#ff9a8b"}',
-            preview_color: "#2d1111",
-            sort_order: 2,
-          },
-          {
-            id: 3,
-            slug: "arctic",
-            name: "Arctique",
-            description: "Bleu glace et blanc — guerre dans le grand nord.",
-            category: "theme",
-            price: 200,
-            css_vars:
-              '{"--ocean-deep":"#0a1a2e","--ocean-mid":"#122a44","--brass":"#6fb4d4","--brass-light":"#a0d8ef","--accent":"#d0f0ff"}',
-            preview_color: "#122a44",
-            sort_order: 3,
-          },
-          {
-            id: 4,
-            slug: "abyss",
-            name: "Abysses",
-            description: "Violet profond — terreur des profondeurs.",
-            category: "theme",
-            price: 350,
-            css_vars:
-              '{"--ocean-deep":"#0d0818","--ocean-mid":"#1a1030","--brass":"#9b59b6","--brass-light":"#c084e0","--accent":"#e0b0ff"}',
-            preview_color: "#1a1030",
-            sort_order: 4,
-          },
-          {
-            id: 5,
-            slug: "phantom",
-            name: "Fantôme",
-            description: "Gris spectral et vert pale — flotte invisible.",
-            category: "theme",
-            price: 350,
-            css_vars:
-              '{"--ocean-deep":"#0e0e0e","--ocean-mid":"#1a1a1a","--brass":"#7a7a7a","--brass-light":"#a0a0a0","--accent":"#b0ffb0"}',
-            preview_color: "#1a1a1a",
-            sort_order: 5,
-          },
-          {
-            id: 6,
-            slug: "gold",
-            name: "Or Massif",
-            description: "Or et noir — pour les plus riches capitaines.",
-            category: "theme",
-            price: 500,
-            css_vars:
-              '{"--ocean-deep":"#0f0a00","--ocean-mid":"#1a1400","--brass":"#ffd700","--brass-light":"#ffe44d","--accent":"#fff8b0"}',
-            preview_color: "#1a1400",
-            sort_order: 6,
-          },
-        ];
-        // Pour le dev, on considère que le joueur possède l'item 1
-        this.ownedIds = [1];
-      } finally {
-        this.loading = false;
+        return null;
       }
     },
+    filteredItems() {
+      return this.shopStore.items.filter((i) => i.category === this.activeCategory);
+    },
+  },
 
+  async created() {
+    const userId = this.user?.id || this.user?.ID_Users;
+    if (userId && !this.shopStore.items.length) {
+      await this.shopStore.fetchShop(userId);
+    }
+  },
+
+  methods: {
     /* ── Helpers visuels ── */
     parsedVars(item) {
       try {
@@ -291,115 +195,87 @@ export default {
       }
     },
     getVar(item, name) {
-      const vars = this.parsedVars(item);
-      return vars[name] || item.preview_color || "#0d2137";
+      return this.parsedVars(item)[name] || item.preview_color || "#0d2137";
     },
     buildPreview(item) {
-      const vars = this.parsedVars(item);
+      const v = this.parsedVars(item);
       return {
-        background: `linear-gradient(135deg, ${vars["--ocean-deep"] || "#071520"} 0%, ${vars["--ocean-mid"] || "#0d2137"} 100%)`,
-        borderColor: vars["--brass"] || "#c8933e",
+        background: `linear-gradient(135deg, ${v["--ocean-deep"] || "#071520"} 0%, ${v["--ocean-mid"] || "#0d2137"} 100%)`,
+        borderColor: v["--brass"] || "#c8933e",
       };
     },
     previewCellStyle(item, n) {
-      const vars = this.parsedVars(item);
-      const hit = [2, 5, 7].includes(n);
-      const miss = [4, 8].includes(n);
-      const ship = [1, 3, 6].includes(n);
-      if (hit)
+      const v = this.parsedVars(item);
+      if ([2, 5, 7].includes(n))
         return {
-          background: vars["--brass"] || "#c8933e",
-          boxShadow: `0 0 6px ${vars["--brass"] || "#c8933e"}`,
+          background: v["--brass"] || "#c8933e",
+          boxShadow: `0 0 6px ${v["--brass"] || "#c8933e"}`,
         };
-      if (miss)
+      if ([4, 8].includes(n))
+        return { background: "transparent", borderColor: v["--accent"] || "#5eead4", opacity: 0.5 };
+      if ([1, 3, 6].includes(n))
         return {
-          background: "transparent",
-          borderColor: vars["--accent"] || "#5eead4",
-          opacity: 0.5,
+          background: (v["--accent"] || "#5eead4") + "33",
+          borderColor: v["--accent"] || "#5eead4",
         };
-      if (ship)
-        return {
-          background: vars["--accent"] + "33" || "#5eead433",
-          borderColor: vars["--accent"] || "#5eead4",
-        };
-      return { background: "transparent", borderColor: vars["--ocean-mid"] || "#0d2137" };
+      return { background: "transparent", borderColor: v["--ocean-mid"] || "#0d2137" };
     },
     particleStyle(i) {
-      const x = (i * 37 + 13) % 97;
-      const y = (i * 53 + 7) % 89;
-      const s = 0.3 + (i % 4) * 0.2;
-      const d = 3 + (i % 6);
       return {
-        left: x + "%",
-        top: y + "%",
-        width: s + "rem",
-        height: s + "rem",
-        animationDuration: d + "s",
+        left: ((i * 37 + 13) % 97) + "%",
+        top: ((i * 53 + 7) % 89) + "%",
+        width: 0.3 + (i % 4) * 0.2 + "rem",
+        height: 0.3 + (i % 4) * 0.2 + "rem",
+        animationDuration: 3 + (i % 6) + "s",
         animationDelay: -(i * 0.4) + "s",
       };
     },
 
     /* ── Logic ── */
     isOwned(itemId) {
-      return this.ownedIds.includes(itemId);
+      const item = this.shopStore.items.find((i) => i.id === itemId);
+      if (item?.price === 0) return true;
+      return this.shopStore.ownedIds.includes(itemId);
     },
     isEquipped(slug) {
-      return this.activeTheme === slug;
+      return this.shopStore.activeThemeSlug === slug;
     },
     countByCategory(cat) {
-      return this.items.filter((i) => i.category === cat).length;
+      return this.shopStore.items.filter((i) => i.category === cat).length;
     },
 
     async buyItem(item) {
-      if (this.userGold < item.price || this.buyingId) return;
+      if (this.shopStore.gold < item.price || this.buyingId) return;
+      const userId = this.user?.id || this.user?.ID_Users;
+      if (!userId) return this.showToast("Utilisateur non connecté.", "error");
+
       this.buyingId = item.id;
-      try {
-        const res = await fetch(`${API_BASE}/shop/buy.php`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: this.user.id, item_id: item.id }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          // Mettre à jour le localStorage
-          const updatedUser = { ...this.user, gold: data.new_gold ?? this.user.gold - item.price };
-          localStorage.setItem("user", JSON.stringify(updatedUser));
-          this.ownedIds.push(item.id);
-          this.showToast(`🪙 "${item.name}" acheté !`, "success");
-        } else {
-          this.showToast(data.message || "Achat impossible.", "error");
-        }
-      } catch {
-        // Mode dev sans backend
-        const updatedUser = { ...this.user, gold: this.user.gold - item.price };
+      const result = await this.shopStore.buyItem(userId, item);
+
+      if (result.success) {
+        // Mettre à jour le localStorage
+        const updatedUser = { ...this.user, gold: result.newGold };
         localStorage.setItem("user", JSON.stringify(updatedUser));
-        this.ownedIds.push(item.id);
+        if (userBus) userBus.userUpdated = !userBus.userUpdated;
         this.showToast(`🪙 "${item.name}" acheté !`, "success");
-      } finally {
-        this.buyingId = null;
+      } else {
+        this.showToast(result.message || "Achat impossible.", "error");
       }
+      this.buyingId = null;
     },
 
     async equipItem(item) {
-      try {
-        await fetch(`${API_BASE}/shop/equip.php`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: this.user.id, slug: item.slug }),
-        });
-      } catch {
-        // Pas de backend en dev, on continue quand même
+      const userId = this.user?.id || this.user?.ID_Users;
+      if (!userId) return;
+
+      const success = await this.shopStore.equipItem(userId, item.slug);
+      if (success) {
+        const updatedUser = { ...this.user, active_theme: item.slug };
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+        this.showToast(`✓ Thème "${item.name}" équipé !`, "success");
+      } else {
+        this.showToast("Erreur lors de l'équipement.", "error");
       }
-      const updatedUser = { ...this.user, active_theme: item.slug };
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-      // Applique les CSS vars globalement
-      const vars = this.parsedVars(item);
-      Object.entries(vars).forEach(([k, v]) => {
-        document.documentElement.style.setProperty(k, v);
-      });
-      this.showToast(`✓ Thème "${item.name}" équipé !`, "success");
-      // Force re-render du computed
-      this.$forceUpdate();
     },
 
     showToast(message, type = "success") {

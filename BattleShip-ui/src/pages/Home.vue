@@ -109,10 +109,10 @@
 
             <div v-else class="button-stack" key="play">
               <button class="btn-cyber btn-primary" @click="goToCreate">
-                {{ i18nStore.t("menu_create_room") }}
+                {{ i18nStore.t("menu_create") }}
               </button>
               <button class="btn-cyber btn-secondary" @click="goToJoin">
-                {{ i18nStore.t("menu_join_room") }}
+                {{ i18nStore.t("menu_join") }}
               </button>
               <button class="btn-back" @click="showPlayOptions = false">
                 <svg
