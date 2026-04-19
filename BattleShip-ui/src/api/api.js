@@ -17,7 +17,8 @@ api.interceptors.response.use(
   (error) => {
     if (error.response && error.response.status === 401) {
       localStorage.removeItem("user");
-      router.push("/login");
+      localStorage.removeItem("userId");
+      router.push("/");
     }
     return Promise.reject(error);
   }

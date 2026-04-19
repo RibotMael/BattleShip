@@ -414,6 +414,19 @@ app.get("/", (req, res) => {
 ========================== */
 io.on("connection", (socket) => {
   console.log(`🔌 Connecté : ${socket.id}`);
+  let connectedUserId = null;
+
+  socket.on("register-user", ({ userId }) => {
+    connectedUserId = userId;
+    db.query("UPDATE users SET Online = 1 WHERE ID_Users = ?", [userId]);
+  });
+
+  socket.on("disconnect", () => {
+      console.log("🚫 Déconnexion socket");
+      if (connectedUserId) {
+        db.query("UPDATE users SET Online = 0 WHERE ID_Users = ?", [connectedUserId]);
+      }
+  });
 
   socket.on("join-game", ({ gameId }) => {
     if (!gameId) return;
@@ -451,10 +464,6 @@ io.on("connection", (socket) => {
     } catch (err) {
       // Mode silencieux 
     }
-  });
-
-  socket.on("disconnect", () => {
-    console.log("🚫 Déconnexion socket");
   });
 
   socket.on("lock-cell", (data) => {

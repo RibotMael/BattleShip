@@ -32,6 +32,13 @@ export default {
   },
 
   mounted() {
+    const registerIfConnected = () => {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const userId = user.id || user.ID_Users;
+      if (userId) {
+        socket.emit("register-user", { userId }); // ✅ la bonne façon
+      }
+    };
     socket.on("connect", () => {
       const userId = localStorage.getItem("userId");
       if (userId) registerOnline(userId);
