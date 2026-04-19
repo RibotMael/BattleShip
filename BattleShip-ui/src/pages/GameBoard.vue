@@ -628,10 +628,6 @@ export default {
       } catch (_) {}
     },
 
-    // ─── RÉCEPTION TIMER DEPUIS LE SERVEUR ──────────────────────────────────
-    // Le serveur calcule timeLeft à partir de last_turn_timestamp BDD.
-    // FIX CRITIQUE : si le timer tombe à <= 2 secondes et qu'on n'a pas encore
-    // tiré, on envoie le tir MAINTENANT pour que PHP/Unity puisse le résoudre.
     socketTurnTimer({ timeLeft, turnStartAt }) {
       if (this.gameOver) return;
 
@@ -643,31 +639,11 @@ export default {
         this.hasFiredThisTurn = false;
         this._firingLock = false;
         this.clearPendingCells();
-
-        // FIX : force l'affichage immédiat de 7 sans attendre le premier tick
-        // local. Sans ça, si le tick démarre 200ms après, il affiche 6 puis
-        // remonte jamais à 7 — le chrono semble bloqué au tour précédent.
         this.turnTimer = 7;
         this.$nextTick(this.updateCircle);
       }
 
       this._startLocalTick();
-
-      // ── ENVOI ANTICIPÉ DU TIR ─────────────────────────────────────────────
-      // À 2 secondes restantes, on envoie le tir sélectionné (ou aléatoire)
-      // pour laisser à PHP/Unity le temps de l'inclure dans la résolution.
-      // Condition: timer entre 1 et 2s, pas encore tiré, pas de verrou actif.
-      if (
-        timeLeft <= 2 &&
-        timeLeft > 0 &&
-        !this.hasFiredThisTurn &&
-        !this._firingLock &&
-        this.playerStatus === "in_game" &&
-        !this.gameOver
-      ) {
-        this._firingLock = true;
-        this.validateShot();
-      }
     },
 
     _startLocalTick() {
@@ -718,10 +694,6 @@ export default {
       } catch (_) {}
     },
 
-    // ─── FIN DE TOUR ─────────────────────────────────────────────────────────
-    // Reçu via socket depuis le serveur Node.
-    // Sert de FILET DE SÉCURITÉ pour les tirs pas encore envoyés
-    // (ex: joueur qui n'avait pas encore sélectionné de cellule = tir aléatoire).
     endTurn() {
       if (this.gameOver) return;
 
