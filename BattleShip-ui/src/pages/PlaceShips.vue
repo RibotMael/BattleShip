@@ -137,9 +137,6 @@ export default {
     this.userId = Number(this.user?.id || this.user?.ID_Users);
     this.game.ID_Game = Number(this.gameId);
 
-    const savedLang = localStorage.getItem("currentLanguage");
-    if (savedLang) this.game.mode = savedLang;
-
     this.fetchGame().then((data) => {
       if (data && data.mode) {
         this.game.mode = data.mode;
@@ -178,15 +175,16 @@ export default {
     async fetchGame() {
       try {
         const res = await api.get(`/games/${this.game.ID_Game}`);
-        if (res.data && res.data.success) {
+        if (res.data?.success) {
           const data = res.data;
           this.game = {
             ...this.game,
             ...data.game,
+            mode: data.mode,
             TotalPlayers: data.players ? data.players.length : 2,
           };
           this.readyPlayers = (data.players || []).filter((p) => p.validated);
-          return { fleet: data.fleet, mode: data.game.mode };
+          return { fleet: data.fleet, mode: data.mode };
         }
       } catch (err) {
         return null;

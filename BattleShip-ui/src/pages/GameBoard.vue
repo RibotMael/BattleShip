@@ -1038,21 +1038,21 @@ export default {
 
       if (this.isTeamMode) {
         const wasCurrentEnemy = this.enemies[this.currentOpponentIndex]?.id === data.playerId;
-        this.enemies = this.enemies.filter((o) => o.id !== data.playerId);
-        this.allies = this.allies.filter((o) => o.id !== data.playerId);
+        this.enemies = this.enemies.filter((o) => String(o.id) !== String(data.playerId));
+        this.allies = this.allies.filter((o) => String(o.id) !== String(data.playerId));
         if (wasCurrentEnemy && this.currentOpponentIndex >= this.enemies.length) {
           this.currentOpponentIndex = 0;
           this.selectedCell = null;
         }
       } else {
-        const isCurrentTarget = this.opponents[this.currentOpponentIndex]?.id === data.playerId;
-        this.opponents = this.opponents.filter((opp) => opp.id !== data.playerId);
+        const isCurrentTarget =
+          String(this.opponents[this.currentOpponentIndex]?.id) === String(data.playerId);
+        this.opponents = this.opponents.filter((opp) => String(opp.id) !== String(data.playerId));
         if (isCurrentTarget || this.currentOpponentIndex >= this.opponents.length) {
           this.currentOpponentIndex = 0;
           this.selectedCell = null;
         }
       }
-      this.opponents = this.opponents.filter((o) => o.id !== data.playerId);
     },
 
     playShootSound() {

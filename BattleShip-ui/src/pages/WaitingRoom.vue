@@ -148,6 +148,10 @@
 <style scoped>
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap");
 
+/* ============================================================
+   BASE
+   ============================================================ */
+
 .waiting-page {
   position: fixed;
   inset: 0;
@@ -173,7 +177,10 @@
   gap: 15px;
 }
 
-/* --- HEADER --- */
+/* ============================================================
+   HEADER
+   ============================================================ */
+
 .hud-header {
   display: flex;
   justify-content: space-between;
@@ -188,6 +195,18 @@
   gap: 15px;
 }
 
+h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  margin: 0;
+}
+
+.session-id {
+  font-size: 1rem;
+  color: rgba(29, 233, 192, 0.5);
+}
+
 .status-indicator {
   width: 12px;
   height: 12px;
@@ -199,6 +218,7 @@
 .animate-pulse {
   animation: pulse 2s infinite;
 }
+
 @keyframes pulse {
   0% {
     opacity: 1;
@@ -211,33 +231,24 @@
   }
 }
 
-h1 {
-  font-size: 1.5rem;
-  margin: 0;
-  letter-spacing: 2px;
-  font-weight: 700;
-}
-
-.session-id {
-  color: rgba(29, 233, 192, 0.5);
-  font-size: 1rem;
-}
-
 .game-badge {
   background: rgba(29, 233, 192, 0.1);
-  padding: 4px 15px;
-  border-radius: 4px;
   border: 1px solid rgba(29, 233, 192, 0.3);
+  border-radius: 4px;
+  padding: 4px 15px;
 }
 
 .mode-text {
-  font-weight: 700;
   font-size: 0.8rem;
+  font-weight: 700;
   color: #1de9c0;
   text-transform: uppercase;
 }
 
-/* --- PANELS --- */
+/* ============================================================
+   LAYOUT — GRILLE & PANNEAUX
+   ============================================================ */
+
 .hud-grid {
   display: flex;
   gap: 20px;
@@ -258,10 +269,14 @@ h1 {
   color: #1de9c0;
   font-size: 0.7rem;
   font-weight: 700;
+  letter-spacing: 1px;
   padding: 4px 12px;
   width: fit-content;
-  letter-spacing: 1px;
 }
+
+/* ============================================================
+   PANNEAU AMIS
+   ============================================================ */
 
 .friends-panel {
   width: 280px;
@@ -298,28 +313,33 @@ h1 {
   border-radius: 50%;
   background: #4a5568;
 }
+
 .status-dot.online {
   background: #1de9c0;
   box-shadow: 0 0 8px #1de9c0;
 }
 
-.btn-mini-action {
-  background: #1de9c0;
-  color: #030a10;
-  border: none;
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 700;
-}
+/* ============================================================
+   PANNEAU PRINCIPAL
+   ============================================================ */
 
-/* --- MAIN PANEL & TEAMS --- */
 .main-panel {
   flex: 1;
   padding: 20px;
-  overflow-y: auto; /* 🔥 C'EST ICI LE CORRECTIF PRINCIPAL */
+  overflow-y: auto;
 }
+
+.section-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1de9c0;
+  opacity: 0.7;
+  margin-bottom: 10px;
+}
+
+/* ============================================================
+   JOUEURS — TAGS & CONTRÔLES
+   ============================================================ */
 
 .player-wall {
   display: flex;
@@ -329,13 +349,13 @@ h1 {
 }
 
 .player-tag {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 8px 12px;
-  border-radius: 4px;
   display: flex;
   align-items: center;
   gap: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 8px 12px;
 }
 
 .player-tag.unassigned {
@@ -343,8 +363,8 @@ h1 {
 }
 
 .tag-name {
-  font-weight: 600;
   font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .tag-controls {
@@ -354,28 +374,9 @@ h1 {
   padding-left: 10px;
 }
 
-.ctrl-btn {
-  background: transparent;
-  border: 1px solid #1de9c0;
-  color: #1de9c0;
-  font-size: 0.7rem;
-  padding: 2px 6px;
-  cursor: pointer;
-  border-radius: 3px;
-}
-
-.ctrl-btn.kick {
-  border-color: #f87171;
-  color: #f87171;
-}
-
-.section-title {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #1de9c0;
-  margin-bottom: 10px;
-  opacity: 0.7;
-}
+/* ============================================================
+   ÉQUIPES
+   ============================================================ */
 
 .teams-grid {
   display: grid;
@@ -395,10 +396,10 @@ h1 {
 }
 
 .team-header {
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: 2px;
   margin-bottom: 15px;
-  font-size: 1rem;
 }
 
 .member-row {
@@ -408,31 +409,31 @@ h1 {
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 }
 
-.member-actions button {
-  background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.4);
-  cursor: pointer;
-  padding: 0 8px;
-  font-size: 1rem;
-}
+/* ============================================================
+   FOOTER
+   ============================================================ */
 
-.member-actions .btn-remove:hover {
-  color: #f87171;
-}
-
-/* --- FOOTER --- */
 .hud-footer {
   margin-top: auto;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   padding-top: 20px;
 }
 
+.error-stack {
+  margin-bottom: 10px;
+}
+
 .hud-error {
-  color: #f87171;
   font-size: 0.8rem;
   font-weight: 700;
+  color: #f87171;
   margin-bottom: 5px;
+}
+
+.system-err {
+  color: #f87171;
+  font-size: 0.8rem;
+  margin-top: 8px;
 }
 
 .button-group {
@@ -440,6 +441,101 @@ h1 {
   gap: 15px;
 }
 
+/* ============================================================
+   BOUTONS
+   ============================================================ */
+
+/* Invitation ami */
+.btn-mini-action {
+  background: #1de9c0;
+  color: #030a10;
+  border: none;
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-mini-action:disabled {
+  background: rgba(29, 233, 192, 0.2);
+  color: rgba(29, 233, 192, 0.5);
+  cursor: not-allowed;
+}
+
+/* Contrôles d'assignation (T1 / T2 / ×) */
+.ctrl-btn {
+  background: transparent;
+  border: 1px solid #1de9c0;
+  color: #1de9c0;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.ctrl-btn.kick {
+  border-color: #f87171;
+  color: #f87171;
+}
+
+/* Kick dans le player-tag (battle royale) */
+.tag-kick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid #f87171;
+  color: #f87171;
+  border-radius: 3px;
+  width: 22px;
+  height: 22px;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+
+.tag-kick:hover {
+  background: #f87171;
+  color: white;
+}
+
+/* Swap d'équipe */
+.btn-swap {
+  background: transparent;
+  border: 1px solid rgba(29, 233, 192, 0.4);
+  color: #1de9c0;
+  font-size: 0.85rem;
+  padding: 0 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+
+.btn-swap:hover {
+  background: rgba(29, 233, 192, 0.15);
+}
+
+/* Retrait de membre */
+.member-actions button {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1rem;
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+.member-actions .btn-remove:hover {
+  color: #f87171;
+}
+
+/* Actions principales */
 .btn-cyber {
   padding: 12px 25px;
   font-family: "Rajdhani", sans-serif;
@@ -475,26 +571,36 @@ h1 {
   color: white;
 }
 
-/* Transitions */
+/* ============================================================
+   TRANSITIONS
+   ============================================================ */
+
 .fade-error-enter-active,
 .fade-error-leave-active {
   transition: all 0.3s ease;
 }
+
 .fade-error-enter-from,
 .fade-error-leave-to {
   opacity: 0;
   transform: translateX(-10px);
 }
 
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
 @media (max-width: 900px) {
   .hud-grid {
     flex-direction: column;
   }
+
   .friends-panel {
     width: 100%;
     height: 180px;
-    flex-shrink: 0; /* 🔥 Empêche le panneau d'amis de se faire écraser sur mobile */
+    flex-shrink: 0;
   }
+
   .teams-grid {
     grid-template-columns: 1fr;
   }
