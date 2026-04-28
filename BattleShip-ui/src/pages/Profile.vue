@@ -382,7 +382,7 @@ export default {
   align-items: center;
   background-image:
     linear-gradient(rgba(3, 10, 16, 0.78), rgba(3, 10, 16, 0.85)),
-    url("@/assets/images/BackGroundAccueil.png");
+    url("@/assets/Bataille_Navale_Assets-main/Background/Accueil.png");
   background-size: cover;
   background-position: center;
   z-index: 1000;

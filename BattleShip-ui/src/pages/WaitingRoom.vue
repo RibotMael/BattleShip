@@ -157,7 +157,7 @@
   inset: 0;
   background-image:
     linear-gradient(rgba(3, 10, 16, 0.9), rgba(3, 10, 16, 0.95)),
-    url("@/assets/images/BackGroundAccueil.png");
+    url("@/assets/Bataille_Navale_Assets-main/Background/Accueil.png");
   background-size: cover;
   background-position: center;
   font-family: "Rajdhani", sans-serif;
