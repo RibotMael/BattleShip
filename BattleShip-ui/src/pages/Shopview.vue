@@ -209,6 +209,8 @@ const BATEAU_VARS = {
     "--brass": "#a78bfa",
     "--brass-light": "#c4b5fd",
     "--accent": "#7c3aed",
+    "--accent-rgb": "124, 58, 237",
+    "--brass-rgb": "167, 139, 250",
   },
   Cyberpunk: {
     "--ocean-deep": "#0a0014",
@@ -216,6 +218,8 @@ const BATEAU_VARS = {
     "--brass": "#f0abfc",
     "--brass-light": "#e879f9",
     "--accent": "#06b6d4",
+    "--accent-rgb": "6, 182, 212",
+    "--brass-rgb": "240, 171, 252",
   },
   Enfer: {
     "--ocean-deep": "#180500",
@@ -223,6 +227,8 @@ const BATEAU_VARS = {
     "--brass": "#f97316",
     "--brass-light": "#fb923c",
     "--accent": "#dc2626",
+    "--accent-rgb": "220, 38, 38",
+    "--brass-rgb": "249, 115, 22",
   },
   Abyssal: {
     "--ocean-deep": "#020a0f",
@@ -230,6 +236,8 @@ const BATEAU_VARS = {
     "--brass": "#6ee7b7",
     "--brass-light": "#a7f3d0",
     "--accent": "#38bdf8",
+    "--accent-rgb": "56, 189, 248",
+    "--brass-rgb": "110, 231, 183",
   },
   "Fleur Spirituel": {
     "--ocean-deep": "#0f0814",
@@ -237,7 +245,19 @@ const BATEAU_VARS = {
     "--brass": "#f9a8d4",
     "--brass-light": "#fbcfe8",
     "--accent": "#86efac",
+    "--accent-rgb": "134, 239, 172",
+    "--brass-rgb": "249, 168, 212",
   },
+};
+
+const DEFAULT_BATEAU_VARS = {
+  "--ocean-deep": "#071520",
+  "--ocean-mid": "#0d2137",
+  "--brass": "#c8933e",
+  "--brass-light": "#eac040",
+  "--accent": "#1de9c0",
+  "--accent-rgb": "29, 233, 192",
+  "--brass-rgb": "200, 147, 62",
 };
 
 const HARDCODED_BATEAU_ITEMS = [
@@ -254,14 +274,6 @@ const HARDCODED_BATEAU_ITEMS = [
   },
 ];
 
-const DEFAULT_BATEAU_VARS = {
-  "--ocean-deep": "#071520",
-  "--ocean-mid": "#0d2137",
-  "--brass": "#c8933e",
-  "--brass-light": "#eac040",
-  "--accent": "#5eead4",
-};
-
 export default {
   name: "ShopView",
   setup() {
@@ -273,6 +285,7 @@ export default {
     return {
       activeCategory: "avatar",
       buyingId: null,
+      activeBateauTheme: localStorage.getItem("activeBateauTheme") || "",
       toast: { visible: false, message: "", type: "success" },
       categories: [
         { id: "avatar", label: "Avatars", icon: "🧑‍✈️" },
@@ -432,9 +445,8 @@ export default {
 
     isEquipped(item) {
       if (item.category === "bateau") {
-        const active = localStorage.getItem("activeBateauTheme") || "";
-        if (item.id === 0) return active === "";
-        return active === item.theme;
+        if (item.id === 0) return this.activeBateauTheme === "";
+        return this.activeBateauTheme === item.theme;
       }
       if (item.id === 0) return !this.shopStore.activeIds?.[item.category];
       return this.shopStore.activeIds?.[item.category] === item.id;
@@ -468,10 +480,10 @@ export default {
       const userId = this.user?.id || this.user?.ID_Users;
       if (!userId) return;
 
-      // ── Bateau : 100% local, pas d'API ──
       if (item.category === "bateau") {
         const theme = item.id === 0 ? "" : item.theme || "";
         localStorage.setItem("activeBateauTheme", theme);
+        this.activeBateauTheme = theme;
 
         const vars = theme && BATEAU_VARS[theme] ? BATEAU_VARS[theme] : DEFAULT_BATEAU_VARS;
         Object.entries(vars).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
@@ -480,7 +492,6 @@ export default {
         return;
       }
 
-      // ── Autres catégories : API ──
       const success = await this.shopStore.equipItem(userId, item);
       if (success) {
         if (item.category === "avatar") {
