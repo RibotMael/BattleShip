@@ -81,7 +81,7 @@ body,
 }
 
 .background {
-  background-image: url("@/assets/images/BackGroundAccueil.png");
+  background-image: url("@/assets/Bataille_Navale_Assets-main/Background/Accueil.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;

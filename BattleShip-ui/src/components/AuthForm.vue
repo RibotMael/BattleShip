@@ -409,7 +409,6 @@ export default {
             registerOnline(data.user.id);
             this.$router.push("/");
           } else {
-            alert("Inscription réussie ! Connecte-toi maintenant.");
             this.isLogin = true;
             this.resetFields();
           }

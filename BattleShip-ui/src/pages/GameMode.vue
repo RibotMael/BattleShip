@@ -155,7 +155,7 @@ const getTeamModeFromSelection = (gameType) => {
 
 const startGame = async () => {
   if (!user.value?.id) {
-    alert("⚠️ Utilisateur non connecté !");
+    //alert("⚠️ Utilisateur non connecté !");
     return;
   }
 
@@ -190,7 +190,7 @@ const startGame = async () => {
     const data = response.data;
 
     if (!data.success) {
-      alert(data.message || "Erreur lors de la création de la partie.");
+      //alert(data.message || "Erreur lors de la création de la partie.");
       return;
     }
 
@@ -210,7 +210,7 @@ const startGame = async () => {
     });
   } catch (err) {
     const errorMsg = err.response?.data?.message || "Impossible de contacter le serveur.";
-    alert(errorMsg);
+    //alert(errorMsg);
   } finally {
     loading.value = false;
   }

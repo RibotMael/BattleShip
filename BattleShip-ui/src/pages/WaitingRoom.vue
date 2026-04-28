@@ -868,7 +868,7 @@ export default {
     },
     exitDueToClosure(reason = "Salle fermée.") {
       clearInterval(this.polling);
-      alert(reason);
+      //alert(reason);
       this.$router.push("/gamemode");
     },
   },

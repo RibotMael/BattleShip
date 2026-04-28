@@ -19,23 +19,18 @@
           </svg>
           Retour
         </button>
-
         <div class="header-center">
           <h1 class="shop-title">
-            <span class="title-icon">◈</span>
-            ARSENAL DES SKINS
-            <span class="title-icon">◈</span>
+            <span class="title-icon">◈</span>ARSENAL DES SKINS<span class="title-icon">◈</span>
           </h1>
           <p class="shop-subtitle">Personnalisez votre flotte</p>
         </div>
-
         <div class="gold-display">
           <span class="gold-icon">🪙</span>
           <span class="gold-amount">{{ shopStore.gold }}</span>
         </div>
       </header>
 
-      <!-- Tabs catégories -->
       <div class="category-tabs">
         <button
           v-for="cat in categories"
@@ -50,67 +45,102 @@
         </button>
       </div>
 
-      <!-- Loader -->
       <div v-if="shopStore.loading" class="loading-state">
         <div class="sonar-ring"></div>
         <p>Chargement de l'arsenal…</p>
       </div>
 
-      <!-- Grille des items -->
       <div v-else class="items-grid">
         <div
           v-for="item in filteredItems"
           :key="item.id"
           class="item-card"
           :class="{
-            owned: isOwned(item.id),
-            equipped: isEquipped(item.slug),
-            'can-afford': !isOwned(item.id) && shopStore.gold >= item.price,
-            'cant-afford': !isOwned(item.id) && shopStore.gold < item.price,
+            owned: isOwned(item),
+            equipped: isEquipped(item),
+            'can-afford': !isOwned(item) && shopStore.gold >= item.price,
+            'cant-afford': !isOwned(item) && shopStore.gold < item.price,
           }"
+          :style="cardGlowStyle(item)"
         >
           <div class="item-preview" :style="buildPreview(item)">
-            <div class="preview-grid">
-              <div
-                v-for="n in 9"
-                :key="n"
-                class="preview-cell"
-                :class="{
-                  hit: [2, 5, 7].includes(n),
-                  miss: [4, 8].includes(n),
-                  ship: [1, 3, 6].includes(n),
-                }"
-                :style="previewCellStyle(item, n)"
-              ></div>
-            </div>
-            <div class="preview-ship-bar" :style="{ background: getVar(item, '--brass') }"></div>
-            <div class="preview-label">{{ item.name }}</div>
+            <template v-if="item.category === 'avatar'">
+              <div class="preview-avatar-ring" :style="ringStyle(item)">
+                <img
+                  :src="skinImgSrc(item)"
+                  :alt="item.name"
+                  class="avatar-portrait"
+                  @error="onImgError($event)"
+                />
+                <span class="skin-fallback">🧑‍✈️</span>
+              </div>
+              <div class="preview-rarity" :style="{ color: rarityColor(item.price) }">
+                {{ rarityLabel(item.price) }}
+              </div>
+            </template>
 
-            <div v-if="isEquipped(item.slug)" class="status-badge equipped-badge">✓ ÉQUIPÉ</div>
-            <div v-else-if="isOwned(item.id)" class="status-badge owned-badge">POSSÉDÉ</div>
+            <template v-else-if="item.category === 'bateau'">
+              <div class="preview-grid">
+                <div
+                  v-for="n in 9"
+                  :key="n"
+                  class="preview-cell"
+                  :class="{
+                    hit: [2, 5, 7].includes(n),
+                    miss: [4, 8].includes(n),
+                    ship: [1, 3, 6].includes(n),
+                  }"
+                  :style="bateauCellStyle(item, n)"
+                ></div>
+              </div>
+              <div
+                class="preview-ship-bar"
+                :style="{ background: bateauVar(item, '--brass') }"
+              ></div>
+              <div class="preview-grid-label" :style="{ color: bateauVar(item, '--accent') }">
+                FLOTTE
+              </div>
+            </template>
+
+            <template v-else-if="item.category === 'fond'">
+              <img
+                :src="skinImgSrc(item)"
+                :alt="item.name"
+                class="fond-preview-img"
+                @error="onImgError($event)"
+              />
+              <div class="fond-overlay"></div>
+              <span class="skin-fallback fond-fallback">🌊</span>
+            </template>
+
+            <div class="preview-label">{{ item.name }}</div>
+            <div v-if="isEquipped(item)" class="status-badge equipped-badge">✓ ACTIF</div>
+            <div v-else-if="isOwned(item)" class="status-badge owned-badge">POSSÉDÉ</div>
             <div v-else-if="item.price === 0" class="status-badge free-badge">GRATUIT</div>
           </div>
 
           <div class="item-body">
             <h3 class="item-name">{{ item.name }}</h3>
-            <p class="item-desc">{{ item.description }}</p>
 
-            <div class="color-palette" v-if="item.css_vars">
+            <div v-if="item.category === 'bateau'" class="color-palette">
               <span
-                v-for="(color, varName) in parsedVars(item)"
-                :key="varName"
+                v-for="(col, vname) in bateauVars(item)"
+                :key="vname"
                 class="color-dot"
-                :style="{ background: color }"
-                :title="varName + ': ' + color"
+                :style="{ background: col }"
+                :title="vname + ': ' + col"
               ></span>
+            </div>
+            <div v-else class="rarity-row" :style="{ color: rarityColor(item.price) }">
+              {{ rarityLabel(item.price) }}
             </div>
 
             <div class="item-actions">
-              <template v-if="isEquipped(item.slug)">
-                <button class="btn-equipped" disabled><span>◈</span> Thème actif</button>
+              <template v-if="isEquipped(item)">
+                <button class="btn-equipped" disabled><span>◈</span> Actif</button>
               </template>
-              <template v-else-if="isOwned(item.id)">
-                <button class="btn-equip" @click="equipItem(item)">Équiper</button>
+              <template v-else-if="isOwned(item)">
+                <button class="btn-equip" @click="equipItem(item)">Activer</button>
               </template>
               <template v-else>
                 <button
@@ -129,24 +159,111 @@
             </div>
           </div>
         </div>
+
+        <div v-if="filteredItems.length === 0" class="empty-state">{{ emptyLabel }}</div>
       </div>
 
       <transition name="toast">
-        <div v-if="toast.visible" class="toast" :class="toast.type">
-          {{ toast.message }}
-        </div>
+        <div v-if="toast.visible" class="toast" :class="toast.type">{{ toast.message }}</div>
       </transition>
     </div>
   </div>
 </template>
 
 <script>
+import.meta.glob("../assets/Bataille_Navale_Assets-main/Avatar/*.png", { eager: true });
+import.meta.glob("../assets/Bataille_Navale_Assets-main/Background/*.png", { eager: true });
 import { useShopStore } from "@/stores/shopStore.js";
 import { userBus } from "@/eventBus.js";
 
+const backgroundImgs = Object.fromEntries(
+  Object.entries(
+    import.meta.glob("../assets/Bataille_Navale_Assets-main/Background/*.png", { eager: true }),
+  ).map(([path, mod]) => [path.split("/").pop(), mod.default]),
+);
+
+/* -- Résolution des images avec Vite Glob -- */
+const avatarImgs = Object.fromEntries(
+  Object.entries(
+    import.meta.glob("../assets/Bataille_Navale_Assets-main/Avatar/*.png", { eager: true }),
+  ).map(([path, mod]) => [path.split("/").pop(), mod.default]),
+);
+
+const fondImgs = Object.fromEntries(
+  Object.entries(
+    import.meta.glob("../assets/Bataille_Navale_Assets-main/Background/*.png", { eager: true }),
+  ).map(([path, mod]) => [path.split("/").pop(), mod.default]),
+);
+
+const RARITY = [
+  { min: 5000, label: "◈ LÉGENDAIRE", color: "#a78bfa" },
+  { min: 3000, label: "◈ ÉPIQUE", color: "#f0abfc" },
+  { min: 700, label: "◈ RARE", color: "#60a5fa" },
+  { min: 0, label: "◈ COMMUN", color: "#6ee7b7" },
+];
+
+const BATEAU_VARS = {
+  Cosmique: {
+    "--ocean-deep": "#0d0118",
+    "--ocean-mid": "#1a0530",
+    "--brass": "#a78bfa",
+    "--brass-light": "#c4b5fd",
+    "--accent": "#7c3aed",
+  },
+  Cyberpunk: {
+    "--ocean-deep": "#0a0014",
+    "--ocean-mid": "#140025",
+    "--brass": "#f0abfc",
+    "--brass-light": "#e879f9",
+    "--accent": "#06b6d4",
+  },
+  Enfer: {
+    "--ocean-deep": "#180500",
+    "--ocean-mid": "#2d0a00",
+    "--brass": "#f97316",
+    "--brass-light": "#fb923c",
+    "--accent": "#dc2626",
+  },
+  Abyssal: {
+    "--ocean-deep": "#020a0f",
+    "--ocean-mid": "#051520",
+    "--brass": "#6ee7b7",
+    "--brass-light": "#a7f3d0",
+    "--accent": "#38bdf8",
+  },
+  "Fleur Spirituel": {
+    "--ocean-deep": "#0f0814",
+    "--ocean-mid": "#1a1028",
+    "--brass": "#f9a8d4",
+    "--brass-light": "#fbcfe8",
+    "--accent": "#86efac",
+  },
+};
+
+const HARDCODED_BATEAU_ITEMS = [
+  { id: "bateau_cosmique", name: "Cosmique", category: "bateau", price: 0, theme: "Cosmique" },
+  { id: "bateau_cyberpunk", name: "Cyberpunk", category: "bateau", price: 0, theme: "Cyberpunk" },
+  { id: "bateau_enfer", name: "Enfer", category: "bateau", price: 0, theme: "Enfer" },
+  { id: "bateau_abyssal", name: "Abyssal", category: "bateau", price: 0, theme: "Abyssal" },
+  {
+    id: "bateau_fleur",
+    name: "Fleur Spirituel",
+    category: "bateau",
+    price: 0,
+    theme: "Fleur Spirituel",
+  },
+];
+
+const DEFAULT_BATEAU_VARS = {
+  "--ocean-deep": "#071520",
+  "--ocean-mid": "#0d2137",
+  "--brass": "#c8933e",
+  "--brass-light": "#eac040",
+  "--accent": "#5eead4",
+};
+
 export default {
   name: "ShopView",
-
   setup() {
     const shopStore = useShopStore();
     return { shopStore };
@@ -154,13 +271,13 @@ export default {
 
   data() {
     return {
-      activeCategory: "theme",
+      activeCategory: "avatar",
       buyingId: null,
       toast: { visible: false, message: "", type: "success" },
       categories: [
-        { id: "theme", label: "Thèmes", icon: "🎨" },
         { id: "avatar", label: "Avatars", icon: "🧑‍✈️" },
-        { id: "title", label: "Titres", icon: "🏅" },
+        { id: "bateau", label: "Bateaux", icon: "🚢" },
+        { id: "fond", label: "Fonds d'écran", icon: "🌊" },
       ],
     };
   },
@@ -174,52 +291,128 @@ export default {
       }
     },
     filteredItems() {
-      return this.shopStore.items.filter((i) => i.category === this.activeCategory);
+      let items = this.shopStore.items
+        .filter((i) => i.category === this.activeCategory)
+        .slice()
+        .sort((a, b) => b.price - a.price);
+
+      if (this.activeCategory === "avatar") {
+        items.unshift({ id: 0, name: "Base", category: "avatar", price: 0, theme: "Base" });
+      }
+      if (this.activeCategory === "bateau") {
+        items = [...HARDCODED_BATEAU_ITEMS];
+        items.unshift({ id: 0, name: "Base", category: "bateau", price: 0, theme: "Base" });
+      }
+      if (this.activeCategory === "fond") {
+        items.unshift({ id: 0, name: "Base", category: "fond", price: 0, folder_name: "" });
+      }
+
+      return items;
+    },
+    emptyLabel() {
+      return (
+        {
+          avatar: "Aucun avatar disponible.",
+          bateau: "Aucun bateau disponible.",
+          fond: "Aucun fond d'écran disponible.",
+        }[this.activeCategory] ?? ""
+      );
     },
   },
 
   async created() {
     const userId = this.user?.id || this.user?.ID_Users;
-    if (userId && !this.shopStore.items.length) {
+    if (userId) {
       await this.shopStore.fetchShop(userId);
     }
   },
 
   methods: {
-    /* ── Helpers visuels ── */
-    parsedVars(item) {
-      try {
-        return JSON.parse(item.css_vars || "{}");
-      } catch {
-        return {};
+    skinImgSrc(item) {
+      const avatarId = this.user?.avatarId || 1;
+
+      if (item.category === "avatar") {
+        const prefix = item.id === 0 ? "" : (item.image_prefix || "").toLowerCase();
+        if (!prefix) return avatarImgs[`${avatarId}.png`] || "";
+        return avatarImgs[`${avatarId}${prefix}.png`] || "";
       }
+
+      if (item.category === "fond") {
+        if (item.id === 0) return backgroundImgs["Accueil.png"] || "";
+        // image_prefix correspond exactement au suffixe du fichier
+        const suffix = (item.image_prefix || "").toLowerCase();
+        return backgroundImgs[`Accueil${suffix}.png`] || "";
+      }
+
+      return "";
     },
-    getVar(item, name) {
-      return this.parsedVars(item)[name] || item.preview_color || "#0d2137";
+
+    onImgError(e) {
+      e.target.style.display = "none";
+      const fb = e.target.nextElementSibling;
+      if (fb) fb.style.display = "flex";
     },
+
+    bateauVars(item) {
+      return BATEAU_VARS[item.theme] || BATEAU_VARS[item.name] || {};
+    },
+    bateauVar(item, name) {
+      const v = BATEAU_VARS[item.theme] || BATEAU_VARS[item.name] || {};
+      return v[name] || "#c8933e";
+    },
+
+    bateauCellStyle(item, n) {
+      const v = BATEAU_VARS[item.name] || {};
+      const brass = v["--brass"] || "#c8933e";
+      const accent = v["--accent"] || "#5eead4";
+      const mid = v["--ocean-mid"] || "#0d2137";
+      if ([2, 5, 7].includes(n)) return { background: brass, boxShadow: `0 0 8px ${brass}` };
+      if ([4, 8].includes(n))
+        return { background: "transparent", borderColor: accent, opacity: 0.5 };
+      if ([1, 3, 6].includes(n)) return { background: accent + "33", borderColor: accent };
+      return { background: "transparent", borderColor: mid };
+    },
+
     buildPreview(item) {
-      const v = this.parsedVars(item);
+      if (item.id === 0) {
+        return {
+          background: "radial-gradient(circle, #1e293b, #020617)",
+          borderColor: "#64748b",
+        };
+      }
+      if (item.category === "bateau") {
+        const v = BATEAU_VARS[item.name] || {};
+        return {
+          background: `linear-gradient(135deg, ${v["--ocean-deep"] || "#071520"} 0%, ${v["--ocean-mid"] || "#0d2137"} 100%)`,
+          borderColor: v["--brass"] || "#c8933e",
+        };
+      }
+      if (item.category === "fond") return { background: "#040d18", borderColor: "#1de9c033" };
+      const color = this.rarityColor(item.price);
       return {
-        background: `linear-gradient(135deg, ${v["--ocean-deep"] || "#071520"} 0%, ${v["--ocean-mid"] || "#0d2137"} 100%)`,
-        borderColor: v["--brass"] || "#c8933e",
+        background: `radial-gradient(ellipse at 50% 80%, ${color}18 0%, #040d18 70%)`,
+        borderColor: color,
       };
     },
-    previewCellStyle(item, n) {
-      const v = this.parsedVars(item);
-      if ([2, 5, 7].includes(n))
-        return {
-          background: v["--brass"] || "#c8933e",
-          boxShadow: `0 0 6px ${v["--brass"] || "#c8933e"}`,
-        };
-      if ([4, 8].includes(n))
-        return { background: "transparent", borderColor: v["--accent"] || "#5eead4", opacity: 0.5 };
-      if ([1, 3, 6].includes(n))
-        return {
-          background: (v["--accent"] || "#5eead4") + "33",
-          borderColor: v["--accent"] || "#5eead4",
-        };
-      return { background: "transparent", borderColor: v["--ocean-mid"] || "#0d2137" };
+
+    ringStyle(item) {
+      const color = this.rarityColor(item.price);
+      return { borderColor: color, boxShadow: `0 0 18px ${color}55` };
     },
+
+    cardGlowStyle(item) {
+      if (this.activeCategory === "bateau") return {};
+      const color = this.rarityColor(item.price);
+      return { "--card-glow": color };
+    },
+
+    rarityColor(price) {
+      return (RARITY.find((r) => price >= r.min) ?? RARITY.at(-1)).color;
+    },
+    rarityLabel(price) {
+      return (RARITY.find((r) => price >= r.min) ?? RARITY.at(-1)).label;
+    },
+
     particleStyle(i) {
       return {
         left: ((i * 37 + 13) % 97) + "%",
@@ -231,16 +424,24 @@ export default {
       };
     },
 
-    /* ── Logic ── */
-    isOwned(itemId) {
-      const item = this.shopStore.items.find((i) => i.id === itemId);
-      if (item?.price === 0) return true;
-      return this.shopStore.ownedIds.includes(itemId);
+    isOwned(item) {
+      if (item.price === 0) return true;
+      if (typeof item.id === "string") return true; // hardcoded bateau toujours possédés
+      return this.shopStore.ownedIds?.includes(item.id) ?? false;
     },
-    isEquipped(slug) {
-      return this.shopStore.activeThemeSlug === slug;
+
+    isEquipped(item) {
+      if (item.category === "bateau") {
+        const active = localStorage.getItem("activeBateauTheme") || "";
+        if (item.id === 0) return active === "";
+        return active === item.theme;
+      }
+      if (item.id === 0) return !this.shopStore.activeIds?.[item.category];
+      return this.shopStore.activeIds?.[item.category] === item.id;
     },
+
     countByCategory(cat) {
+      if (cat === "bateau") return HARDCODED_BATEAU_ITEMS.length;
       return this.shopStore.items.filter((i) => i.category === cat).length;
     },
 
@@ -253,8 +454,7 @@ export default {
       const result = await this.shopStore.buyItem(userId, item);
 
       if (result.success) {
-        // Mettre à jour le localStorage
-        const updatedUser = { ...this.user, gold: result.newGold };
+        const updatedUser = { ...this.user, Gold: result.newGold, gold: result.newGold };
         localStorage.setItem("user", JSON.stringify(updatedUser));
         if (userBus) userBus.userUpdated = !userBus.userUpdated;
         this.showToast(`🪙 "${item.name}" acheté !`, "success");
@@ -268,13 +468,36 @@ export default {
       const userId = this.user?.id || this.user?.ID_Users;
       if (!userId) return;
 
-      const success = await this.shopStore.equipItem(userId, item.slug);
+      // ── Bateau : 100% local, pas d'API ──
+      if (item.category === "bateau") {
+        const theme = item.id === 0 ? "" : item.theme || "";
+        localStorage.setItem("activeBateauTheme", theme);
+
+        const vars = theme && BATEAU_VARS[theme] ? BATEAU_VARS[theme] : DEFAULT_BATEAU_VARS;
+        Object.entries(vars).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
+        if (userBus) userBus.userUpdated = !userBus.userUpdated;
+        this.showToast(`✓ "${item.name}" activé !`, "success");
+        return;
+      }
+
+      // ── Autres catégories : API ──
+      const success = await this.shopStore.equipItem(userId, item);
       if (success) {
-        const updatedUser = { ...this.user, active_theme: item.slug };
-        localStorage.setItem("user", JSON.stringify(updatedUser));
-        this.showToast(`✓ Thème "${item.name}" équipé !`, "success");
+        if (item.category === "avatar") {
+          const stored = JSON.parse(localStorage.getItem("user")) || {};
+          const prefix = item.id === 0 ? "" : (item.image_prefix || "").toLowerCase();
+          stored.activeAvatarPrefix = prefix;
+          localStorage.setItem("user", JSON.stringify(stored));
+        }
+        if (item.category === "fond") {
+          const stored = JSON.parse(localStorage.getItem("user")) || {};
+          stored.activeFondFolder = item.id === 0 ? "" : (item.image_prefix || "").toLowerCase();
+          localStorage.setItem("user", JSON.stringify(stored));
+        }
+        if (userBus) userBus.userUpdated = !userBus.userUpdated;
+        this.showToast(`✓ "${item.name}" activé !`, "success");
       } else {
-        this.showToast("Erreur lors de l'équipement.", "error");
+        this.showToast("Erreur lors de l'activation.", "error");
       }
     },
 
@@ -291,7 +514,26 @@ export default {
 <style scoped>
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Exo+2:wght@400;500;700;800&display=swap");
 
-/* ── FOND ── */
+.item-card {
+  --card-glow: rgba(255, 255, 255, 0);
+  background: rgba(8, 20, 36, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  overflow: hidden;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease,
+    border-color 0.3s;
+  display: flex;
+  flex-direction: column;
+}
+.item-card:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.5),
+    0 0 15px var(--card-glow);
+}
+
 .shop-bg {
   min-height: 100vh;
   background: radial-gradient(ellipse at 20% 20%, #0a1628 0%, #040d18 50%, #020810 100%);
@@ -300,8 +542,6 @@ export default {
   position: relative;
   overflow: hidden;
 }
-
-/* Particules flottantes */
 .particles {
   position: fixed;
   inset: 0;
@@ -331,7 +571,6 @@ export default {
   }
 }
 
-/* ── WRAPPER ── */
 .shop-wrapper {
   position: relative;
   z-index: 1;
@@ -348,7 +587,6 @@ export default {
   margin-bottom: 2.5rem;
   gap: 1rem;
 }
-
 .btn-back {
   display: flex;
   align-items: center;
@@ -370,11 +608,9 @@ export default {
   background: rgba(29, 233, 192, 0.15);
   box-shadow: 0 0 14px rgba(29, 233, 192, 0.2);
 }
-
 .header-center {
   text-align: center;
 }
-
 .shop-title {
   font-family: "Rajdhani", sans-serif;
   font-size: clamp(1.4rem, 3vw, 2.2rem);
@@ -400,7 +636,6 @@ export default {
   margin: 4px 0 0;
   text-transform: uppercase;
 }
-
 .gold-display {
   display: flex;
   align-items: center;
@@ -421,14 +656,13 @@ export default {
   color: #f59e0b;
 }
 
-/* ── CATEGORY TABS ── */
+/* ── TABS ── */
 .category-tabs {
   display: flex;
   gap: 0.75rem;
   margin-bottom: 2rem;
   flex-wrap: wrap;
 }
-
 .cat-tab {
   display: flex;
   align-items: center;
@@ -467,27 +701,10 @@ export default {
 /* ── GRILLE ── */
 .items-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
   gap: 1.5rem;
 }
 
-/* ── CARTE ITEM ── */
-.item-card {
-  background: rgba(8, 20, 36, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 16px;
-  overflow: hidden;
-  transition:
-    transform 0.3s ease,
-    box-shadow 0.3s ease,
-    border-color 0.3s;
-  display: flex;
-  flex-direction: column;
-}
-.item-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-}
 .item-card.equipped {
   border-color: rgba(29, 233, 192, 0.5);
   box-shadow: 0 0 25px rgba(29, 233, 192, 0.12);
@@ -505,7 +722,7 @@ export default {
 /* ── PREVIEW ── */
 .item-preview {
   position: relative;
-  height: 160px;
+  height: 170px;
   border-bottom: 2px solid;
   display: flex;
   align-items: center;
@@ -513,51 +730,124 @@ export default {
   overflow: hidden;
   padding: 16px;
 }
-
-/* Mini-grille de jeu */
-.preview-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 36px);
-  grid-template-rows: repeat(3, 36px);
-  gap: 4px;
-  z-index: 2;
-}
-.preview-cell {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-  transition: all 0.2s;
-}
-
-/* Barre décorative (bateau) */
-.preview-ship-bar {
-  position: absolute;
-  bottom: 18px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 110px;
-  height: 6px;
-  border-radius: 3px;
-  opacity: 0.6;
-}
-
-/* Nom flottant */
 .preview-label {
   position: absolute;
   top: 12px;
   left: 14px;
   font-family: "Rajdhani", sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.35);
+}
+.preview-avatar-ring {
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  border: 2px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 2;
+  transition: box-shadow 0.3s;
+  background: rgba(255, 255, 255, 0.03);
+}
+.avatar-portrait {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+.skin-fallback {
+  font-size: 2.6rem;
+  line-height: 1;
+  display: none;
+  align-items: center;
+  justify-content: center;
 }
 
-/* Badges */
+/* ── BATEAU ── */
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 38px);
+  grid-template-rows: repeat(3, 38px);
+  gap: 4px;
+  z-index: 2;
+}
+.preview-cell {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.preview-ship-bar {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 118px;
+  height: 5px;
+  border-radius: 3px;
+  opacity: 0.65;
+}
+.preview-grid-label {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: "Rajdhani", sans-serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ── FOND ── */
+.fond-preview-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
+  display: block;
+}
+.fond-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(to top, rgba(4, 13, 24, 0.7) 0%, transparent 60%);
+}
+.fond-fallback {
+  font-size: 3rem;
+  z-index: 3;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.preview-rarity {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: "Rajdhani", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  white-space: nowrap;
+  text-transform: uppercase;
+  z-index: 3;
+}
+
+/* ── STATUS BADGE ── */
 .status-badge {
   position: absolute;
   top: 10px;
   right: 10px;
+  z-index: 10;
   font-family: "Rajdhani", sans-serif;
   font-size: 0.7rem;
   font-weight: 700;
@@ -581,7 +871,7 @@ export default {
   border: 1px solid rgba(74, 222, 128, 0.3);
 }
 
-/* ── CORPS CARTE ── */
+/* ── CORPS ── */
 .item-body {
   padding: 1.1rem 1.25rem 1.25rem;
   display: flex;
@@ -589,7 +879,6 @@ export default {
   gap: 0.5rem;
   flex: 1;
 }
-
 .item-name {
   font-family: "Rajdhani", sans-serif;
   font-size: 1.2rem;
@@ -599,20 +888,17 @@ export default {
   color: #e0f2ee;
   margin: 0;
 }
-
-.item-desc {
-  font-size: 0.82rem;
-  color: #6a9e92;
-  line-height: 1.5;
-  margin: 0;
-  flex: 1;
+.rarity-row {
+  font-family: "Rajdhani", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
 }
 
-/* Palette de couleurs */
 .color-palette {
   display: flex;
   gap: 6px;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 .color-dot {
   width: 14px;
@@ -626,11 +912,11 @@ export default {
   transform: scale(1.4);
 }
 
-/* ── BOUTONS ACTION ── */
+/* ── ACTIONS ── */
 .item-actions {
-  margin-top: 0.75rem;
+  margin-top: auto;
+  padding-top: 0.75rem;
 }
-
 .btn-buy,
 .btn-equip,
 .btn-equipped {
@@ -650,7 +936,6 @@ export default {
   justify-content: center;
   gap: 8px;
 }
-
 .btn-buy {
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.08) 100%);
   border: 1px solid rgba(245, 158, 11, 0.4);
@@ -666,7 +951,6 @@ export default {
   cursor: not-allowed;
   filter: grayscale(0.5);
 }
-
 .btn-equip {
   background: linear-gradient(135deg, rgba(29, 233, 192, 0.12) 0%, rgba(29, 233, 192, 0.06) 100%);
   border: 1px solid rgba(29, 233, 192, 0.35);
@@ -677,7 +961,6 @@ export default {
   box-shadow: 0 0 20px rgba(29, 233, 192, 0.2);
   transform: scale(1.02);
 }
-
 .btn-equipped {
   background: rgba(29, 233, 192, 0.07);
   border: 1px solid rgba(29, 233, 192, 0.2);
@@ -685,7 +968,6 @@ export default {
   opacity: 0.8;
   cursor: default;
 }
-
 .spinner {
   display: inline-block;
   animation: spin 0.8s linear infinite;
@@ -696,18 +978,25 @@ export default {
   }
 }
 
-/* ── LOADING ── */
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+/* ── LOADING & EMPTY ── */
+.loading-state,
+.empty-state {
+  grid-column: 1/-1;
+  text-align: center;
   padding: 5rem 0;
   gap: 1.5rem;
   color: #4a9e8e;
   font-family: "Rajdhani", sans-serif;
   letter-spacing: 0.15em;
   text-transform: uppercase;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.empty-state {
+  opacity: 0.6;
+  padding: 4rem 0;
 }
 .sonar-ring {
   width: 60px;
@@ -756,7 +1045,6 @@ export default {
   transform: translateX(-50%) translateY(20px) scale(0.9);
 }
 
-/* ── RESPONSIVE ── */
 @media (max-width: 640px) {
   .shop-header {
     flex-wrap: wrap;

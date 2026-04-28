@@ -1,114 +1,151 @@
-import { defineStore } from "pinia";
+import { defineStore } from 'pinia';
+import api from '@/api/api.js'; // Ajustez le chemin vers votre instance axios si besoin
 
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+const BATEAU_VARS = {
+  Cosmique:        { "--ocean-deep": "#0d0118", "--ocean-mid": "#1a0530", "--brass": "#a78bfa", "--brass-light": "#c4b5fd", "--accent": "#7c3aed" },
+  Cyberpunk:       { "--ocean-deep": "#0a0014", "--ocean-mid": "#140025", "--brass": "#f0abfc", "--brass-light": "#e879f9", "--accent": "#06b6d4" },
+  Enfer:           { "--ocean-deep": "#180500", "--ocean-mid": "#2d0a00", "--brass": "#f97316", "--brass-light": "#fb923c", "--accent": "#dc2626" },
+  Abyssal:         { "--ocean-deep": "#020a0f", "--ocean-mid": "#051520", "--brass": "#6ee7b7", "--brass-light": "#a7f3d0", "--accent": "#38bdf8" },
+  "Fleur Spirituel": { "--ocean-deep": "#0f0814", "--ocean-mid": "#1a1028", "--brass": "#f9a8d4", "--brass-light": "#fbcfe8", "--accent": "#86efac" },
+};
 
-function hexToRgb(hex) {
-  const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return r
-    ? `${parseInt(r[1], 16)}, ${parseInt(r[2], 16)}, ${parseInt(r[3], 16)}`
-    : null;
-}
+const DEFAULT_BATEAU_VARS = {
+  "--ocean-deep": "#071520", "--ocean-mid": "#0d2137",
+  "--brass": "#c8933e", "--brass-light": "#eac040", "--accent": "#5eead4",
+};
 
-export const useShopStore = defineStore("shop", {
+export const useShopStore = defineStore('shop', {
   state: () => ({
     items: [],
     ownedIds: [],
-    activeThemeSlug: "default",
+    activeIds: {
+      avatar: null,
+      bateau: null,
+      fond: null
+    },
     gold: 0,
-    loading: false,
+    loading: false
   }),
 
   actions: {
     async fetchShop(userId) {
-      this.loading = true;
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/shop/${userId}`);
-        const data = await res.json();
-        if (data.success) {
-          this.items = data.items;
-          this.ownedIds = data.ownedItemIds;
-          this.activeThemeSlug = data.activeTheme || "default";
-          this.gold = data.gold;
-          this.applyThemeToDOM();
-        }
-      } catch (err) {
-        console.error("Erreur chargement shop:", err);
-        // Fallback : appliquer le thème stocké en localStorage
-        const user = JSON.parse(localStorage.getItem("user") || "{}");
-        if (user.active_theme) {
-          this.activeThemeSlug = user.active_theme;
-        }
-        this.applyThemeToDOM();
-      } finally {
-        this.loading = false;
+    this.loading = true;
+
+    try {
+      const res = await api.get(`/shop/${userId}`);
+
+      if (res.data.success) {
+        // 🔥 NORMALISATION DES ITEMS (IMPORTANT)
+        this.items = (res.data.items || []).map((i) => ({
+          id: i.id,
+
+          // nom affiché
+          name: i.name || i.nom || "Skin",
+
+          // catégorie (⚠️ dépend de ta DB)
+          category: (i.category || i.type || "").toLowerCase(),
+
+          // prix
+          price: Number(i.price) || 0,
+
+          // avatars → ex: "3neon"
+          image_prefix: i.image_prefix || i.prefix || i.image || "",
+
+          // fonds → ex: "ocean_dark"
+          folder_name: i.folder_name || i.image || i.background || "",
+
+          // thème bateau (TRÈS IMPORTANT pour les couleurs)
+          theme: i.theme || i.name || ""
+        }));
+
+        this.ownedIds = res.data.ownedIds || [];
+
+        this.activeIds = res.data.activeIds || {
+          avatar: null,
+          bateau: null,
+          fond: null
+        };
+
+        this.gold = Number(res.data.gold) || 0;
+
+        // 🧪 DEBUG (à enlever après test)
+        console.log("SHOP ITEMS:", this.items);
       }
+    } catch (error) {
+      console.error("Erreur boutique:", error);
+    } finally {
+      this.loading = false;
+    }
+
     },
 
     async buyItem(userId, item) {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/shop/buy`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId, itemId: item.id }),
-        });
-        const data = await res.json();
-        if (data.success) {
+        const res = await api.post('/shop/buy', { userId, skinId: item.id });
+        if (res.data.success) {
           this.ownedIds.push(item.id);
-          this.gold = data.newGold;
-          return { success: true, newGold: data.newGold };
+          this.gold = res.data.newGold;
+          return { success: true, newGold: this.gold };
         }
-        return { success: false, message: data.message };
-      } catch {
-        return { success: false, message: "Erreur réseau" };
+        return { success: false, message: res.data.message };
+      } catch (error) {
+        return { success: false, message: error.response?.data?.message || "Erreur" };
       }
     },
 
-    async equipItem(userId, slug) {
+    async equipItem(userId, item) {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/shop/equip`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId, slug }),
+        const res = await api.post('/shop/equip', { 
+          userId, 
+          skinId: item.id, 
+          category: item.category 
         });
-        const data = await res.json();
-        if (data.success) {
-          this.activeThemeSlug = slug;
-          this.applyThemeToDOM();
+        if (res.data.success) {
+          this.activeIds[item.category] = item.id;
+
+          // Propager le skin avatar actif dans le localStorage
+          if (item.category === 'avatar') {
+            const stored = JSON.parse(localStorage.getItem('user')) || {};
+            stored.activeAvatarPrefix = item.id === 0 ? '' : (item.image_prefix || '');
+            localStorage.setItem('user', JSON.stringify(stored));
+          }
+
+          if (item.category === 'fond') {
+            const stored = JSON.parse(localStorage.getItem('user')) || {};
+            stored.activeFondFolder = item.id === 0 ? '' : (item.folder_name || '');
+            localStorage.setItem('user', JSON.stringify(stored));
+          }
+
           return true;
         }
-      } catch (err) {
-        console.error(err);
+        return false;
+      } catch (error) {
+        console.error("Erreur équipement:", error);
+        return false;
       }
-      return false;
     },
-
     applyThemeToDOM() {
-      // Thèmes hardcodés comme fallback si le store n'a pas encore chargé les items
-      const FALLBACK_THEMES = {
-        default:  { "--ocean-deep": "#071520", "--ocean-mid": "#0d2137", "--brass": "#c8933e", "--brass-light": "#eac040", "--accent": "#5eead4" },
-        crimson:  { "--ocean-deep": "#1a0a0a", "--ocean-mid": "#2d1111", "--brass": "#d4443c", "--brass-light": "#ff6b5e", "--accent": "#ff9a8b" },
-        arctic:   { "--ocean-deep": "#0a1a2e", "--ocean-mid": "#122a44", "--brass": "#6fb4d4", "--brass-light": "#a0d8ef", "--accent": "#d0f0ff" },
-        abyss:    { "--ocean-deep": "#0d0818", "--ocean-mid": "#1a1030", "--brass": "#9b59b6", "--brass-light": "#c084e0", "--accent": "#e0b0ff" },
-        phantom:  { "--ocean-deep": "#0e0e0e", "--ocean-mid": "#1a1a1a", "--brass": "#7a7a7a", "--brass-light": "#a0a0a0", "--accent": "#b0ffb0" },
-        gold:     { "--ocean-deep": "#0f0a00", "--ocean-mid": "#1a1400", "--brass": "#ffd700", "--brass-light": "#ffe44d", "--accent": "#fff8b0" },
-      };
+      // Bateau : lu depuis localStorage (stockage local uniquement)
+      const activeTheme = localStorage.getItem('activeBateauTheme') || '';
+      const vars = activeTheme && BATEAU_VARS[activeTheme]
+        ? BATEAU_VARS[activeTheme]
+        : DEFAULT_BATEAU_VARS;
 
-      const theme = this.items.find((i) => i.slug === this.activeThemeSlug);
-      let vars = null;
+      Object.entries(vars).forEach(([k, v]) =>
+        document.documentElement.style.setProperty(k, v)
+      );
 
-      if (theme?.css_vars) {
-        try { vars = JSON.parse(theme.css_vars); } catch { /* ignore */ }
-      }
+      // Fond : sync localStorage pour HomeView
+      const activeFondId = this.activeIds?.fond;
+      const activeFond = activeFondId
+        ? this.items.find(i => i.id === activeFondId && i.category === 'fond')
+        : null;
 
-      if (!vars) vars = FALLBACK_THEMES[this.activeThemeSlug] || FALLBACK_THEMES.default;
-
-      const root = document.documentElement;
-
-      for (const [key, value] of Object.entries(vars)) {
-        root.style.setProperty(key, value); 
-        const rgb = hexToRgb(value);
-        if (rgb) root.style.setProperty(`${key}-rgb`, rgb);
-      }
+      const stored = JSON.parse(localStorage.getItem('user')) || {};
+      stored.activeFondFolder = activeFond
+        ? (activeFond.image_prefix || '').toLowerCase()
+        : (stored.activeFondFolder || '');
+      localStorage.setItem('user', JSON.stringify(stored));
     },
-  },
+  }
 });

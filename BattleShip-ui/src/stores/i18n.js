@@ -60,7 +60,7 @@ const translations = {
     game_fleet_hidden: "FLOTTE MASQUÉE",
     game_target: "CIBLE :",
     game_opponent: "ADVERSAIRE",
-    game_targeted: "◀ CIBLÉ",
+    game_targeted: "◀ CIBLE",
     game_eliminated: "UNITÉ ÉLIMINÉE - TRANSMISSION SPECTATEUR ACTIVÉE",
     game_return_hq: "RETOUR AU QG",
     game_credits: "CRÉDITS",

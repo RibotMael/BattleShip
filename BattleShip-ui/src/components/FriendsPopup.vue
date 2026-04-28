@@ -289,7 +289,7 @@ export default {
     },
 
     async addFriend() {
-      if (!this.identifier.trim()) return alert("Pseudo requis");
+      if (!this.identifier.trim()) return; //alert("Pseudo requis");
       try {
         await api.post("/friends/add", {
           userId: this.userId,
@@ -298,7 +298,7 @@ export default {
         this.identifier = "";
         this.fetchFriends();
       } catch (err) {
-        alert("Utilisateur introuvable ou déjà ajouté.");
+        //alert("Utilisateur introuvable ou déjà ajouté.");
       }
     },
 
@@ -317,7 +317,7 @@ export default {
           this.$emit("close");
         }
       } catch (err) {
-        alert("Impossible de rejoindre la partie.");
+        //alert("Impossible de rejoindre la partie.");
       }
     },
 

@@ -147,7 +147,7 @@ export default {
 
     async joinGame(gameId) {
       if (!this.user) {
-        alert("Vous devez être connecté pour rejoindre une partie.");
+        //alert("Vous devez être connecté pour rejoindre une partie.");
         return;
       }
 
@@ -160,10 +160,10 @@ export default {
           localStorage.setItem("currentGame", JSON.stringify({ gameId, playerId }));
           this.$router.push({ name: "WaitingRoom", params: { gameId } });
         } else {
-          alert(res.data.message || "Impossible de rejoindre la partie.");
+          //(res.data.message || "Impossible de rejoindre la partie.");
         }
       } catch (err) {
-        alert(err.response?.data?.message || "Erreur lors de la connexion.");
+        //alert(err.response?.data?.message || "Erreur lors de la connexion.");
       }
     },
 

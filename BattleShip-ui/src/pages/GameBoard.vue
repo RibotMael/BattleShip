@@ -113,7 +113,7 @@
             @click="currentOpponentIndex = i"
           >
             <span class="dot"></span> ⚔️ {{ enemy.pseudo }}
-            <span v-if="currentOpponentIndex === i" class="target-indicator">◀ CIBLÉ</span>
+            <span v-if="currentOpponentIndex === i" class="target-indicator">◀ CIBLE</span>
           </h2>
           <div
             class="grid-wrapper target-focus"
@@ -380,6 +380,10 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
   name: "GameBoard",
+  setup() {
+    const shopStore = useShopStore();
+    return { shopStore };
+  },
   props: {
     gameId: { type: String, required: true },
     gameType: { type: String, default: "" },
@@ -490,8 +494,6 @@ export default {
     },
   },
   mounted() {
-    const shopStore = useShopStore();
-    shopStore.applyThemeToDOM();
     this.removeSocketListeners();
     this.initGame();
     this.initAudio();
@@ -767,6 +769,12 @@ export default {
       this.resetGameState();
       await this.fetchPlayerBoard();
       await this.fetchOpponents();
+      const userId = this.user?.id || this.user?.ID_Users;
+      if (userId && this.shopStore.items.length === 0) {
+        await this.shopStore.fetchShop(userId);
+      }
+      this.shopStore.applyThemeToDOM();
+
       await this.$nextTick();
       await this.syncAllShots();
       await this.fetchEnemyShots();

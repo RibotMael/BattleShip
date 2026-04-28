@@ -1,5 +1,5 @@
 <template>
-  <div class="background">
+  <div class="background" :style="backgroundStyle">
     <div class="game-menu">
       <div v-if="!user" class="auth-wrapper">
         <AuthForm @login-success="handleLoginSuccess" />
@@ -148,6 +148,18 @@ import { i18nStore } from "@/stores/i18n";
 const defaultAvatar =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAHklEQVR42u3PAQ0AAAwCoNm/9HI4gAAAAAAAAAAAOBwG4cAAfNmS7sAAAAASUVORK5CYII=";
 
+const avatarImgs = Object.fromEntries(
+  Object.entries(
+    import.meta.glob("../assets/Bataille_Navale_Assets-main/Avatar/*.png", { eager: true }),
+  ).map(([path, mod]) => [path.split("/").pop(), mod.default]),
+);
+
+const backgroundImgs = Object.fromEntries(
+  Object.entries(
+    import.meta.glob("../assets/Bataille_Navale_Assets-main/Background/*.png", { eager: true }),
+  ).map(([path, mod]) => [path.split("/").pop(), mod.default]),
+);
+
 export default {
   components: { AuthForm, FriendsPopup },
   data() {
@@ -162,8 +174,23 @@ export default {
     };
   },
   computed: {
+    backgroundStyle() {
+      const folder = this.user?.activeFondFolder ?? "";
+      const key = folder ? `Accueil${folder}.png` : "Accueil.png";
+      const img = backgroundImgs[key] || backgroundImgs["Accueil.png"] || "";
+      return {
+        backgroundImage: `linear-gradient(rgba(3, 10, 16, 0.8), rgba(3, 10, 16, 0.85)), url("${img}")`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      };
+    },
     avatarSrc() {
       if (!this.user) return defaultAvatar;
+      const prefix = this.user.activeAvatarPrefix ?? "";
+      const avatarId = this.user.avatarId || 1;
+      if (prefix) {
+        return avatarImgs[`${avatarId}${prefix}.png`] || this.user.avatar || defaultAvatar;
+      }
       return this.user.avatar || defaultAvatar;
     },
     invitationCount() {
@@ -252,11 +279,6 @@ export default {
 .background {
   position: fixed;
   inset: 0;
-  background-image:
-    linear-gradient(rgba(3, 10, 16, 0.8), rgba(3, 10, 16, 0.85)),
-    url("@/assets/images/BackGroundAccueil.png");
-  background-size: cover;
-  background-position: center;
   font-family: "Inter", sans-serif;
 }
 

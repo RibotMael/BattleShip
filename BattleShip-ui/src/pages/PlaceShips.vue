@@ -192,7 +192,7 @@ export default {
     },
 
     async validatePlacement() {
-      if (!this.canValidate) return alert("⛵ Placez tous vos bateaux avant de valider !");
+      if (!this.canValidate) return; //alert("⛵ Placez tous vos bateaux avant de valider !");
       const shipsNumbers = this.grid.map((c) => (c.hasShip ? c.shipId + 1 : 0));
 
       try {
@@ -206,7 +206,7 @@ export default {
         if (res.data.success) {
           await this.checkAllPlayersReady();
         } else {
-          alert("Erreur : " + res.data.message);
+          //alert("Erreur : " + res.data.message);
         }
       } catch (err) {
         // Mode silencieux

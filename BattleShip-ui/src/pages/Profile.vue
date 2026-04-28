@@ -35,7 +35,7 @@
                 :class="{ selected: avatar === av.ID_Avatar }"
                 @click="selectAvatar(av.ID_Avatar)"
               >
-                <img :src="'data:' + av.mime_type + ';base64,' + av.Avatar" />
+                <img :src="avatarThumbSrc(av)" />
               </div>
             </div>
           </div>
@@ -163,6 +163,12 @@ import api from "@/api/api.js";
 const defaultAvatar =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAHklEQVR42u3PAQ0AAAwCoNm/9HI4gAAAAAAAAAAAOBwG4cAAfNmS7sAAAAASUVORK5CYII=";
 
+const avatarImgs = Object.fromEntries(
+  Object.entries(
+    import.meta.glob("../assets/Bataille_Navale_Assets-main/Avatar/*.png", { eager: true }),
+  ).map(([path, mod]) => [path.split("/").pop(), mod.default]),
+);
+
 export default {
   data() {
     return {
@@ -171,11 +177,10 @@ export default {
       avatars: [],
       avatar: null,
       avatarPreviewUrl: defaultAvatar,
+      activePrefix: "",
       currentGold: 0,
       currentXp: 0,
       currentLevel: 0,
-
-      // Nouvelles variables pour le ratio
       wins: 0,
       defeats: 0,
       gamesPlayed: 0,
@@ -216,11 +221,18 @@ export default {
       this.currentGold = user.gold ?? 0;
       this.currentXp = user.xp ?? 0;
       this.currentLevel = user.level ?? 0;
-
-      // Récupération optionnelle depuis le localStorage si stocké
       this.wins = user.wins ?? 0;
       this.defeats = user.defeats ?? 0;
       this.gamesPlayed = user.gamesPlayed ?? 0;
+      const prefix = user.activeAvatarPrefix || "";
+      const avatarId = user.avatarId || 1;
+      this.activePrefix = prefix;
+      if (prefix) {
+        this.avatarPreviewUrl =
+          avatarImgs[`${avatarId}${prefix}.png`] || user.avatar || defaultAvatar;
+      } else {
+        this.avatarPreviewUrl = user.avatar || defaultAvatar;
+      }
     }
     this.fetchAvatars();
     if (this.userId) this.fetchUserStats();
@@ -230,9 +242,13 @@ export default {
       try {
         const res = await api.get("/avatars");
         this.avatars = res.data.avatars;
-        if (this.avatar) this.updatePreview(this.avatar);
+        // N'écraser l'aperçu QUE si aucun skin de shop n'est actif
+        const prefix = (JSON.parse(localStorage.getItem("user")) || {}).activeAvatarPrefix ?? "";
+        if (!prefix && this.avatar) {
+          this.updatePreview(this.avatar);
+        }
       } catch (e) {
-        // Mode silencieux
+        // silencieux
       }
     },
 
@@ -263,9 +279,28 @@ export default {
       }
     },
 
+    avatarThumbSrc(av) {
+      if (this.activePrefix) {
+        return (
+          avatarImgs[`${av.ID_Avatar}${this.activePrefix}.png`] ||
+          `data:${av.mime_type};base64,${av.Avatar}`
+        );
+      }
+      return `data:${av.mime_type};base64,${av.Avatar}`;
+    },
+
     selectAvatar(id) {
       this.avatar = id;
-      this.updatePreview(id);
+      // On garde le prefix actif, on ne le réinitialise plus
+      const stored = JSON.parse(localStorage.getItem("user")) || {};
+      stored.avatarId = id;
+      localStorage.setItem("user", JSON.stringify(stored));
+
+      if (this.activePrefix) {
+        this.avatarPreviewUrl = avatarImgs[`${id}${this.activePrefix}.png`] || defaultAvatar;
+      } else {
+        this.updatePreview(id);
+      }
     },
 
     updatePreview(id) {
@@ -282,30 +317,38 @@ export default {
         });
         const updatedUser = res.data;
 
-        this.avatarPreviewUrl = updatedUser.avatar || defaultAvatar;
         this.pseudo = updatedUser.pseudo;
-
         this.currentGold = updatedUser.gold ?? this.currentGold;
         this.currentXp = updatedUser.xp ?? this.currentXp;
         this.currentLevel = updatedUser.level ?? this.currentLevel;
 
         const stored = JSON.parse(localStorage.getItem("user")) || {};
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            ...stored,
-            id: updatedUser.id,
-            pseudo: updatedUser.pseudo,
-            avatarId: updatedUser.avatarId,
-            avatar: updatedUser.avatar,
-            gold: this.currentGold,
-            xp: this.currentXp,
-            level: this.currentLevel,
-          }),
-        );
+        const activePrefix = stored.activeAvatarPrefix ?? "";
+
+        const newStored = {
+          ...stored,
+          id: updatedUser.id,
+          pseudo: updatedUser.pseudo,
+          avatarId: updatedUser.avatarId ?? this.avatar,
+          avatar: updatedUser.avatar,
+          gold: this.currentGold,
+          xp: this.currentXp,
+          level: this.currentLevel,
+          activeAvatarPrefix: activePrefix,
+        };
+        localStorage.setItem("user", JSON.stringify(newStored));
+
+        // Recalcule l'aperçu en tenant compte du skin actif
+        const avatarId = updatedUser.avatarId ?? this.avatar ?? 1;
+        if (activePrefix) {
+          this.avatarPreviewUrl =
+            avatarImgs[`${avatarId}${activePrefix}.png`] || updatedUser.avatar || defaultAvatar;
+        } else {
+          this.avatarPreviewUrl = updatedUser.avatar || defaultAvatar;
+        }
 
         userBus.userUpdated = !userBus.userUpdated;
-        alert("Profil mis à jour !");
+        //alert("Profil mis à jour !");
       } catch (err) {
         // Mode silencieux
       }
@@ -317,7 +360,7 @@ export default {
         await api.delete(`/users/${this.userId}`);
         localStorage.removeItem("user");
         userBus.userUpdated = !userBus.userUpdated;
-        alert("Compte supprimé avec succès.");
+        //alert("Compte supprimé avec succès.");
         this.$router.push("/");
       } catch (err) {
         // Mode silencieux
