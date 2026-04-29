@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import api from '@/api/api.js'; // Ajustez le chemin vers votre instance axios si besoin
+import api from '@/api/api.js'; 
 
 const BATEAU_VARS = {
   Cosmique:        { "--ocean-deep": "#0d0118", "--ocean-mid": "#1a0530", "--brass": "#a78bfa", "--brass-light": "#c4b5fd", "--accent": "#7c3aed" },
@@ -35,26 +35,13 @@ export const useShopStore = defineStore('shop', {
       const res = await api.get(`/shop/${userId}`);
 
       if (res.data.success) {
-        // 🔥 NORMALISATION DES ITEMS (IMPORTANT)
         this.items = (res.data.items || []).map((i) => ({
           id: i.id,
-
-          // nom affiché
           name: i.name || i.nom || "Skin",
-
-          // catégorie (⚠️ dépend de ta DB)
           category: (i.category || i.type || "").toLowerCase(),
-
-          // prix
           price: Number(i.price) || 0,
-
-          // avatars → ex: "3neon"
           image_prefix: i.image_prefix || i.prefix || i.image || "",
-
-          // fonds → ex: "ocean_dark"
           folder_name: i.folder_name || i.image || i.background || "",
-
-          // thème bateau (TRÈS IMPORTANT pour les couleurs)
           theme: i.theme || i.name || ""
         }));
 
@@ -67,12 +54,9 @@ export const useShopStore = defineStore('shop', {
         };
 
         this.gold = Number(res.data.gold) || 0;
-
-        // 🧪 DEBUG (à enlever après test)
-        console.log("SHOP ITEMS:", this.items);
       }
     } catch (error) {
-      console.error("Erreur boutique:", error);
+      // 
     } finally {
       this.loading = false;
     }
@@ -103,7 +87,6 @@ export const useShopStore = defineStore('shop', {
         if (res.data.success) {
           this.activeIds[item.category] = item.id;
 
-          // Propager le skin avatar actif dans le localStorage
           if (item.category === 'avatar') {
             const stored = JSON.parse(localStorage.getItem('user')) || {};
             stored.activeAvatarPrefix = item.id === 0 ? '' : (item.image_prefix || '');
@@ -125,7 +108,6 @@ export const useShopStore = defineStore('shop', {
       }
     },
     applyThemeToDOM() {
-      // Bateau : lu depuis localStorage (stockage local uniquement)
       const activeTheme = localStorage.getItem('activeBateauTheme') || '';
       const vars = activeTheme && BATEAU_VARS[activeTheme]
         ? BATEAU_VARS[activeTheme]
@@ -135,7 +117,6 @@ export const useShopStore = defineStore('shop', {
         document.documentElement.style.setProperty(k, v)
       );
 
-      // Fond : sync localStorage pour HomeView
       const activeFondId = this.activeIds?.fond;
       const activeFond = activeFondId
         ? this.items.find(i => i.id === activeFondId && i.category === 'fond')

@@ -19,8 +19,6 @@ pool.getConnection()
   })
   .catch(err => console.error("❌ Erreur MySQL :", err));
 
-
-// Fonction de requête réutilisable
 async function query(sql, params) {
   return pool.execute(sql, params);
 }

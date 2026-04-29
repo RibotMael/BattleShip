@@ -60,7 +60,6 @@ router.get('/:id/list', async (req, res) => {
     `;
     const [friends] = await query(sql, [userId, userId, userId]);
 
-    // Transformer les avatars en base64
     const friendsWithAvatar = friends.map(f => {
       let avatar = null;
       if (f.avatar_blob) {
@@ -92,18 +91,14 @@ router.put('/:id', async (req, res) => {
   try {
     let newAvatarId = null;
 
-    // Vérifier l'avatar actuel
     const [[user]] = await query("SELECT Avatar FROM users WHERE ID_Users = ?", [userId]);
     const oldAvatarId = user?.Avatar || null;
 
-    // avatar est un nombre (ID_Avatar existant en BDD)
     if (typeof avatar === "number") {
       newAvatarId = avatar;
 
-      // Update uniquement le lien
       await query("UPDATE users SET Pseudo = ?, Avatar = ? WHERE ID_Users = ?", [pseudo, newAvatarId, userId]);
 
-    //  avatar est une chaîne base64 : upload 
     } else if (avatar && typeof avatar === "string") {
       const buffer = Buffer.from(avatar, 'base64');
       const extension = mimeType.split('/')[1] || 'png';
@@ -113,21 +108,17 @@ router.put('/:id', async (req, res) => {
       const [result] = await query(insertSql, [buffer, avatarName, mimeType]);
       newAvatarId = result.insertId;
 
-      // Mise à jour du user
       await query("UPDATE users SET Pseudo = ?, Avatar = ? WHERE ID_Users = ?", [pseudo, newAvatarId, userId]);
 
-      // Supprimer l’ancien avatar seulement si c'était un upload perso 
       if (oldAvatarId) {
         await query("DELETE FROM avatar WHERE ID_Avatar = ?", [oldAvatarId]);
       }
 
-    // pas d’avatar, juste pseudo
     } else {
       await query("UPDATE users SET Pseudo = ? WHERE ID_Users = ?", [pseudo, userId]);
       newAvatarId = oldAvatarId;
     }
 
-    // Récupérer l’utilisateur mis à jour
     const [rows] = await query(`
       SELECT u.ID_Users, u.Email, u.Pseudo, u.BirthDay, u.niveau,
              a.Avatar AS avatar_blob, a.mime_type, u.Avatar AS avatarId
@@ -163,8 +154,6 @@ router.delete('/:id', async (req, res) => {
   const userId = req.params.id;
 
   try {
-
-    // Supprime le compte utilisateur
     await db.query("DELETE FROM users WHERE ID_Users = ?", [userId]);
 
     res.json({ success: true, message: "Utilisateur supprimé avec succès." });
@@ -178,7 +167,6 @@ router.get('/:id/stats', async (req, res) => {
   if (!userId) return res.status(400).json({ success: false });
 
   try {
-    // ON JOINT LES DEUX TABLES
     const [rows] = await db.query(
       `SELECT u.Gold, u.xp, u.niveau, r.Win, r.Defeat, r.Game_Played 
        FROM users u 
@@ -196,7 +184,6 @@ router.get('/:id/stats', async (req, res) => {
       gold: stats.Gold,
       xp: stats.xp,
       level: stats.niveau,
-      // On renvoie les stats de la table ratio
       win: stats.Win || 0,
       defeat: stats.Defeat || 0,
       game_played: stats.Game_Played || 0
@@ -246,7 +233,7 @@ router.post("/:id/reward", async (req, res) => {
     const newXp       = currentXp + xpGain;
     const lvlAfter    = computeLevel(newXp);
     const levelsGained = lvlAfter.level - lvlBefore.level;
-    const levelUpGold  = levelsGained * 200;   // +200 gold par niveau gagné
+    const levelUpGold  = levelsGained * 200;  
     const totalGold    = baseGold + levelUpGold;
     const newGold      = currentGold + totalGold;
  

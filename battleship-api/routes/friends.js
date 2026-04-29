@@ -14,7 +14,6 @@ router.post("/add", async (req, res) => {
   const identifierTrimmed = identifier.trim();
 
   try {
-    // Recherche pseudo ou email 
     const [users] = await query(
       `SELECT ID_Users, Pseudo 
        FROM users 
@@ -33,7 +32,6 @@ router.post("/add", async (req, res) => {
       return res.status(400).json({ success: false, message: "Impossible de s'ajouter soi-même" });
     }
 
-    // Vérifie qu’une relation n’existe pas déjà
     const [rel] = await query(
       `SELECT * 
        FROM friends 
@@ -45,7 +43,6 @@ router.post("/add", async (req, res) => {
       return res.status(400).json({ success: false, message: "Relation déjà existante" });
     }
 
-    // Ajoute la demande
     const [result] = await query(
       "INSERT INTO friends (Sender_ID, Receiver_ID, Status) VALUES (?, ?, 'Pending')",
       [userId, friendId]

@@ -1,4 +1,3 @@
-//invitations.js
 import express from "express";
 import {
   sendInviteToDB,

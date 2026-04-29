@@ -1,10 +1,6 @@
-// src/services/socket.js
 import { io } from "socket.io-client";
 
 const SOCKET_URL = import.meta.env.VITE_API_URL;
-
-console.log("🔌 Socket URL utilisée :", SOCKET_URL);
-
 const socket = io(SOCKET_URL, {
   transports: ["websocket", "polling"],
   reconnectionAttempts: 5,
@@ -13,22 +9,25 @@ const socket = io(SOCKET_URL, {
   autoConnect: true,
 });
 
+function getUserId() {
+  try {
+    const user = JSON.parse(localStorage.getItem("user"));
+    return user?.id || user?.ID_Users || null;
+  } catch { return null; }
+}
+
 socket.on("connect", () => {
-  console.log("⚡ Socket connecté :", socket.id);
-  const userId = localStorage.getItem("userId");
-  if (userId) socket.emit("user-online", { userId });
+  const userId = getUserId();
+  // "register-user" = ce que le serveur écoute réellement
+  if (userId) socket.emit("register-user", { userId: Number(userId) });
 });
 
 socket.on("disconnect", (reason) => {
   console.warn("🔌 Socket déconnecté :", reason);
 });
 
-socket.on("connect_error", (err) => {
-  console.error("❌ Erreur de connexion Socket:", err.message);
-});
-
 export function registerOnline(userId) {
-  if (userId) socket.emit("user-online", { userId });
+  if (userId) socket.emit("register-user", { userId: Number(userId) });
 }
 
 export default socket;

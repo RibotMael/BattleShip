@@ -1,6 +1,6 @@
 <!--JoinGame.vue-->
 <template>
-  <div class="background join-page">
+  <div class="background join-page" :style="backgroundStyle">
     <div class="join-container">
       <header class="page-header">
         <button class="btn-back-icon" @click="$router.push('/')">
@@ -92,6 +92,14 @@
 
 <script>
 import api from "@/api/api.js";
+import { userBus } from "@/eventBus.js";
+import { watch } from "vue";
+
+const backgroundImgs = Object.fromEntries(
+  Object.entries(
+    import.meta.glob("../assets/Bataille_Navale_Assets-main/Background/*.png", { eager: true }),
+  ).map(([path, mod]) => [path.split("/").pop(), mod.default]),
+);
 
 export default {
   data() {
@@ -103,9 +111,20 @@ export default {
       refreshInterval: null,
       selectedLanguage: "",
       selectedMode: "",
+      currentUser: JSON.parse(localStorage.getItem("user")) || null,
     };
   },
   computed: {
+    backgroundStyle() {
+      const folder = this.currentUser?.activeFondFolder ?? "";
+      const key = folder ? `Accueil${folder}.png` : "Accueil.png";
+      const img = backgroundImgs[key] || backgroundImgs["Accueil.png"] || "";
+      return {
+        backgroundImage: `linear-gradient(rgba(3, 10, 16, 0.85), rgba(3, 10, 16, 0.9)), url("${img}")`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      };
+    },
     filteredGames() {
       return this.publicGames
         .filter((game) => game.Status === "preparation")
@@ -113,6 +132,15 @@ export default {
         .filter((game) => !this.selectedLanguage || game.Language === this.selectedLanguage)
         .filter((game) => !this.selectedMode || game.TeamMode === this.selectedMode);
     },
+  },
+  created() {
+    watch(
+      () => userBus.userUpdated,
+      () => {
+        this.currentUser = JSON.parse(localStorage.getItem("user")) || null;
+      },
+      { immediate: true },
+    );
   },
   mounted() {
     this.user = JSON.parse(localStorage.getItem("user"));
@@ -183,20 +211,6 @@ export default {
 
 <style scoped>
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap");
-
-.background {
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(3, 10, 16, 0.85), rgba(3, 10, 16, 0.9)),
-    url("@/assets/Bataille_Navale_Assets-main/Background/Accueil.png");
-  background-size: cover;
-  background-position: center;
-  font-family: "Inter", sans-serif;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
 
 .join-container {
   width: 90%;

@@ -1,5 +1,3 @@
-// routes/games.js
-
 import express from "express";
 import db from "../db.js";
 import { fleetsByVersion } from "../utils/fleets.js";
@@ -553,7 +551,6 @@ router.post("/leave", async (req, res) => {
   }
 });
 
-// GET /api/games/:gameId/timer
 router.get("/:gameId/timer", async (req, res) => {
   const { gameId } = req.params;
   try {
@@ -760,7 +757,6 @@ router.post("/shoot", async (req, res) => {
   }
 
   try {
-    // Vérifier si CE joueur a déjà tiré sur cette case (pending ou résolu)
     const [existingShots] = await db.query(
       `SELECT id_shot, result, state
        FROM shots
@@ -777,15 +773,12 @@ router.post("/shoot", async (req, res) => {
       });
     }
 
-    // Insérer le tir en PENDING — sera résolu par resolveTurn() à la fin du tour
     await db.query(
       `INSERT INTO shots (id_game, id_player, target_id, target_x, target_y, result, state)
        VALUES (?, ?, ?, ?, ?, NULL, 'pending')`,
       [gameId, playerId, targetId, x, y]
     );
 
-    // Répondre immédiatement avec "pending"
-    // Le vrai résultat sera émis par socket (shot-fired) quand resolveTurn() s'exécute
     res.json({
       success: true,
       result: "pending",
@@ -798,7 +791,6 @@ router.post("/shoot", async (req, res) => {
   }
 });
 
-// GET /api/games/:gameId/shots
 router.get("/:gameId/shots", async (req, res) => {
   const { gameId } = req.params;
   const playerId = Number(req.query.playerId);
@@ -1099,7 +1091,6 @@ router.get("/:id/stats", async (req, res) => {
   }
 });
 
-// POST /api/games/join/:id
 router.post("/join/:id", async (req, res) => {
   const gameId = parseInt(req.params.id, 10);
   const playerId = parseInt(req.body.playerId, 10);

@@ -5,7 +5,6 @@ import db from "../db.js";
  */
 export async function sendInviteToDB({ gameId, senderId, receiverId }) {
   try {
-    // Vérifier les doublons pour éviter d'envoyer 10 fois la même invit
     const [existing] = await db.execute(
       `SELECT ID FROM game_invites 
        WHERE id_game = ? AND sender_id = ? AND receiver_id = ? AND status = 'Pending'`,
@@ -58,7 +57,6 @@ export async function respondInviteDB(inviteId, accept, userId) {
       );
       const id_game = invites[0].id_game;
 
-      // Correction ici : id_player (selon ta BDD) et player_status 'in_game'
       await connection.execute(
         `INSERT IGNORE INTO game_players (id_game, id_player, player_status) 
          VALUES (?, ?, 'in_game')`,

@@ -1,5 +1,3 @@
-// battleship-api/api/check-pseudo.js
-
 import { Router } from 'express';
 import { query } from '../db.js';
 

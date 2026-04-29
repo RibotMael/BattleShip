@@ -213,6 +213,7 @@
 <script>
 import { invitationStore, removeInvitation } from "@/eventBus";
 import api from "@/api/api.js";
+import socket from "@/services/socket.js";
 import defaultAvatar from "@/assets/images/ppHomme.png";
 
 export default {
@@ -224,6 +225,7 @@ export default {
       identifier: "",
       defaultAvatar,
       refreshInterval: null,
+      avatarCache: {},
     };
   },
   computed: {
@@ -236,10 +238,18 @@ export default {
   },
   mounted() {
     this.fetchAll();
-    this.refreshInterval = setInterval(this.fetchAll, 3000);
+    this.refreshInterval = setInterval(() => {
+      this.fetchRequests();
+      this.fetchInvitations();
+    }, 5000);
+    socket.on("friend-status-change", ({ userId, isOnline }) => {
+      const friend = this.friends.find((f) => Number(f.ID_Users) === Number(userId));
+      if (friend) friend.isOnline = isOnline;
+    });
   },
   beforeUnmount() {
     if (this.refreshInterval) clearInterval(this.refreshInterval);
+    socket.off("friend-status-change");
   },
   methods: {
     async fetchAll() {
@@ -250,16 +260,22 @@ export default {
       try {
         const res = await api.get(`/friends/list/${this.userId}`);
         const data = res.data.friends || res.data || [];
-        this.friends = (data || []).map((f) => ({
-          ID_Users: f.ID_Users ?? f.id,
-          Pseudo: f.Pseudo ?? f.pseudo,
-          isOnline: f.isOnline ?? false,
-          niveau: f.niveau ?? 0,
-          avatarUrl: f.Avatar ? `data:${f.mime_type};base64,${f.Avatar}` : defaultAvatar,
-        }));
-      } catch (err) {
-        // Mode silencieux
-      }
+        this.friends = data.map((f) => {
+          const id = f.ID_Users ?? f.id;
+          // Utiliser le cache avatar : ne recalculer que si l'avatar change
+          const rawAvatar = f.Avatar;
+          if (rawAvatar && !this.avatarCache[id]) {
+            this.avatarCache[id] = `data:${f.mime_type || "image/png"};base64,${rawAvatar}`;
+          }
+          return {
+            ID_Users: id,
+            Pseudo: f.Pseudo ?? f.pseudo,
+            isOnline: f.isOnline ?? false,
+            niveau: f.niveau ?? 0,
+            avatarUrl: this.avatarCache[id] || defaultAvatar,
+          };
+        });
+      } catch {}
     },
 
     async fetchRequests() {
@@ -347,7 +363,7 @@ export default {
     },
 
     async removeFriend(friendId) {
-      if (!confirm("Voulez-vous vraiment supprimer cet ami ?")) return;
+      //if (!confirm("Voulez-vous vraiment supprimer cet ami ?")) return;
       try {
         await api.post("/friends/remove", { userId: this.userId, friendId });
         this.fetchFriends();

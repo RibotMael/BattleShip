@@ -8,7 +8,27 @@
 
       <div class="card-body">
         <div class="form-group">
-          <label><span class="label-icon">🌍</span> LANGUE DE COMMUNICATION</label>
+          <label>
+            <span class="label-icon">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M2 12h20" />
+                <path
+                  d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+                />
+              </svg>
+            </span>
+            LANGUE DE COMMUNICATION
+          </label>
           <div class="custom-dropdown" v-click-outside="() => (showLang = false)">
             <div
               class="dropdown-selected"
@@ -34,13 +54,61 @@
               <span v-if="isPrivate">✓</span>
             </div>
             <span class="label-text">PARTIE PRIVÉE</span>
-            <span class="lock-icon">{{ isPrivate ? "🔒" : "🔓" }}</span>
+            <span class="lock-icon">
+              <svg
+                v-if="isPrivate"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              <svg
+                v-else
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+              </svg>
+            </span>
           </label>
         </div>
 
         <transition name="fade-slide" mode="out-in">
           <div v-if="!isPrivate" class="form-group" key="public">
-            <label><span class="label-icon">⚔️</span> MODE DE BATAILLE</label>
+            <label>
+              <span class="label-icon">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M14.5 17.5L3 6V3h3l11.5 11.5" />
+                  <path d="M13 19l6-6 2 2-6 6-2-2z" />
+                  <path d="M2 21l3.5-3.5" />
+                  <path d="M16 4l2-2 2 2-2 2-2-2z" />
+                </svg>
+              </span>
+              MODE DE BATAILLE
+            </label>
             <div class="custom-dropdown" v-click-outside="() => (showMode = false)">
               <div
                 class="dropdown-selected"
@@ -66,7 +134,25 @@
           </div>
 
           <div v-else class="form-group" key="private">
-            <label><span class="label-icon">👥</span> EFFECTIF TOTAL (PAIR)</label>
+            <label>
+              <span class="label-icon">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                >
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </span>
+              EFFECTIF TOTAL (PAIR)
+            </label>
             <div class="input-container">
               <input type="number" v-model.number="totalPlayers" min="2" max="20" step="2" />
               <div class="input-badge" :class="totalPlayers % 2 !== 0 ? 'error' : 'success'">
@@ -244,6 +330,19 @@ const vClickOutside = {
   justify-content: center;
   align-items: center;
   color: #dff2ee;
+}
+
+.label-icon {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.lock-icon {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
 }
 
 .config-card {

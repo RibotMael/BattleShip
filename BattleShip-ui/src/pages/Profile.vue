@@ -1,5 +1,5 @@
 <template>
-  <div class="background profile-page">
+  <div class="background profile-page" :style="backgroundStyle">
     <div class="profile-card">
       <header class="profile-header">
         <button @click="$router.push('/')" class="btn-icon-back" title="Retour au menu">
@@ -43,14 +43,45 @@
 
         <div class="stats-row">
           <div class="stat-pill gold-pill">
-            <span class="stat-pill-icon">🪙</span>
+            <span class="stat-pill-icon">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path d="M14.5 9a2.5 2.5 0 0 0-5 0c0 5 5 3 5 6a2.5 2.5 0 0 1-5 0" />
+                <path d="M12 6v2m0 8v2" />
+              </svg>
+            </span>
             <div class="stat-info">
               <span class="stat-pill-label">Or accumulé</span>
               <span class="stat-pill-value">{{ currentGold }}</span>
             </div>
           </div>
           <div class="stat-pill level-pill">
-            <span class="stat-pill-icon">⚓</span>
+            <span class="stat-pill-icon">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="5" r="2" />
+                <path d="M12 7v14" />
+                <path d="M5 14c0 3.9 3.1 7 7 7s7-3.1 7-7" />
+                <path d="M5 14H3m18 0h-2" />
+              </svg>
+            </span>
             <div class="stat-info">
               <span class="stat-pill-label">Niveau actuel</span>
               <span class="stat-pill-value">{{ levelInfo.level }}</span>
@@ -68,21 +99,71 @@
           </div>
           <div class="stats-row" style="margin-top: 0.5rem">
             <div class="stat-pill game-pill">
-              <span class="stat-pill-icon">🎮</span>
+              <span class="stat-pill-icon">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect x="2" y="7" width="20" height="13" rx="3" />
+                  <path d="M8 11v4M6 13h4" />
+                  <circle cx="16" cy="12" r="1" fill="currentColor" />
+                  <circle cx="18" cy="14" r="1" fill="currentColor" />
+                </svg>
+              </span>
               <div class="stat-info">
                 <span class="stat-pill-label">Jouées</span>
                 <span class="stat-pill-value">{{ gamesPlayed }}</span>
               </div>
             </div>
             <div class="stat-pill win-pill">
-              <span class="stat-pill-icon">🏆</span>
+              <span class="stat-pill-icon">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M8 21h8M12 17v4" />
+                  <path d="M7 4H4v4c0 2.8 1.8 5.1 4.3 5.8" />
+                  <path d="M17 4h3v4c0 2.8-1.8 5.1-4.3 5.8" />
+                  <path d="M7 4h10v7a5 5 0 0 1-10 0V4z" />
+                </svg>
+              </span>
               <div class="stat-info">
                 <span class="stat-pill-label">Victoires</span>
                 <span class="stat-pill-value">{{ wins }}</span>
               </div>
             </div>
             <div class="stat-pill defeat-pill">
-              <span class="stat-pill-icon">💀</span>
+              <span class="stat-pill-icon">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M12 2a9 9 0 0 1 9 9c0 3.5-2 6.6-5 8.2V21H8v-1.8C5 17.6 3 14.5 3 11a9 9 0 0 1 9-9z"
+                  />
+                  <line x1="9" y1="10" x2="9" y2="10" stroke-width="3" />
+                  <line x1="15" y1="10" x2="15" y2="10" stroke-width="3" />
+                  <path d="M9 17h6" />
+                </svg>
+              </span>
               <div class="stat-info">
                 <span class="stat-pill-label">Défaites</span>
                 <span class="stat-pill-value">{{ defeats }}</span>
@@ -159,6 +240,7 @@
 <script>
 import { userBus } from "@/eventBus.js";
 import api from "@/api/api.js";
+import { watch } from "vue";
 
 const defaultAvatar =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAHklEQVR42u3PAQ0AAAwCoNm/9HI4gAAAAAAAAAAAOBwG4cAAfNmS7sAAAAASUVORK5CYII=";
@@ -169,12 +251,23 @@ const avatarImgs = Object.fromEntries(
   ).map(([path, mod]) => [path.split("/").pop(), mod.default]),
 );
 
+const localAvatarList = Object.keys(avatarImgs)
+  .filter((name) => /^\d+\.png$/.test(name))
+  .map((name) => ({ ID_Avatar: parseInt(name) }))
+  .sort((a, b) => a.ID_Avatar - b.ID_Avatar);
+
+const backgroundImgs = Object.fromEntries(
+  Object.entries(
+    import.meta.glob("../assets/Bataille_Navale_Assets-main/Background/*.png", { eager: true }),
+  ).map(([path, mod]) => [path.split("/").pop(), mod.default]),
+);
+
 export default {
   data() {
     return {
       pseudo: "",
       userId: null,
-      avatars: [],
+      avatars: localAvatarList,
       avatar: null,
       avatarPreviewUrl: defaultAvatar,
       activePrefix: "",
@@ -184,9 +277,20 @@ export default {
       wins: 0,
       defeats: 0,
       gamesPlayed: 0,
+      currentUser: JSON.parse(localStorage.getItem("user")) || null,
     };
   },
   computed: {
+    backgroundStyle() {
+      const folder = this.currentUser?.activeFondFolder ?? "";
+      const key = folder ? `Accueil${folder}.png` : "Accueil.png";
+      const img = backgroundImgs[key] || backgroundImgs["Accueil.png"] || "";
+      return {
+        backgroundImage: `linear-gradient(rgba(3, 10, 16, 0.85), rgba(3, 10, 16, 0.9)), url("${img}")`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      };
+    },
     levelInfo() {
       let xp = this.currentXp;
       let level = 0;
@@ -210,6 +314,15 @@ export default {
       if (this.gamesPlayed === 0) return 0;
       return Math.round((this.wins / this.gamesPlayed) * 100);
     },
+  },
+  created() {
+    watch(
+      () => userBus.userUpdated,
+      () => {
+        this.currentUser = JSON.parse(localStorage.getItem("user")) || null;
+      },
+      { immediate: true },
+    );
   },
   mounted() {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -280,13 +393,11 @@ export default {
     },
 
     avatarThumbSrc(av) {
-      if (this.activePrefix) {
-        return (
-          avatarImgs[`${av.ID_Avatar}${this.activePrefix}.png`] ||
-          `data:${av.mime_type};base64,${av.Avatar}`
-        );
-      }
-      return `data:${av.mime_type};base64,${av.Avatar}`;
+      const prefix = this.activePrefix;
+      const key = prefix ? `${av.ID_Avatar}${prefix}.png` : `${av.ID_Avatar}.png`;
+      return (
+        avatarImgs[key] || (av.Avatar ? `data:${av.mime_type};base64,${av.Avatar}` : defaultAvatar)
+      );
     },
 
     selectAvatar(id) {
@@ -372,22 +483,6 @@ export default {
 
 <style scoped>
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap");
-
-/* ── Overlay & Background ── */
-.profile-page {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-image:
-    linear-gradient(rgba(3, 10, 16, 0.78), rgba(3, 10, 16, 0.85)),
-    url("@/assets/Bataille_Navale_Assets-main/Background/Accueil.png");
-  background-size: cover;
-  background-position: center;
-  z-index: 1000;
-  padding: 1rem;
-}
 
 /* ── Panel Principal ── */
 .profile-card {
@@ -626,8 +721,9 @@ export default {
 }
 
 .stat-pill-icon {
-  font-size: 1.4rem;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .stat-info {
@@ -654,6 +750,22 @@ export default {
 }
 .defeat-pill .stat-pill-label {
   color: rgba(248, 113, 113, 0.7);
+}
+
+.gold-pill .stat-pill-icon {
+  color: #f59e0b;
+}
+.level-pill .stat-pill-icon {
+  color: #1de9c0;
+}
+.game-pill .stat-pill-icon {
+  color: #94a3b8;
+}
+.win-pill .stat-pill-icon {
+  color: #4ade80;
+}
+.defeat-pill .stat-pill-icon {
+  color: #f87171;
 }
 
 .stat-pill-value {

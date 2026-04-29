@@ -3,7 +3,7 @@ import db from "../db.js";
 
 const router = express.Router();
 
-// 1. Récupérer l'arsenal (Skins + Achats + Actifs + Or)
+// Récupérer l'arsenal (Skins + Achats + Actifs + Or)
 router.get("/:userId", async (req, res) => {
   const { userId } = req.params;
   try {
@@ -23,7 +23,6 @@ router.get("/:userId", async (req, res) => {
       return res.status(404).json({ success: false, message: "Joueur introuvable" });
     }
 
-    // On formate les actifs pour le frontend { avatar: 1, bateau: null, fond: null }
     const activeIds = { avatar: null, bateau: null, fond: null };
     actives.forEach(row => {
       activeIds[row.category] = row.id_theme;
@@ -41,7 +40,7 @@ router.get("/:userId", async (req, res) => {
   }
 });
 
-// 2. Acheter un skin
+// Acheter un skin
 router.post("/buy", async (req, res) => {
   const { userId, skinId } = req.body;
   try {
@@ -78,11 +77,10 @@ router.post("/buy", async (req, res) => {
   }
 });
 
-// 3. Équiper un skin
+// Équiper un skin
 router.post("/equip", async (req, res) => {
   const { userId, skinId, category } = req.body;
   try {
-    // Si skinId est 0 ou null → on revient au skin par défaut = supprimer la ligne
     if (!skinId || skinId === 0) {
       await db.query(
         "DELETE FROM skin_active WHERE id_user = ? AND category = ?",
@@ -91,7 +89,6 @@ router.post("/equip", async (req, res) => {
       return res.json({ success: true });
     }
 
-    // Vérifier que le skin existe bien dans skin_themes avant d'insérer
     const [skinCheck] = await db.query(
       "SELECT id FROM skin_themes WHERE id = ?",
       [skinId]
@@ -109,7 +106,7 @@ router.post("/equip", async (req, res) => {
 
     res.json({ success: true });
   } catch (err) {
-    console.error("Erreur equip:", err.message); // pour déboguer côté serveur
+    console.error("Erreur equip:", err.message); 
     res.status(500).json({ success: false, error: err.message });
   }
 });

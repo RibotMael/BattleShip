@@ -1,5 +1,3 @@
-// utils/gameRules.js
-
 export function normalizeLanguage(versionName = "French") {
   const raw = versionName.toLowerCase();
   if (raw.startsWith("fr")) return "fr";

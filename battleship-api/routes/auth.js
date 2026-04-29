@@ -1,4 +1,3 @@
-// battleship-api/routes/auth.js
 import { Router } from 'express';
 import { query } from '../db.js';
 import bcryptjs from 'bcryptjs';
@@ -21,7 +20,6 @@ router.post('/register', async (req, res) => {
 
     const hashedPassword = await bcryptjs.hash(password, 10);
 
-    //On garde juste l'ID de l'avatar
     const avatarId = avatar;
 
     const insertUserSql = `

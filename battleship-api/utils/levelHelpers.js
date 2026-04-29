@@ -5,7 +5,6 @@ export function xpForNextLevel(level) {
 export function computeLevel(totalXp) {
   let level = 0;
   let used = 0;
-  // Sécurité au cas où totalXp est négatif ou nul
   if (totalXp <= 0) return { level: 0, xpIntoLevel: 0, xpNeededForNext: 100 };
 
   while (true) {
@@ -16,7 +15,6 @@ export function computeLevel(totalXp) {
     used += needed;
     level++;
     
-    // Sécurité ultime pour éviter une boucle infinie si bug
     if (level > 1000) {
       return { level: 1000, xpIntoLevel: 0, xpNeededForNext: xpForNextLevel(1000) };
     }

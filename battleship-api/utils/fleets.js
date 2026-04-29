@@ -1,4 +1,3 @@
-// utils/fleets.js
 export const fleetsByVersion = {
   fr: [
     { name: "Porte-avions", size: 5 },

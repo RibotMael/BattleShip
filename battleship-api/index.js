@@ -19,6 +19,7 @@ import shopRoutes from "./routes/shop.js";
 
 const app = express();
 const server = http.createServer(app);
+const userSocketMap = {};
 
 /* ==========================
    MIDDLEWARE CORS
@@ -66,10 +67,6 @@ app.set("io", io);
 ========================== */
 const games = {};
 
-// ─────────────────────────────────────────────────────────────
-// NOUVEAU : Regroupe les cellules de chaque bateau par valeur
-// board_json utilise des entiers > 0, chaque entier = un bateau
-// ─────────────────────────────────────────────────────────────
 function groupShipCells(board) {
   const shipMap = {};
   for (let y = 0; y < board.length; y++) {
@@ -84,16 +81,10 @@ function groupShipCells(board) {
   return Object.values(shipMap);
 }
 
-// ─────────────────────────────────────────────────────────────
-// NOUVEAU : Résout TOUS les tirs pending d'une partie.
-// Appelé à la fin de chaque tour, après que PHP/Unity/Vue ont
-// eu le temps d'insérer leurs tirs en DB.
-// ─────────────────────────────────────────────────────────────
 async function resolveTurn(gameId) {
   const sId = String(gameId);
 
   try {
-    // 1. Récupérer tous les tirs en attente (toutes plateformes)
     const [pendingShots] = await db.query(
       "SELECT * FROM shots WHERE id_game = ? AND state = 'pending'",
       [gameId]
@@ -103,8 +94,6 @@ async function resolveTurn(gameId) {
       return;
     }
 
-
-    // 2. Charger les plateaux des cibles (cache pour éviter les requêtes répétées)
     const targetIds = [
       ...new Set(pendingShots.map((s) => Number(s.target_id))),
     ];
@@ -119,7 +108,6 @@ async function resolveTurn(gameId) {
       })
     );
 
-    // 3. Résoudre chaque tir : hit / miss + détection coulé
     for (const shot of pendingShots) {
       const board = boardCache[Number(shot.target_id)];
       if (!board) {
@@ -130,15 +118,12 @@ async function resolveTurn(gameId) {
       let result = cellValue > 0 ? "hit" : "miss";
       let positions = [];
 
-      // Mettre à jour le tir en base
       await db.query(
         "UPDATE shots SET result = ?, state = 'resolved' WHERE id_shot = ?",
         [result, shot.id_shot]
       );
 
-      // Vérifier si bateau coulé
       if (result === "hit") {
-        // Trouver toutes les cellules de ce bateau (même valeur dans board_json)
         const shipCells = [];
         for (let y = 0; y < board.length; y++)
           for (let x = 0; x < board[y].length; x++)
@@ -169,7 +154,6 @@ async function resolveTurn(gameId) {
         }
       }
 
-      // Émettre le résultat à tous les joueurs connectés (Vue, PHP-socket, Unity-socket)
       io.to(sId).emit("shot-fired", {
         gameId: sId,
         shooterId: shot.id_player,
@@ -183,7 +167,6 @@ async function resolveTurn(gameId) {
       });
     }
 
-    // 4. Vérifier les joueurs morts (toutes leurs cellules bateaux touchées/coulées)
     for (const tid of targetIds) {
       const board = boardCache[tid];
       if (!board) continue;
@@ -209,7 +192,6 @@ async function resolveTurn(gameId) {
       }
     }
 
-    // 5. Vérifier la victoire
     const [alivePlayers] = await db.query(
       "SELECT id_player, team_number FROM game_players WHERE id_game=? AND player_status='in_game'",
       [gameId]
@@ -245,7 +227,6 @@ async function resolveTurn(gameId) {
     }
 
     if (finished) {
-      // Guard pour éviter la double-fin (PHP/Unity peuvent aussi finir la partie)
       const [updGame] = await db.query(
         "UPDATE games SET status='finished', winner_id=? WHERE id_Game=? AND status='in_progress'",
         [winnerId, gameId]
@@ -288,8 +269,6 @@ function _startTick(sId, duration) {
       clearInterval(interval);
       io.to(sId).emit("turn-ended", { reason: "timeout", gameId: sId });
 
-      // MODIFIÉ : attendre 1.2s que tous les clients soumettent leurs tirs,
-      // puis résoudre tous les tirs pending, puis démarrer le tour suivant
       setTimeout(async () => {
         if (!games[sId] || games[sId].finished) return;
         await resolveTurn(sId);
@@ -301,12 +280,6 @@ function _startTick(sId, duration) {
   games[sId].timer = interval;
 }
 
-// ─────────────────────────────────────────────────────────────
-// MODIFIÉ : Guard anti-doublon sur last_turn_timestamp
-// Empêche Unity ET Node.js d'avancer le timer en même temps.
-// Si Unity a déjà mis à jour le timestamp, Node.js se resynchronise
-// depuis la DB au lieu de créer un conflit.
-// ─────────────────────────────────────────────────────────────
 async function startTurn(gameId, duration = 7) {
   const sId = String(gameId);
 
@@ -314,7 +287,6 @@ async function startTurn(gameId, duration = 7) {
   if (!games[sId]) games[sId] = { turnNumber: 0 };
 
   try {
-    // Vérifier que la partie est toujours en cours + lire le timestamp actuel
     const [[gameRow]] = await db.query(
       "SELECT status, last_turn_timestamp FROM games WHERE id_Game = ?",
       [sId]
@@ -354,7 +326,6 @@ async function startTurn(gameId, duration = 7) {
       games[sId].finished = false;
       games[sId].turnNumber = (games[sId].turnNumber || 0) + 1;
 
-      // Informer les clients Vue du timer resynchronisé
       io.to(sId).emit("turn-timer", {
         timeLeft: syncedTimeLeft,
         gameId: sId,
@@ -365,7 +336,6 @@ async function startTurn(gameId, duration = 7) {
       return;
     }
 
-    // Cas normal : Node.js est maître de ce tour
     games[sId].turnStartAt = turnStartAt;
     games[sId].duration = duration;
     games[sId].ended = false;
@@ -383,6 +353,26 @@ async function startTurn(gameId, duration = 7) {
     // Mode silencieux 
   }
 }
+
+async function notifyFriendsStatus(userId, isOnline) {
+  try {
+    const [friends] = await db.query(
+      `SELECT u.ID_Users FROM friends f
+       JOIN users u 
+         ON (u.ID_Users = f.Sender_ID AND f.Receiver_ID = ?)
+         OR (u.ID_Users = f.Receiver_ID AND f.Sender_ID = ?)
+       WHERE f.Status = 'Accepted'`,
+      [userId, userId]
+    );
+    friends.forEach(f => {
+      io.to(`user_${f.ID_Users}`).emit("friend-status-change", {
+        userId: Number(userId),
+        isOnline,
+      });
+    });
+  } catch {}
+}
+
 
 function stopGameTimer(gameId) {
   const sId = String(gameId);
@@ -413,25 +403,27 @@ app.get("/", (req, res) => {
    SOCKET.IO EVENTS
 ========================== */
 io.on("connection", (socket) => {
-  console.log(`🔌 Connecté : ${socket.id}`);
   let connectedUserId = null;
 
-  socket.on("register-user", ({ userId }) => {
-    connectedUserId = userId;
-    db.query("UPDATE users SET Online = 1 WHERE ID_Users = ?", [userId]);
+  socket.on("register-user", async ({ userId }) => {
+    connectedUserId = Number(userId);
+    userSocketMap[connectedUserId] = socket.id;
+    socket.join(`user_${connectedUserId}`); // salle personnelle
+    await db.query("UPDATE users SET Online = 1 WHERE ID_Users = ?", [connectedUserId]);
+    await notifyFriendsStatus(connectedUserId, true);
   });
 
-  socket.on("disconnect", () => {
-      console.log("🚫 Déconnexion socket");
-      if (connectedUserId) {
-        db.query("UPDATE users SET Online = 0 WHERE ID_Users = ?", [connectedUserId]);
-      }
+  socket.on("disconnect", async () => {
+    if (connectedUserId) {
+      delete userSocketMap[connectedUserId];
+      await db.query("UPDATE users SET Online = 0 WHERE ID_Users = ?", [connectedUserId]);
+      await notifyFriendsStatus(connectedUserId, false);
+    }
   });
 
   socket.on("join-game", ({ gameId }) => {
     if (!gameId) return;
-    const room = String(gameId);
-    socket.join(room);
+    socket.join(String(gameId));
   });
 
   socket.on("player-ready", async ({ gameId, playerId }) => {

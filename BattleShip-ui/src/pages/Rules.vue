@@ -1,5 +1,5 @@
 <template>
-  <div class="background rules-view">
+  <div class="background rules-view" :style="backgroundStyle">
     <div class="menu-container">
       <header class="top-bar">
         <div class="left-section">
@@ -36,7 +36,13 @@
             <div class="grid-2-cols">
               <div class="cyber-card">
                 <div class="card-header">
-                  <span class="flag">🇫🇷</span>
+                  <span class="flag">
+                    <svg width="28" height="20" viewBox="0 0 28 20" fill="none">
+                      <rect width="28" height="20" rx="3" fill="#f0f0f0" />
+                      <rect width="9" height="20" fill="#002395" />
+                      <rect x="19" width="9" height="20" fill="#ED2939" />
+                    </svg>
+                  </span>
                   <h3>MODE FRANÇAIS</h3>
                 </div>
                 <div class="card-body">
@@ -56,7 +62,14 @@
 
               <div class="cyber-card highlight">
                 <div class="card-header">
-                  <span class="flag">🇧🇪</span>
+                  <span class="flag">
+                    <svg width="28" height="20" viewBox="0 0 28 20" fill="none">
+                      <rect width="28" height="20" rx="3" fill="#f0f0f0" />
+                      <rect width="9" height="20" fill="#1E1E1E" />
+                      <rect x="9" width="10" height="20" fill="#FFD90C" />
+                      <rect x="19" width="9" height="20" fill="#E41E20" />
+                    </svg>
+                  </span>
                   <h3>MODE BELGE</h3>
                 </div>
                 <div class="card-body">
@@ -78,11 +91,47 @@
 
           <div class="grid-2-cols">
             <section class="cyber-card simple">
-              <h3>⚔️ OBJECTIF</h3>
+              <h3>
+                <span class="simple-icon">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M14.5 17.5L3 6V3h3l11.5 11.5" />
+                    <path d="M13 19l6-6 2 2-6 6-2-2z" />
+                    <path d="M2 21l3.5-3.5" />
+                    <path d="M16 4l2-2 2 2-2 2-2-2z" />
+                  </svg>
+                </span>
+                OBJECTIF
+              </h3>
               <p>Éliminez l'intégralité de la flotte adverse pour sécuriser le secteur.</p>
             </section>
             <section class="cyber-card simple">
-              <h3>📈 CARRIÈRE</h3>
+              <h3>
+                <span class="simple-icon">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+                    <polyline points="16 7 22 7 22 13" />
+                  </svg>
+                </span>
+                CARRIÈRE
+              </h3>
               <p>
                 Chaque tir et chaque victoire augmentent votre
                 <span class="accent-text">XP</span> et votre réserve d'<span class="gold-text"
@@ -144,6 +193,23 @@
   background-position: center;
   font-family: "Inter", sans-serif;
   color: #dff2ee;
+}
+
+.flag {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.cyber-card.simple h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.simple-icon {
+  display: flex;
+  align-items: center;
 }
 
 .menu-container {
@@ -396,3 +462,43 @@
   border-radius: 10px;
 }
 </style>
+
+<script>
+import { userBus } from "@/eventBus.js";
+import { watch } from "vue";
+
+const backgroundImgs = Object.fromEntries(
+  Object.entries(
+    import.meta.glob("../assets/Bataille_Navale_Assets-main/Background/*.png", { eager: true }),
+  ).map(([path, mod]) => [path.split("/").pop(), mod.default]),
+);
+
+export default {
+  data() {
+    return {
+      currentUser: JSON.parse(localStorage.getItem("user")) || null,
+    };
+  },
+  computed: {
+    backgroundStyle() {
+      const folder = this.currentUser?.activeFondFolder ?? "";
+      const key = folder ? `Accueil${folder}.png` : "Accueil.png";
+      const img = backgroundImgs[key] || backgroundImgs["Accueil.png"] || "";
+      return {
+        backgroundImage: `linear-gradient(rgba(3, 10, 16, 0.85), rgba(3, 10, 16, 0.9)), url("${img}")`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      };
+    },
+  },
+  created() {
+    watch(
+      () => userBus.userUpdated,
+      () => {
+        this.currentUser = JSON.parse(localStorage.getItem("user")) || null;
+      },
+      { immediate: true },
+    );
+  },
+};
+</script>
