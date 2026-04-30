@@ -38,10 +38,37 @@
 
           <div class="grid-actions">
             <button class="btn-radar random" @click="placeShipsRandomly">
-              <span class="icon">🎲</span> GÉNÉRATION ALÉATOIRE
+              <span class="icon">
+                <svg
+                  class="picto"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <polyline points="16 3 21 3 21 8" />
+                  <line x1="4" y1="20" x2="21" y2="3" />
+                  <polyline points="21 16 21 21 16 21" />
+                  <line x1="15" y1="15" x2="21" y2="21" />
+                  <line x1="4" y1="4" x2="9" y2="9" />
+                </svg>
+              </span>
+              GÉNÉRATION ALÉATOIRE
             </button>
             <button class="btn-radar validate" :disabled="!canValidate" @click="validatePlacement">
-              <span class="icon">🚀</span> CONFIRMER LA POSITION
+              <span class="icon">
+                <svg
+                  class="picto"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M22 2L11 13" />
+                  <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+                </svg>
+              </span>
+              CONFIRMER LA POSITION
             </button>
           </div>
         </section>
@@ -53,9 +80,8 @@
             </div>
             <button @click="toggleOrientation" class="btn-rotation" :class="orientation">
               <svg
+                class="picto"
                 viewBox="0 0 24 24"
-                width="18"
-                height="18"
                 fill="none"
                 stroke="currentColor"
                 stroke-width="2"
@@ -192,7 +218,7 @@ export default {
     },
 
     async validatePlacement() {
-      if (!this.canValidate) return; //alert("⛵ Placez tous vos bateaux avant de valider !");
+      if (!this.canValidate) return; //alert("Placez tous vos bateaux avant de valider !");
       const shipsNumbers = this.grid.map((c) => (c.hasShip ? c.shipId + 1 : 0));
 
       try {
@@ -265,17 +291,12 @@ export default {
       for (let i = 0; i < ship.size; i++) {
         const idx = this.orientation === "horizontal" ? startIndex + i : startIndex + i * 10;
 
-        // 1. Vérification des limites de la grille
         if (idx >= 100 || (this.orientation === "horizontal" && Math.floor(idx / 10) !== row)) {
           this.hoverCells = [];
           return;
         }
 
-        // 2. Vérification de collision directe (Interdit dans TOUS les modes)
         const collisionDirecte = this.grid[idx].hasShip;
-
-        // 3. Vérification d'adjacence (Interdit UNIQUEMENT en mode Français)
-        // On ajoute une sécurité : isAdjacent ne doit pas invalider si c'est le mode Belge
         const collisionAdjacente = this.isFrenchMode && this.isAdjacent(idx);
 
         if (collisionDirecte || collisionAdjacente) {
@@ -292,7 +313,6 @@ export default {
     placeOrRemoveShip(index) {
       const cell = this.grid[index];
 
-      // Retirer un bateau existant
       if (cell.hasShip) {
         const shipId = cell.shipId;
         this.grid.forEach((c) => {
@@ -305,7 +325,6 @@ export default {
         return;
       }
 
-      // Placer un bateau
       if (this.selectedShipIndex === null || this.invalidPreview) return;
       this.hoverCells.forEach((i) => {
         this.grid[i] = { hasShip: true, shipId: this.selectedShipIndex };
@@ -324,7 +343,6 @@ export default {
     },
 
     placeShipsRandomly() {
-      // Nettoie la grille
       this.grid = this.grid.map(() => ({ hasShip: false, shipId: null }));
       this.fleet.forEach((ship) => (ship.placed = false));
 
@@ -354,6 +372,7 @@ export default {
 </script>
 
 <style scoped>
+/* ── 1. IMPORT & CONFIGURATION GLOBALE ── */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&display=swap");
 
 html,
@@ -361,6 +380,13 @@ body {
   overflow-x: hidden;
   position: relative;
   width: 100%;
+}
+
+.picto {
+  width: 1.2em;
+  height: 1.2em;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .place-ships-page {
@@ -378,6 +404,7 @@ body {
   padding: 40px 20px;
 }
 
+/* ── 2. LAYOUT & CONTAINERS ── */
 .hud-container {
   width: 100%;
   max-width: 1100px;
@@ -387,7 +414,17 @@ body {
   box-sizing: border-box;
 }
 
-/* --- HEADER --- */
+.tactical-layout {
+  display: flex;
+  gap: 40px;
+  justify-content: center;
+}
+
+.tactical-layout > * {
+  min-width: 0;
+}
+
+/* ── 3. HEADER & STATUTS ── */
 .tactical-header {
   display: flex;
   justify-content: space-between;
@@ -401,6 +438,7 @@ body {
   align-items: center;
   gap: 15px;
 }
+
 .radar-ping {
   width: 12px;
   height: 12px;
@@ -408,16 +446,6 @@ body {
   border-radius: 50%;
   box-shadow: 0 0 15px #1de9c0;
   animation: ping 1.5s infinite;
-}
-@keyframes ping {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(3);
-    opacity: 0;
-  }
 }
 
 h1 {
@@ -430,40 +458,32 @@ h1 {
   display: flex;
   gap: 30px;
 }
+
 .info-block {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
 }
+
 .info-block .label {
   font-size: 0.7rem;
   color: rgba(29, 233, 192, 0.5);
 }
+
 .info-block .value {
   font-size: 1.1rem;
   font-weight: 700;
   color: #1de9c0;
 }
 
-/* --- LAYOUT --- */
-.tactical-layout {
-  display: flex;
-  gap: 40px;
-  justify-content: center;
-}
-
-.tactical-layout > * {
-  min-width: 0;
-}
-
-/* --- RADAR GRID --- */
+/* ── 4. GRILLE DE PLACEMENT (SONAR) ── */
 .grid-wrapper {
-  background: rgba(29, 233, 192, 0.03);
-  padding: 15px;
-  border: 1px solid rgba(29, 233, 192, 0.1);
-  border-radius: 4px;
   position: relative;
   max-width: 100%;
+  padding: 15px;
+  background: rgba(29, 233, 192, 0.03);
+  border: 1px solid rgba(29, 233, 192, 0.1);
+  border-radius: 4px;
   overflow-x: auto;
 }
 
@@ -472,15 +492,15 @@ h1 {
   grid-template-columns: repeat(10, 40px);
   grid-template-rows: repeat(10, 40px);
   gap: 2px;
-  background: rgba(29, 233, 192, 0.1); /* Lignes du quadrillage */
+  background: rgba(29, 233, 192, 0.1);
 }
 
 .sonar-cell {
+  position: relative;
   width: 40px;
   height: 40px;
   background: #030a10;
   cursor: pointer;
-  position: relative;
   transition: all 0.2s;
 }
 
@@ -490,22 +510,163 @@ h1 {
   border: 1px solid rgba(29, 233, 192, 0.05);
 }
 
-/* État : Survol (Preview) */
+/* États des cellules */
 .sonar-cell.preview {
   background: rgba(29, 233, 192, 0.3) !important;
 }
+
 .sonar-cell.preview.invalid {
   background: rgba(248, 113, 113, 0.3) !important;
 }
 
-/* État : Bateau placé */
 .sonar-cell.ship {
   background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%) !important;
   border: 1px solid #718096;
   box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
-/* --- ACTIONS --- */
+/* ── 5. PANEL DE LA FLOTTE ── */
+.fleet-panel {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  background: rgba(6, 18, 26, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.panel-header {
+  margin-bottom: 20px;
+}
+
+.tag {
+  font-size: 0.7rem;
+  color: rgba(29, 233, 192, 0.6);
+  margin-bottom: 10px;
+}
+
+.btn-rotation {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  font-family: "Rajdhani";
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-rotation svg {
+  transition: transform 0.3s;
+}
+
+.btn-rotation.vertical svg {
+  transform: rotate(90deg);
+}
+
+/* Liste des navires */
+.fleet-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.ship-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ship-item:hover {
+  border-color: rgba(29, 233, 192, 0.4);
+  background: rgba(29, 233, 192, 0.03);
+}
+
+.ship-item.selected {
+  border-color: #1de9c0;
+  background: rgba(29, 233, 192, 0.08);
+  box-shadow: 0 0 15px rgba(29, 233, 192, 0.1);
+}
+
+.ship-item.isPlaced {
+  opacity: 0.4;
+  filter: grayscale(1);
+  cursor: default;
+}
+
+/* Visuels des navires dans la liste */
+.ship-visual .ship-segments {
+  display: flex;
+  gap: 3px;
+}
+
+.segment {
+  width: 12px;
+  height: 6px;
+  background: #1de9c0;
+  border-radius: 1px;
+}
+
+.ship-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.ship-meta .name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ship-meta .size-text {
+  font-size: 0.65rem;
+  color: rgba(29, 233, 192, 0.6);
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border: 1px solid #1de9c0;
+  border-radius: 50%;
+}
+
+.isPlaced .status-indicator {
+  background: #1de9c0;
+}
+
+/* Footer du panel */
+.fleet-footer {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.remaining-count {
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+.remaining-count span {
+  color: #1de9c0;
+  font-weight: 800;
+}
+
+/* ── 6. BOUTONS D'ACTIONS ── */
 .grid-actions {
   display: flex;
   gap: 15px;
@@ -514,9 +675,13 @@ h1 {
 
 .btn-radar {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 12px;
-  border: 1px solid #1de9c0;
   background: transparent;
+  border: 1px solid #1de9c0;
   color: #1de9c0;
   font-family: "Rajdhani";
   font-weight: 700;
@@ -540,134 +705,27 @@ h1 {
   color: #2e6b62;
 }
 
-/* --- FLEET PANEL --- */
-.fleet-panel {
-  width: 100%;
-  max-width: 320px;
-  background: rgba(6, 18, 26, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
+/* ── 7. ANIMATIONS & SCROLLBAR ── */
+@keyframes ping {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
 }
 
-.panel-header {
-  margin-bottom: 20px;
-}
-.tag {
-  font-size: 0.7rem;
-  color: rgba(29, 233, 192, 0.6);
-  margin-bottom: 10px;
+.custom-scroll::-webkit-scrollbar {
+  width: 3px;
 }
 
-.btn-rotation {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: white;
-  cursor: pointer;
-  font-family: "Rajdhani";
-  font-weight: 700;
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: rgba(29, 233, 192, 0.2);
 }
 
-.btn-rotation svg {
-  transition: transform 0.3s;
-}
-.btn-rotation.vertical svg {
-  transform: rotate(90deg);
-}
-
-.fleet-list {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  overflow-y: auto;
-  padding-right: 5px;
-}
-
-.ship-item {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 12px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.ship-item:hover {
-  border-color: rgba(29, 233, 192, 0.4);
-  background: rgba(29, 233, 192, 0.03);
-}
-.ship-item.selected {
-  border-color: #1de9c0;
-  background: rgba(29, 233, 192, 0.08);
-  box-shadow: 0 0 15px rgba(29, 233, 192, 0.1);
-}
-.ship-item.isPlaced {
-  opacity: 0.4;
-  filter: grayscale(1);
-  cursor: default;
-}
-
-.ship-visual .ship-segments {
-  display: flex;
-  gap: 3px;
-}
-.segment {
-  width: 12px;
-  height: 6px;
-  background: #1de9c0;
-  border-radius: 1px;
-}
-
-.ship-meta {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-.ship-meta .name {
-  font-size: 0.9rem;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-.ship-meta .size-text {
-  font-size: 0.65rem;
-  color: rgba(29, 233, 192, 0.6);
-}
-
-.status-indicator {
-  width: 8px;
-  height: 8px;
-  border: 1px solid #1de9c0;
-  border-radius: 50%;
-}
-.isPlaced .status-indicator {
-  background: #1de9c0;
-}
-
-.fleet-footer {
-  margin-top: 20px;
-  padding-top: 15px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-}
-.remaining-count {
-  font-size: 0.8rem;
-  letter-spacing: 1px;
-  text-align: center;
-}
-.remaining-count span {
-  color: #1de9c0;
-  font-weight: 800;
-}
-
+/* ── 8. RESPONSIVE DESIGN ── */
 @media (max-width: 850px) {
   .place-ships-page {
     padding: 20px 10px;
@@ -680,20 +738,19 @@ h1 {
     gap: 15px;
   }
 
-  .grid-wrapper {
-    /* Empêche la grille de forcer une largeur fixe */
-    max-width: 100%;
-    padding: 10px;
-    box-sizing: border-box;
-    display: flex;
-    justify-content: center;
-  }
-
   .tactical-layout {
     width: 100%;
     flex-direction: column;
     align-items: center;
     gap: 20px;
+  }
+
+  .grid-wrapper {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    padding: 10px;
+    box-sizing: border-box;
   }
 
   .grid-radar {
@@ -702,15 +759,15 @@ h1 {
     gap: 1px;
   }
 
-  .grid-actions {
-    width: 100%;
-    flex-direction: column; /* Boutons l'un sur l'autre pour gagner de la largeur */
-    gap: 10px;
-  }
-
   .sonar-cell {
     width: min(32px, 8.5vw);
     height: min(32px, 8.5vw);
+  }
+
+  .grid-actions {
+    width: 100%;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .fleet-panel {
@@ -719,14 +776,7 @@ h1 {
   }
 
   .fleet-list {
-    max-height: 300px; /* Limite la hauteur de la liste pour ne pas étirer l'écran */
+    max-height: 300px;
   }
-}
-
-.custom-scroll::-webkit-scrollbar {
-  width: 3px;
-}
-.custom-scroll::-webkit-scrollbar-thumb {
-  background: rgba(29, 233, 192, 0.2);
 }
 </style>

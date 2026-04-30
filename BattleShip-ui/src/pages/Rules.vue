@@ -181,6 +181,7 @@
 </template>
 
 <style scoped>
+/* ── 1. FOND & MISE EN PAGE GLOBALE ── */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap");
 
 .background {
@@ -193,23 +194,7 @@
   background-position: center;
   font-family: "Inter", sans-serif;
   color: #dff2ee;
-}
-
-.flag {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.cyber-card.simple h3 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.simple-icon {
-  display: flex;
-  align-items: center;
+  z-index: -1;
 }
 
 .menu-container {
@@ -218,7 +203,7 @@
   height: 100vh;
 }
 
-/* --- TOP BAR (COHÉRENT AVEC ACCUEIL) --- */
+/* ── 2. BARRE DE NAVIGATION SUPÉRIEURE ── */
 .top-bar {
   display: flex;
   justify-content: space-between;
@@ -228,38 +213,42 @@
 }
 
 .btn-back-nav {
-  background: rgba(29, 233, 192, 0.05);
-  border: 1px solid rgba(29, 233, 192, 0.2);
-  color: #1de9c0;
-  padding: 0.6rem 1.2rem;
-  border-radius: 8px;
   display: flex;
   align-items: center;
   gap: 12px;
-  cursor: pointer;
+  padding: 0.6rem 1.2rem;
+  background: rgba(29, 233, 192, 0.05);
+  border: 1px solid rgba(29, 233, 192, 0.2);
+  border-radius: 8px;
+  color: #1de9c0;
   font-family: "Rajdhani", sans-serif;
   font-weight: 700;
-  transition: all 0.2s;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .btn-back-nav:hover {
   background: rgba(29, 233, 192, 0.15);
   box-shadow: 0 0 15px rgba(29, 233, 192, 0.2);
+  transform: translateX(-5px);
 }
 
 .page-title-badge {
+  color: rgba(29, 233, 192, 0.5);
   font-family: "Rajdhani", sans-serif;
   font-weight: 700;
-  color: rgba(29, 233, 192, 0.5);
   letter-spacing: 2px;
+  text-transform: uppercase;
   border-bottom: 1px solid rgba(29, 233, 192, 0.2);
 }
 
-/* --- CONTENT SCROLL --- */
+/* ── 3. CONTENU SCROLLABLE & TITRES ── */
 .content-scroll {
   flex: 1;
-  overflow-y: auto;
   padding: 0 20px 50px 20px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(29, 233, 192, 0.1) transparent;
 }
 
 .rules-wrapper {
@@ -273,29 +262,32 @@
 }
 
 .cyber-title {
+  margin: 0;
+  color: #1de9c0;
   font-family: "Rajdhani", sans-serif;
   font-size: 2.5rem;
   font-weight: 700;
-  color: #1de9c0;
   letter-spacing: 4px;
+  text-transform: uppercase;
   text-shadow: 0 0 20px rgba(29, 233, 192, 0.3);
 }
 
 .title-underline {
   width: 60px;
   height: 4px;
-  background: #1de9c0;
   margin: 10px auto;
+  background: #1de9c0;
 }
 
-/* --- CYBER CARDS & SECTIONS --- */
+/* ── 4. SECTIONS & GRILLES DE CARTES ── */
 .section-header {
-  font-family: "Rajdhani", sans-serif;
-  font-size: 1.4rem;
-  margin-bottom: 1.5rem;
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-bottom: 1.5rem;
+  font-family: "Rajdhani", sans-serif;
+  font-size: 1.4rem;
+  text-transform: uppercase;
 }
 
 .accent-text {
@@ -313,22 +305,25 @@
 }
 
 .cyber-card {
+  position: relative;
+  padding: 1.5rem;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  padding: 1.5rem;
-  position: relative;
-  transition: transform 0.3s;
+  transition: transform 0.3s ease;
 }
 
 .cyber-card.highlight {
-  border-color: rgba(29, 233, 192, 0.3);
   background: rgba(29, 233, 192, 0.02);
+  border-color: rgba(29, 233, 192, 0.3);
 }
 
 .cyber-card.simple h3 {
-  font-family: "Rajdhani", sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: #1de9c0;
+  font-family: "Rajdhani", sans-serif;
   margin-bottom: 10px;
 }
 
@@ -340,56 +335,59 @@
 }
 
 .card-header h3 {
+  margin: 0;
   font-family: "Rajdhani", sans-serif;
   font-size: 1.2rem;
   letter-spacing: 1px;
 }
 
+/* ── 5. LISTE DES VAISSEAUX & DÉTAILS ── */
 .spec-row {
   display: flex;
   justify-content: space-between;
   font-size: 0.8rem;
   font-weight: 700;
   opacity: 0.6;
+  text-transform: uppercase;
 }
 
 .divider {
   height: 1px;
-  background: rgba(29, 233, 192, 0.1);
   margin: 12px 0;
+  background: rgba(29, 233, 192, 0.1);
 }
 
 .ship-list {
-  list-style: none;
   padding: 0;
+  list-style: none;
 }
 
 .ship-list li {
   display: flex;
   justify-content: space-between;
-  font-size: 0.9rem;
   margin-bottom: 8px;
   padding-left: 12px;
   border-left: 2px solid rgba(29, 233, 192, 0.3);
+  font-size: 0.9rem;
 }
 
 .size {
+  color: #1de9c0;
   font-family: "Rajdhani", sans-serif;
   font-weight: 700;
-  color: #1de9c0;
 }
 
 .card-footer {
   margin-top: 1.5rem;
+  color: rgba(255, 255, 255, 0.4);
   font-size: 0.7rem;
   font-weight: 800;
   text-align: center;
   letter-spacing: 2px;
-  opacity: 0.4;
   text-transform: uppercase;
 }
 
-/* --- PROTOCOL ITEMS --- */
+/* ── 6. PROTOCOLES & BADGES ── */
 .protocol-list {
   display: flex;
   flex-direction: column;
@@ -399,22 +397,22 @@
 .protocol-item {
   display: flex;
   gap: 20px;
-  background: rgba(255, 255, 255, 0.02);
   padding: 1.2rem;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
 }
 
 .protocol-item.active {
-  border-color: rgba(29, 233, 192, 0.2);
   background: rgba(29, 233, 192, 0.05);
+  border-color: rgba(29, 233, 192, 0.2);
 }
 
 .step {
-  font-family: "Rajdhani", sans-serif;
-  font-weight: 700;
   color: #1de9c0;
+  font-family: "Rajdhani", sans-serif;
   font-size: 0.8rem;
+  font-weight: 700;
   opacity: 0.5;
 }
 
@@ -432,9 +430,10 @@
 .badge {
   padding: 4px 10px;
   border-radius: 4px;
+  font-family: "Rajdhani", sans-serif;
   font-size: 0.7rem;
   font-weight: 800;
-  font-family: "Rajdhani", sans-serif;
+  text-transform: uppercase;
 }
 
 .splash {
@@ -450,7 +449,7 @@
   color: #f87171;
 }
 
-/* Scrollbar Style Custom */
+/* ── 7. SCROLLBAR PERSONNALISÉE ── */
 .content-scroll::-webkit-scrollbar {
   width: 6px;
 }
@@ -460,6 +459,9 @@
 .content-scroll::-webkit-scrollbar-thumb {
   background: rgba(29, 233, 192, 0.1);
   border-radius: 10px;
+}
+.content-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(29, 233, 192, 0.3);
 }
 </style>
 

@@ -210,47 +210,49 @@ export default {
 </script>
 
 <style scoped>
+/* ── 1. IMPORT & CONTENEUR PRINCIPAL ── */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap");
 
 .join-container {
+  display: flex;
+  flex-direction: column;
   width: 90%;
   max-width: 1000px;
   height: 85vh;
+  margin: auto;
   background: rgba(6, 18, 26, 0.95);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(29, 233, 192, 0.2);
   border-radius: 16px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
 }
 
-/* ── HEADER ── */
+/* ── 2. HEADER DE LA PAGE ── */
 .page-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid rgba(29, 233, 192, 0.1);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(29, 233, 192, 0.1);
 }
 
 .page-title {
+  margin: 0;
+  color: #1de9c0;
   font-family: "Rajdhani", sans-serif;
   font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: 0.2em;
-  color: #1de9c0;
-  margin: 0;
 }
 
 .btn-back-icon {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(29, 233, 192, 0.2);
-  color: #1de9c0;
-  border-radius: 8px;
   width: 40px;
   height: 40px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(29, 233, 192, 0.2);
+  border-radius: 8px;
+  color: #1de9c0;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -260,14 +262,15 @@ export default {
   transform: translateX(-3px);
 }
 
+/* Statut du rafraîchissement */
 .refresh-status {
-  font-family: "Rajdhani", sans-serif;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #2e6b62;
   display: flex;
   align-items: center;
   gap: 8px;
+  color: #2e6b62;
+  font-family: "Rajdhani", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -284,13 +287,13 @@ export default {
   animation: pulse 1.5s infinite;
 }
 
-/* ── FILTRES ── */
+/* ── 3. FILTRES DE RECHERCHE ── */
 .filters-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
   padding: 1.25rem 1.5rem;
   background: rgba(0, 0, 0, 0.2);
-  display: flex;
-  gap: 2rem;
-  flex-wrap: wrap;
 }
 
 .filter-group {
@@ -300,20 +303,27 @@ export default {
 }
 
 .filter-group label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
+  color: #1de9c0;
   font-family: "Rajdhani", sans-serif;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: #2e6b62;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.15em;
 }
 
-/* --- Correction des Filtres (Select) --- */
+.label-icon {
+  filter: grayscale(1) brightness(1.5);
+}
 
+/* Style des Selects */
 .select-wrapper {
-  background: rgba(0, 20, 30, 0.6); /* Fond très sombre pour le contraste */
+  padding: 2px 8px;
+  background: rgba(0, 20, 30, 0.6);
   border: 1px solid rgba(29, 233, 192, 0.3);
   border-radius: 6px;
-  padding: 2px 8px;
   transition:
     border-color 0.3s,
     box-shadow 0.3s;
@@ -325,51 +335,31 @@ export default {
 }
 
 select {
-  background: transparent;
-  border: none;
-  color: #1de9c0; /* Texte turquoise */
-  font-family: "Rajdhani", sans-serif;
-  font-weight: 600;
-  font-size: 0.9rem;
-  outline: none;
-  cursor: pointer;
+  width: 100%;
   min-width: 140px;
   height: 35px;
-  appearance: none; /* Supprime le style natif OS */
+  background: transparent;
+  border: none;
+  color: #1de9c0;
+  font-family: "Rajdhani", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
 }
 
-/* Style des options (la liste qui s'ouvre) */
 select option {
-  background-color: #06121a; /* Fond sombre forcé */
-  color: #1de9c0; /* Texte turquoise */
+  background-color: #06121a;
+  color: #1de9c0;
   padding: 10px;
 }
 
-/* Pour Firefox/Chrome sur certains OS, on s'assure que le texte n'est pas blanc */
-select:focus {
-  color: #1de9c0;
-}
-
-.filter-group label {
-  font-family: "Rajdhani", sans-serif;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #1de9c0; /* Label turquoise pour plus de visibilité */
-  letter-spacing: 0.15em;
-  margin-bottom: 4px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.label-icon {
-  filter: grayscale(1) brightness(1.5); /* Rend l'emoji plus discret/tech */
-}
-/* ── GRID & CARDS ── */
+/* ── 4. GRILLE DES PARTIES & CARTES ── */
 .content-scroll {
   flex: 1;
-  overflow-y: auto;
   padding: 1.5rem;
+  overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(29, 233, 192, 0.2) transparent;
 }
@@ -381,13 +371,13 @@ select:focus {
 }
 
 .game-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(29, 233, 192, 0.1);
-  border-radius: 12px;
-  padding: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(29, 233, 192, 0.1);
+  border-radius: 12px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -405,20 +395,21 @@ select:focus {
 }
 
 .game-id {
-  font-family: "Rajdhani", sans-serif;
-  font-weight: 700;
   color: #1de9c0;
+  font-family: "Rajdhani", sans-serif;
   font-size: 1.1rem;
+  font-weight: 700;
 }
 
 .player-count {
-  font-size: 0.85rem;
-  color: #dff2ee;
-  background: rgba(29, 233, 192, 0.1);
   padding: 2px 8px;
+  background: rgba(29, 233, 192, 0.1);
   border-radius: 4px;
+  color: #dff2ee;
+  font-size: 0.85rem;
 }
 
+/* Détails internes des cartes */
 .info-row {
   display: flex;
   flex-direction: column;
@@ -426,16 +417,16 @@ select:focus {
 }
 
 .info-label {
-  font-size: 0.6rem;
   color: #2e6b62;
+  font-size: 0.6rem;
   font-weight: 700;
   text-transform: uppercase;
 }
 
 .info-value {
   color: #dff2ee;
-  font-weight: 500;
   font-size: 0.95rem;
+  font-weight: 500;
 }
 
 .tag-row {
@@ -444,11 +435,11 @@ select:focus {
 }
 
 .badge {
+  padding: 3px 8px;
+  border-radius: 4px;
   font-family: "Rajdhani", sans-serif;
   font-size: 0.7rem;
   font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 4px;
   text-transform: uppercase;
 }
 
@@ -464,19 +455,20 @@ select:focus {
   border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
+/* ── 5. BOUTON D'ACTION ── */
 .btn-join {
+  position: relative;
   width: 100%;
   padding: 0.8rem;
   background: rgba(29, 233, 192, 0.1);
   border: 1px solid rgba(29, 233, 192, 0.3);
+  border-radius: 6px;
   color: #1de9c0;
   font-family: "Rajdhani", sans-serif;
   font-weight: 700;
-  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s;
-  position: relative;
   overflow: hidden;
+  transition: all 0.2s;
 }
 
 .btn-join:hover {
@@ -484,13 +476,13 @@ select:focus {
   color: #030a10;
 }
 
-/* ── MESSAGES D'ÉTAT ── */
+/* ── 6. MESSAGES D'ÉTAT & CHARGEMENT ── */
 .state-msg {
-  height: 200px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  height: 200px;
   color: #2e6b62;
   font-family: "Rajdhani", sans-serif;
   font-weight: 600;
@@ -500,12 +492,13 @@ select:focus {
 .scanner-loader {
   width: 100px;
   height: 2px;
+  margin-bottom: 20px;
   background: #1de9c0;
   box-shadow: 0 0 15px #1de9c0;
-  margin-bottom: 20px;
   animation: scan 2s ease-in-out infinite;
 }
 
+/* ── 7. ANIMATIONS & RESPONSIVE ── */
 @keyframes scan {
   0%,
   100% {
@@ -530,17 +523,16 @@ select:focus {
   }
 }
 
-/* Responsive */
 @media (max-width: 600px) {
-  .filters-bar {
-    gap: 1rem;
+  .join-container {
+    width: 95%;
+    height: 95vh;
   }
   .page-title {
     font-size: 1.1rem;
   }
-  .join-container {
-    height: 95vh;
-    width: 95%;
+  .filters-bar {
+    gap: 1rem;
   }
 }
 </style>

@@ -319,16 +319,17 @@ const vClickOutside = {
 </script>
 
 <style scoped>
+/* ── 1. IMPORT & CONFIGURATION GLOBALE ── */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&display=swap");
 
 .background {
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at center, #0a1921 0%, #030a10 100%);
-  font-family: "Rajdhani", sans-serif;
   display: flex;
   justify-content: center;
   align-items: center;
+  background: radial-gradient(circle at center, #0a1921 0%, #030a10 100%);
+  font-family: "Rajdhani", sans-serif;
   color: #dff2ee;
 }
 
@@ -345,67 +346,70 @@ const vClickOutside = {
   margin-left: auto;
 }
 
+/* ── 2. CARTE DE CONFIGURATION (CARD) ── */
 .config-card {
   width: 100%;
   max-width: 380px;
+  padding: 2rem;
   background: rgba(6, 18, 26, 0.9);
   border: 1px solid rgba(29, 233, 192, 0.2);
   border-radius: 12px;
-  padding: 2rem;
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
 }
 
 .title {
+  margin-bottom: 2rem;
+  color: #1de9c0;
   font-size: 1.3rem;
   text-align: center;
-  color: #1de9c0;
   letter-spacing: 3px;
-  margin-bottom: 2rem;
 }
 
+/* ── 3. FORMULAIRE & LABELS ── */
 .form-group {
   margin-bottom: 1.5rem;
 }
 
 label {
   display: block;
-  font-size: 0.75rem;
-  color: rgba(29, 233, 192, 0.6);
   margin-bottom: 8px;
+  color: rgba(29, 233, 192, 0.6);
+  font-size: 0.75rem;
   letter-spacing: 1px;
 }
 
-/* --- CUSTOM DROPDOWN --- */
+/* ── 4. CUSTOM DROPDOWN ── */
 .custom-dropdown {
   position: relative;
   cursor: pointer;
 }
 
 .dropdown-selected {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(29, 233, 192, 0.2);
-  padding: 12px 15px;
-  border-radius: 6px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 12px 15px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(29, 233, 192, 0.2);
+  border-radius: 6px;
   transition: all 0.3s;
 }
 
 .dropdown-selected.open,
 .dropdown-selected:hover {
-  border-color: #1de9c0;
   background: rgba(29, 233, 192, 0.05);
+  border-color: #1de9c0;
 }
 
 .arrow {
   width: 0;
   height: 0;
-  border-left: 5px solid transparent;
   border-right: 5px solid transparent;
+  border-left: 5px solid transparent;
   border-top: 5px solid #1de9c0;
   transition: transform 0.3s;
 }
+
 .open .arrow {
   transform: rotate(180deg);
 }
@@ -413,26 +417,27 @@ label {
 .dropdown-options {
   position: absolute;
   top: calc(100% + 5px);
-  left: 0;
   right: 0;
+  left: 0;
+  z-index: 100;
   background: #0d1a21;
   border: 1px solid #1de9c0;
   border-radius: 6px;
-  z-index: 100;
-  overflow: hidden;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
 }
 
 .option {
   padding: 12px 15px;
   transition: background 0.2s;
 }
+
 .option:hover {
   background: #1de9c0;
   color: #030a10;
 }
 
-/* --- INPUTS & CHECKBOX --- */
+/* ── 5. INPUTS (NOMBRE) & BADGES ── */
 .input-container {
   position: relative;
   display: flex;
@@ -441,9 +446,9 @@ label {
 
 input[type="number"] {
   width: 100%;
+  padding: 12px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(29, 233, 192, 0.2);
-  padding: 12px;
   border-radius: 6px;
   color: white;
   outline: none;
@@ -452,88 +457,97 @@ input[type="number"] {
 .input-badge {
   position: absolute;
   right: 10px;
-  font-size: 0.7rem;
   padding: 4px 8px;
   border-radius: 4px;
+  font-size: 0.7rem;
 }
+
 .input-badge.success {
   background: rgba(29, 233, 192, 0.1);
   color: #1de9c0;
 }
+
 .input-badge.error {
   background: rgba(248, 113, 113, 0.1);
   color: #f87171;
 }
 
+/* ── 6. CHECKBOX PERSONNALISÉE ── */
 .checkbox-card {
   display: flex;
   align-items: center;
   gap: 15px;
-  background: rgba(255, 255, 255, 0.02);
   padding: 15px;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
   border: 1px dashed rgba(29, 233, 192, 0.2);
+  border-radius: 8px;
   cursor: pointer;
 }
+
 .checkbox-card.active {
-  border-style: solid;
   border-color: #1de9c0;
+  border-style: solid;
 }
+
 .checkbox-card input {
   display: none;
 }
 
 .check-box {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   width: 20px;
   height: 20px;
+  background: transparent;
   border: 1px solid #1de9c0;
   border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   color: #030a10;
-  background: transparent;
 }
+
 input:checked + .check-box {
   background: #1de9c0;
 }
 
-/* --- BUTTONS --- */
+/* ── 7. BOUTONS ── */
 .btn-cyber {
   width: 100%;
+  margin-top: 1rem;
   padding: 1rem;
-  border-radius: 6px;
   border: none;
+  border-radius: 6px;
   font-weight: 700;
   letter-spacing: 2px;
   cursor: pointer;
   transition: all 0.3s;
-  margin-top: 1rem;
 }
 
 .btn-primary {
   background: #1de9c0;
   color: #030a10;
 }
+
 .btn-primary:hover:not(:disabled) {
   box-shadow: 0 0 20px rgba(29, 233, 192, 0.4);
   transform: translateY(-2px);
 }
 
 .btn-back {
+  margin-top: 10px;
   background: transparent;
   color: #2e6b62;
-  margin-top: 10px;
 }
+
 .btn-back:hover {
   color: #f87171;
 }
 
-/* Transitions */
+/* ── 8. TRANSITIONS & ANIMATIONS ── */
 .dropdown-enter-active,
 .dropdown-leave-active {
   transition: all 0.2s ease;
 }
+
 .dropdown-enter-from,
 .dropdown-leave-to {
   opacity: 0;

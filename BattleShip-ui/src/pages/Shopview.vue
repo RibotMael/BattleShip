@@ -590,48 +590,41 @@ export default {
 </script>
 
 <style scoped>
+/* ── 1. IMPORTS & CONFIGURATION GLOBALE ── */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Exo+2:wght@400;500;700;800&display=swap");
 
-.item-card {
-  --card-glow: rgba(255, 255, 255, 0);
-  background: rgba(8, 20, 36, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 16px;
-  overflow: hidden;
-  transition:
-    transform 0.3s ease,
-    box-shadow 0.3s ease,
-    border-color 0.3s;
-  display: flex;
-  flex-direction: column;
-}
-.item-card:hover {
-  transform: translateY(-6px);
-  box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.5),
-    0 0 15px var(--card-glow);
-}
-
 .shop-bg {
+  position: relative;
   min-height: 100vh;
   background: radial-gradient(ellipse at 20% 20%, #0a1628 0%, #040d18 50%, #020810 100%);
   font-family: "Exo 2", sans-serif;
   color: #d0e8e0;
-  position: relative;
   overflow: hidden;
 }
+
+.shop-wrapper {
+  position: relative;
+  z-index: 1;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+/* ── 2. ANIMATION PARTICULES ── */
 .particles {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
 }
+
 .particle {
   position: absolute;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(29, 233, 192, 0.3) 0%, transparent 70%);
   animation: drift linear infinite;
 }
+
 @keyframes drift {
   0% {
     transform: translateY(0) scale(1);
@@ -649,15 +642,7 @@ export default {
   }
 }
 
-.shop-wrapper {
-  position: relative;
-  z-index: 1;
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 2rem 1.5rem 4rem;
-}
-
-/* ── HEADER ── */
+/* ── 3. HEADER (TITRE, RETOUR, OR) ── */
 .shop-header {
   display: flex;
   align-items: center;
@@ -665,126 +650,162 @@ export default {
   margin-bottom: 2.5rem;
   gap: 1rem;
 }
-.btn-back {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(29, 233, 192, 0.05);
-  border: 1px solid rgba(29, 233, 192, 0.2);
-  color: #1de9c0;
-  padding: 0.6rem 1.2rem;
-  border-radius: 8px;
-  font-family: "Rajdhani", sans-serif;
-  font-weight: 700;
-  font-size: 1rem;
-  cursor: pointer;
-  letter-spacing: 0.08em;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-.btn-back:hover {
-  background: rgba(29, 233, 192, 0.15);
-  box-shadow: 0 0 14px rgba(29, 233, 192, 0.2);
-}
+
 .header-center {
   text-align: center;
 }
+
 .shop-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 0;
+  color: #e0f5f0;
   font-family: "Rajdhani", sans-serif;
   font-size: clamp(1.4rem, 3vw, 2.2rem);
   font-weight: 700;
   letter-spacing: 0.25em;
   text-transform: uppercase;
-  color: #e0f5f0;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  justify-content: center;
 }
+
+.shop-subtitle {
+  margin: 4px 0 0;
+  color: #4a9e8e;
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
 .title-icon {
   color: #1de9c0;
   font-size: 1rem;
   opacity: 0.7;
 }
-.shop-subtitle {
-  font-size: 0.8rem;
-  color: #4a9e8e;
-  letter-spacing: 0.2em;
-  margin: 4px 0 0;
-  text-transform: uppercase;
+
+.btn-back {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 0.6rem 1.2rem;
+  background: rgba(29, 233, 192, 0.05);
+  border: 1px solid rgba(29, 233, 192, 0.2);
+  border-radius: 8px;
+  color: #1de9c0;
+  font-family: "Rajdhani", sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.2s;
 }
+
+.btn-back:hover {
+  background: rgba(29, 233, 192, 0.15);
+  box-shadow: 0 0 14px rgba(29, 233, 192, 0.2);
+}
+
 .gold-display {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+  padding: 0.5rem 1.2rem;
   background: rgba(245, 158, 11, 0.08);
   border: 1px solid rgba(245, 158, 11, 0.3);
-  padding: 0.5rem 1.2rem;
   border-radius: 30px;
-  flex-shrink: 0;
 }
+
 .gold-icon {
   display: flex;
   align-items: center;
   color: #f59e0b;
 }
+
 .gold-amount {
+  color: #f59e0b;
   font-family: "Rajdhani", sans-serif;
   font-size: 1.3rem;
   font-weight: 700;
-  color: #f59e0b;
 }
 
-/* ── TABS ── */
+/* ── 4. NAVIGATION PAR CATÉGORIES ── */
 .category-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   margin-bottom: 2rem;
-  flex-wrap: wrap;
 }
+
 .cat-tab {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 0.6rem 1.4rem;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #7ba89e;
-  padding: 0.6rem 1.4rem;
   border-radius: 30px;
+  color: #7ba89e;
   font-family: "Rajdhani", sans-serif;
-  font-weight: 600;
   font-size: 1rem;
+  font-weight: 600;
   letter-spacing: 0.06em;
   cursor: pointer;
   transition: all 0.2s;
 }
+
 .cat-tab .cat-count {
-  font-size: 0.75rem;
-  background: rgba(255, 255, 255, 0.08);
   padding: 1px 7px;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 10px;
+  font-size: 0.75rem;
 }
+
 .cat-tab.active {
   background: rgba(29, 233, 192, 0.1);
   border-color: rgba(29, 233, 192, 0.4);
   color: #1de9c0;
 }
+
 .cat-tab.active .cat-count {
   background: rgba(29, 233, 192, 0.2);
 }
+
 .cat-tab:hover:not(.active) {
   border-color: rgba(255, 255, 255, 0.15);
   color: #b0d8d0;
 }
 
-/* ── GRILLE ── */
+/* ── 5. SYSTÈME DE GRILLE ET CARTES ── */
 .items-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
   gap: 1.5rem;
 }
 
+.item-card {
+  --card-glow: rgba(255, 255, 255, 0);
+  display: flex;
+  flex-direction: column;
+  background: rgba(8, 20, 36, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  overflow: hidden;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease,
+    border-color 0.3s;
+}
+
+.item-card:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.5),
+    0 0 15px var(--card-glow);
+}
+
+/* États des cartes */
 .item-card.equipped {
   border-color: rgba(29, 233, 192, 0.5);
   box-shadow: 0 0 25px rgba(29, 233, 192, 0.12);
@@ -799,69 +820,75 @@ export default {
   opacity: 0.65;
 }
 
-/* ── PREVIEW ── */
+/* ── 6. ZONE DE PRÉVISUALISATION (IMAGES/BATEAUX/FONDS) ── */
 .item-preview {
   position: relative;
-  height: 170px;
-  border-bottom: 2px solid;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  height: 170px;
   padding: 16px;
+  border-bottom: 2px solid;
+  overflow: hidden;
 }
+
 .preview-label {
   position: absolute;
   top: 12px;
   left: 14px;
+  color: rgba(255, 255, 255, 0.35);
   font-family: "Rajdhani", sans-serif;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.35);
 }
+
+/* Avatar/Skin */
 .preview-avatar-ring {
-  width: 104px;
-  height: 104px;
-  border-radius: 50%;
-  border: 2px solid;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  z-index: 2;
-  transition: box-shadow 0.3s;
+  width: 104px;
+  height: 104px;
   background: rgba(255, 255, 255, 0.03);
+  border: 2px solid;
+  border-radius: 50%;
+  overflow: hidden;
+  transition: box-shadow 0.3s;
 }
+
 .avatar-portrait {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
   border-radius: 50%;
-  display: block;
 }
 .skin-fallback {
-  font-size: 2.6rem;
-  line-height: 1;
   display: none;
   align-items: center;
   justify-content: center;
+  font-size: 2.6rem;
+  line-height: 1;
 }
 
-/* ── BATEAU ── */
+/* Bateau/Grid */
 .preview-grid {
+  z-index: 2;
   display: grid;
   grid-template-columns: repeat(3, 38px);
   grid-template-rows: repeat(3, 38px);
   gap: 4px;
-  z-index: 2;
 }
+
 .preview-cell {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 4px;
   transition: all 0.2s;
 }
+
 .preview-ship-bar {
   position: absolute;
   bottom: 18px;
@@ -869,14 +896,17 @@ export default {
   transform: translateX(-50%);
   width: 118px;
   height: 5px;
+  background: currentColor;
   border-radius: 3px;
   opacity: 0.65;
 }
+
 .preview-grid-label {
   position: absolute;
   bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
+  color: inherit;
   font-family: "Rajdhani", sans-serif;
   font-size: 0.65rem;
   font-weight: 700;
@@ -885,14 +915,14 @@ export default {
   white-space: nowrap;
 }
 
-/* ── FOND ── */
+/* Fond/Background Article */
 .fond-preview-img {
   position: absolute;
   inset: 0;
+  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  z-index: 1;
   display: block;
 }
 .fond-overlay {
@@ -902,39 +932,41 @@ export default {
   background: linear-gradient(to top, rgba(4, 13, 24, 0.7) 0%, transparent 60%);
 }
 .fond-fallback {
-  font-size: 3rem;
-  z-index: 3;
   display: none;
   align-items: center;
   justify-content: center;
+  z-index: 3;
+  font-size: 3rem;
 }
+
 .preview-rarity {
   position: absolute;
   bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
+  z-index: 3;
   font-family: "Rajdhani", sans-serif;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.2em;
-  white-space: nowrap;
   text-transform: uppercase;
-  z-index: 3;
+  white-space: nowrap;
 }
 
-/* ── STATUS BADGE ── */
+/* ── 7. BADGES DE STATUT ── */
 .status-badge {
   position: absolute;
   top: 10px;
   right: 10px;
   z-index: 10;
+  padding: 3px 10px;
+  border-radius: 20px;
   font-family: "Rajdhani", sans-serif;
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.1em;
-  padding: 3px 10px;
-  border-radius: 20px;
 }
+
 .equipped-badge {
   background: rgba(29, 233, 192, 0.2);
   color: #1de9c0;
@@ -951,23 +983,25 @@ export default {
   border: 1px solid rgba(74, 222, 128, 0.3);
 }
 
-/* ── CORPS ── */
+/* ── 8. CORPS DE LA CARTE (NOM, RARETÉ, COULEURS) ── */
 .item-body {
-  padding: 1.1rem 1.25rem 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
   flex: 1;
+  gap: 0.5rem;
+  padding: 1.1rem 1.25rem 1.25rem;
 }
+
 .item-name {
+  margin: 0;
+  color: #e0f2ee;
   font-family: "Rajdhani", sans-serif;
   font-size: 1.2rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #e0f2ee;
-  margin: 0;
 }
+
 .rarity-row {
   font-family: "Rajdhani", sans-serif;
   font-size: 0.78rem;
@@ -980,26 +1014,33 @@ export default {
   gap: 6px;
   margin-top: 2px;
 }
+
 .color-dot {
   width: 14px;
   height: 14px;
-  border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
   cursor: help;
   transition: transform 0.15s;
 }
+
 .color-dot:hover {
   transform: scale(1.4);
 }
 
-/* ── ACTIONS ── */
+/* ── 9. ACTIONS (BOUTONS) ── */
 .item-actions {
   margin-top: auto;
   padding-top: 0.75rem;
 }
+
 .btn-buy,
 .btn-equip,
 .btn-equipped {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
   padding: 0.75rem;
   border: none;
@@ -1011,36 +1052,41 @@ export default {
   text-transform: uppercase;
   cursor: pointer;
   transition: all 0.25s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
 }
+
+/* Bouton Acheter */
 .btn-buy {
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.08) 100%);
   border: 1px solid rgba(245, 158, 11, 0.4);
   color: #f59e0b;
 }
+
 .btn-buy:hover:not(.disabled) {
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.3) 0%, rgba(245, 158, 11, 0.15) 100%);
   box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
   transform: scale(1.02);
 }
+
 .btn-buy.disabled {
   opacity: 0.4;
   cursor: not-allowed;
   filter: grayscale(0.5);
 }
+
+/* Bouton Équiper */
 .btn-equip {
   background: linear-gradient(135deg, rgba(29, 233, 192, 0.12) 0%, rgba(29, 233, 192, 0.06) 100%);
   border: 1px solid rgba(29, 233, 192, 0.35);
   color: #1de9c0;
 }
+
 .btn-equip:hover {
   background: linear-gradient(135deg, rgba(29, 233, 192, 0.25) 0%, rgba(29, 233, 192, 0.12) 100%);
   box-shadow: 0 0 20px rgba(29, 233, 192, 0.2);
   transform: scale(1.02);
 }
+
+/* Bouton Équipé (Actif) */
 .btn-equipped {
   background: rgba(29, 233, 192, 0.07);
   border: 1px solid rgba(29, 233, 192, 0.2);
@@ -1048,36 +1094,40 @@ export default {
   opacity: 0.8;
   cursor: default;
 }
+
 .spinner {
   display: inline-block;
   animation: spin 0.8s linear infinite;
 }
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-/* ── LOADING & EMPTY ── */
+/* ── 10. ÉTATS CHARGEMENT & VIDE ── */
 .loading-state,
 .empty-state {
   grid-column: 1/-1;
-  text-align: center;
-  padding: 5rem 0;
-  gap: 1.5rem;
-  color: #4a9e8e;
-  font-family: "Rajdhani", sans-serif;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1.5rem;
+  padding: 5rem 0;
+  color: #4a9e8e;
+  font-family: "Rajdhani", sans-serif;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-align: center;
 }
+
 .empty-state {
   opacity: 0.6;
   padding: 4rem 0;
 }
+
 .sonar-ring {
   width: 60px;
   height: 60px;
@@ -1087,34 +1137,38 @@ export default {
   animation: spin 1.2s linear infinite;
 }
 
-/* ── TOAST ── */
+/* ── 11. TOAST NOTIFICATIONS ── */
 .toast {
   position: fixed;
   bottom: 2.5rem;
   left: 50%;
-  transform: translateX(-50%);
+  z-index: 9999;
   padding: 0.9rem 2rem;
   border-radius: 30px;
   font-family: "Rajdhani", sans-serif;
-  font-weight: 700;
   font-size: 1.05rem;
+  font-weight: 700;
   letter-spacing: 0.08em;
-  z-index: 9999;
-  pointer-events: none;
   white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
 }
+
 .toast.success {
   background: rgba(29, 233, 192, 0.15);
   border: 1px solid rgba(29, 233, 192, 0.4);
   color: #1de9c0;
   box-shadow: 0 8px 30px rgba(29, 233, 192, 0.15);
 }
+
 .toast.error {
   background: rgba(248, 113, 113, 0.15);
   border: 1px solid rgba(248, 113, 113, 0.4);
   color: #f87171;
   box-shadow: 0 8px 30px rgba(248, 113, 113, 0.15);
 }
+
+/* Animations Toast Vue (Transitions) */
 .toast-enter-active,
 .toast-leave-active {
   transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -1125,6 +1179,7 @@ export default {
   transform: translateX(-50%) translateY(20px) scale(0.9);
 }
 
+/* ── 12. RESPONSIVE MOBILE ── */
 @media (max-width: 640px) {
   .shop-header {
     flex-wrap: wrap;

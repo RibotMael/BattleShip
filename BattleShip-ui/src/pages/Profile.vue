@@ -482,30 +482,31 @@ export default {
 </script>
 
 <style scoped>
+/* ── 1. IMPORT & CONFIGURATION GÉNÉRALE ── */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap");
 
-/* ── Panel Principal ── */
 .profile-card {
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-width: 440px;
   max-height: calc(100dvh - 2rem);
-  display: flex;
-  flex-direction: column;
   background: rgba(6, 18, 26, 0.94);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(29, 233, 192, 0.18);
   border-radius: 14px;
+  color: #c0ddd8;
+  font-family: "Inter", sans-serif;
   box-shadow:
     0 0 0 1px rgba(29, 233, 192, 0.05),
     0 24px 60px rgba(0, 0, 0, 0.6);
   overflow-y: auto;
-  color: #c0ddd8;
-  font-family: "Inter", sans-serif;
   scrollbar-width: thin;
   scrollbar-color: rgba(29, 233, 192, 0.15) transparent;
 }
 
+/* Scrollbar Personnalisée */
 .profile-card::-webkit-scrollbar {
   width: 3px;
 }
@@ -517,7 +518,7 @@ export default {
   border-radius: 2px;
 }
 
-/* ── Header ── */
+/* ── 2. HEADER DU PROFIL ── */
 .profile-header {
   display: flex;
   align-items: center;
@@ -528,30 +529,30 @@ export default {
 }
 
 .profile-title {
+  margin: 0;
+  color: #dff2ee;
   font-family: "Rajdhani", sans-serif;
   font-size: 1.2rem;
   font-weight: 700;
-  color: #dff2ee;
-  margin: 0;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .btn-icon-back {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(29, 233, 192, 0.1);
-  border-radius: 7px;
-  width: 32px;
-  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(29, 233, 192, 0.1);
+  border-radius: 7px;
   color: #3d7a70;
+  cursor: pointer;
   transition:
     color 0.15s,
     background 0.15s;
-  padding: 0;
 }
 
 .btn-icon-back:hover {
@@ -563,28 +564,28 @@ export default {
   width: 32px;
 }
 
-/* ── Contenu ── */
+/* ── 3. CONTENU ET SECTIONS ── */
 .profile-content {
-  padding: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  padding: 1.25rem;
 }
 
-/* ── Labels & Dots ── */
 .section-label {
   display: flex;
   align-items: center;
   gap: 7px;
+  margin: 0;
+  color: #2e6b62;
   font-family: "Rajdhani", sans-serif;
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #2e6b62;
-  margin: 0;
 }
 
+/* Indicateurs Visuels (Dots) */
 .label-dot {
   width: 6px;
   height: 6px;
@@ -604,7 +605,7 @@ export default {
   box-shadow: 0 0 6px rgba(192, 132, 252, 0.5);
 }
 
-/* ── Avatar ── */
+/* ── 4. AVATAR & SÉLECTION ── */
 .avatar-section {
   display: flex;
   flex-direction: column;
@@ -621,26 +622,26 @@ export default {
 }
 
 .main-img {
+  display: block;
   width: 90px;
   height: 90px;
   border-radius: 50%;
   object-fit: cover;
-  display: block;
 }
 
 .avatar-grid-container {
   width: 100%;
+  padding: 10px;
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(29, 233, 192, 0.07);
-  padding: 10px;
   border-radius: 10px;
 }
 
 .avatar-grid {
   display: flex;
-  overflow-x: auto;
   gap: 10px;
   padding-bottom: 4px;
+  overflow-x: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(29, 233, 192, 0.15) transparent;
 }
@@ -648,22 +649,15 @@ export default {
 .avatar-grid::-webkit-scrollbar {
   height: 3px;
 }
-.avatar-grid::-webkit-scrollbar-track {
-  background: transparent;
-}
-.avatar-grid::-webkit-scrollbar-thumb {
-  background: rgba(29, 233, 192, 0.15);
-  border-radius: 2px;
-}
 
 .avatar-option {
   flex: 0 0 44px;
   height: 44px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 2px solid transparent;
   border-radius: 9px;
   cursor: pointer;
   overflow: hidden;
-  border: 2px solid transparent;
-  background: rgba(255, 255, 255, 0.04);
   transition:
     transform 0.18s,
     border-color 0.18s,
@@ -682,23 +676,23 @@ export default {
   object-fit: cover;
 }
 
-/* ── STATS PILLS ── */
+/* ── 5. STATISTIQUES (PILLS) ── */
 .stats-row {
   display: flex;
   gap: 10px;
 }
 
 .stat-pill {
-  flex: 1;
   display: flex;
+  flex: 1;
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 10px;
   background: rgba(255, 255, 255, 0.025);
+  border-radius: 10px;
 }
 
-/* Couleurs spécifiques aux Pills */
+/* Couleurs par type de statistique */
 .gold-pill {
   border: 1px solid rgba(245, 158, 11, 0.2);
   background: rgba(245, 158, 11, 0.04);
@@ -725,33 +719,6 @@ export default {
   align-items: center;
   flex-shrink: 0;
 }
-
-.stat-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.stat-pill-label {
-  font-family: "Rajdhani", sans-serif;
-  font-size: 0.65rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #2e6b62;
-}
-.gold-pill .stat-pill-label {
-  color: rgba(245, 158, 11, 0.7);
-}
-.game-pill .stat-pill-label {
-  color: rgba(148, 163, 184, 0.7);
-}
-.win-pill .stat-pill-label {
-  color: rgba(74, 222, 128, 0.7);
-}
-.defeat-pill .stat-pill-label {
-  color: rgba(248, 113, 113, 0.7);
-}
-
 .gold-pill .stat-pill-icon {
   color: #f59e0b;
 }
@@ -768,12 +735,38 @@ export default {
   color: #f87171;
 }
 
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-pill-label {
+  color: #2e6b62;
+  font-family: "Rajdhani", sans-serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.gold-pill .stat-pill-label {
+  color: rgba(245, 158, 11, 0.7);
+}
+.game-pill .stat-pill-label {
+  color: rgba(148, 163, 184, 0.7);
+}
+.win-pill .stat-pill-label {
+  color: rgba(74, 222, 128, 0.7);
+}
+.defeat-pill .stat-pill-label {
+  color: rgba(248, 113, 113, 0.7);
+}
+
 .stat-pill-value {
+  color: #dff2ee;
   font-family: "Inter", sans-serif;
   font-size: 1.1rem;
   font-weight: 600;
   line-height: 1.1;
-  color: #dff2ee;
 }
 .gold-pill .stat-pill-value {
   color: #f59e0b;
@@ -788,7 +781,7 @@ export default {
   color: #f87171;
 }
 
-/* ── BARRE XP / CONTAINERS BLOCKS ── */
+/* ── 6. BARRES DE PROGRESSION (XP) ── */
 .xp-block {
   display: flex;
   flex-direction: column;
@@ -809,12 +802,12 @@ export default {
   display: flex;
   align-items: center;
   gap: 6px;
+  color: #2e6b62;
   font-family: "Rajdhani", sans-serif;
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #2e6b62;
 }
 
 .xp-numbers {
@@ -845,8 +838,8 @@ export default {
 .xp-next-level {
   display: flex;
   justify-content: space-between;
-  font-size: 0.65rem;
   color: #2e6b62;
+  font-size: 0.65rem;
   font-weight: 500;
 }
 
@@ -854,7 +847,7 @@ export default {
   color: #1e4e49;
 }
 
-/* ── INFO SECTION (Inputs & Boutons) ── */
+/* ── 7. FORMULAIRE & ACTIONS ── */
 .info-section {
   display: flex;
   flex-direction: column;
@@ -863,28 +856,28 @@ export default {
 
 .input-group label {
   display: block;
+  margin-bottom: 6px;
+  color: #2e6b62;
   font-family: "Rajdhani", sans-serif;
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #2e6b62;
-  margin-bottom: 6px;
 }
 
 .input-wrapper {
+  padding: 0.65rem 0.85rem;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(29, 233, 192, 0.13);
   border-radius: 9px;
-  padding: 0.65rem 0.85rem;
   transition:
     border-color 0.18s,
     background 0.18s;
 }
 
 .input-wrapper:focus-within {
-  border-color: rgba(29, 233, 192, 0.38);
   background: rgba(29, 233, 192, 0.04);
+  border-color: rgba(29, 233, 192, 0.38);
 }
 
 input[type="text"] {
@@ -892,9 +885,9 @@ input[type="text"] {
   background: none;
   border: none;
   outline: none;
+  color: #dff2ee;
   font-family: "Inter", sans-serif;
   font-size: 0.9rem;
-  color: #dff2ee;
   text-align: center;
 }
 
@@ -902,7 +895,7 @@ input[type="text"]::placeholder {
   color: #1e4e49;
 }
 
-/* Actions */
+/* Boutons d'Action */
 .action-buttons {
   display: flex;
   flex-direction: column;
@@ -910,18 +903,18 @@ input[type="text"]::placeholder {
 }
 
 .btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   padding: 0.8rem;
+  border: none;
   border-radius: 9px;
   font-family: "Rajdhani", sans-serif;
   font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.05em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   cursor: pointer;
-  border: none;
   transition:
     transform 0.15s,
     background 0.18s;
@@ -929,8 +922,8 @@ input[type="text"]::placeholder {
 
 .btn-save {
   background: rgba(29, 233, 192, 0.15);
-  color: #1de9c0;
   border: 1px solid rgba(29, 233, 192, 0.25);
+  color: #1de9c0;
 }
 
 .btn-save:hover {
@@ -943,15 +936,15 @@ input[type="text"]::placeholder {
 }
 
 .btn-delete {
+  padding: 6px 12px;
   background: none;
   border: none;
+  border-radius: 6px;
+  color: #f87171;
   font-family: "Inter", sans-serif;
   font-size: 0.75rem;
-  color: #f87171;
   opacity: 0.8;
   cursor: pointer;
-  padding: 6px 12px;
-  border-radius: 6px;
   transition:
     background 0.15s,
     opacity 0.15s;

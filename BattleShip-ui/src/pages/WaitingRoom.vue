@@ -438,44 +438,40 @@
 </template>
 
 <style scoped>
+/* ── 1. CONFIGURATION & LAYOUT GLOBAL ── */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap");
 
-/* ══════════════════════════════════════
-   BASE
-══════════════════════════════════════ */
 .waiting-page {
   position: fixed;
   inset: 0;
-  font-family: "Rajdhani", sans-serif;
-  color: #dff2ee;
   display: flex;
   justify-content: center;
   align-items: center;
   padding: 20px;
+  font-family: "Rajdhani", sans-serif;
+  color: #dff2ee;
 }
 
 .room-container {
-  width: 100%;
-  max-width: 1100px;
-  height: 85vh;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  width: 100%;
+  max-width: 1100px;
+  height: 85vh;
 }
 
-/* ══════════════════════════════════════
-   HEADER
-══════════════════════════════════════ */
+/* ── 2. HEADER (HUD) ── */
 .hud-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
   padding: 14px 20px;
   background: rgba(6, 18, 26, 0.75);
   border: 1px solid rgba(29, 233, 192, 0.15);
   border-radius: 10px;
   backdrop-filter: blur(12px);
-  flex-shrink: 0;
 }
 
 .header-main {
@@ -485,19 +481,20 @@
 }
 
 h1 {
+  margin: 0;
   font-size: 1.4rem;
   font-weight: 700;
   letter-spacing: 3px;
-  margin: 0;
   color: #dff2ee;
 }
 
 .session-id {
   font-size: 1rem;
-  color: rgba(29, 233, 192, 0.45);
   font-weight: 500;
+  color: rgba(29, 233, 192, 0.45);
 }
 
+/* Indicateur de statut & Pulse */
 .status-indicator {
   width: 10px;
   height: 10px;
@@ -521,14 +518,15 @@ h1 {
   }
 }
 
+/* Badge de mode de jeu */
 .game-badge {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 5px 14px;
   background: rgba(29, 233, 192, 0.08);
   border: 1px solid rgba(29, 233, 192, 0.25);
   border-radius: 6px;
-  padding: 5px 14px;
 }
 
 .mode-dot {
@@ -546,9 +544,7 @@ h1 {
   letter-spacing: 2px;
 }
 
-/* ══════════════════════════════════════
-   GRID & PANNEAUX
-══════════════════════════════════════ */
+/* ── 3. STRUCTURE DES PANNEAUX ── */
 .hud-grid {
   display: flex;
   gap: 16px;
@@ -557,12 +553,12 @@ h1 {
 }
 
 .hud-panel {
+  display: flex;
+  flex-direction: column;
   background: rgba(6, 18, 26, 0.8);
   border: 1px solid rgba(29, 233, 192, 0.1);
   border-radius: 10px;
   backdrop-filter: blur(12px);
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
 }
 
@@ -570,19 +566,17 @@ h1 {
   display: flex;
   align-items: center;
   gap: 7px;
+  flex-shrink: 0;
+  padding: 8px 16px;
   background: rgba(29, 233, 192, 0.08);
   border-bottom: 1px solid rgba(29, 233, 192, 0.1);
   color: #1de9c0;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 1.5px;
-  padding: 8px 16px;
-  flex-shrink: 0;
 }
 
-/* ══════════════════════════════════════
-   PANNEAU AMIS
-══════════════════════════════════════ */
+/* ── 4. PANNEAU LATÉRAL (AMIS / CONTACTS) ── */
 .friends-panel {
   width: 260px;
   flex-shrink: 0;
@@ -604,27 +598,14 @@ h1 {
   border-radius: 2px;
 }
 
-.empty-msg {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 30px 0;
-  color: #1e4e49;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-align: center;
-}
-
 .friend-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 3px;
   padding: 9px 10px;
   border-radius: 6px;
   transition: background 0.18s;
-  margin-bottom: 3px;
 }
 
 .friend-row:hover {
@@ -637,11 +618,17 @@ h1 {
   gap: 9px;
 }
 
+.user-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #a8cdc7;
+}
+
 .status-dot {
   width: 7px;
   height: 7px;
-  border-radius: 50%;
   background: rgba(74, 85, 104, 0.6);
+  border-radius: 50%;
   flex-shrink: 0;
 }
 
@@ -650,28 +637,22 @@ h1 {
   box-shadow: 0 0 6px rgba(29, 233, 192, 0.7);
 }
 
-.user-name {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #a8cdc7;
-}
-
 .btn-invite {
-  width: 26px;
-  height: 26px;
-  border-radius: 5px;
-  border: 1px solid rgba(29, 233, 192, 0.3);
-  background: rgba(29, 233, 192, 0.1);
-  color: #1de9c0;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: rgba(29, 233, 192, 0.1);
+  border: 1px solid rgba(29, 233, 192, 0.3);
+  border-radius: 5px;
+  color: #1de9c0;
+  cursor: pointer;
   flex-shrink: 0;
   transition:
     background 0.15s,
     transform 0.12s;
-  padding: 0;
 }
 
 .btn-invite:hover:not(:disabled) {
@@ -687,9 +668,20 @@ h1 {
   cursor: not-allowed;
 }
 
-/* ══════════════════════════════════════
-   PANNEAU PRINCIPAL
-══════════════════════════════════════ */
+.empty-msg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 30px 0;
+  color: #1e4e49;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+/* ── 5. PANNEAU CENTRAL (ÉQUIPES / JOUEURS) ── */
 .main-panel {
   flex: 1;
   display: flex;
@@ -706,7 +698,6 @@ h1 {
   scrollbar-color: rgba(29, 233, 192, 0.1) transparent;
 }
 
-/* Section non-assignés */
 .unassigned-section {
   margin-bottom: 20px;
 }
@@ -715,14 +706,14 @@ h1 {
   display: flex;
   align-items: center;
   gap: 6px;
+  margin-bottom: 10px;
+  color: rgba(29, 233, 192, 0.55);
   font-size: 0.68rem;
   font-weight: 700;
-  color: rgba(29, 233, 192, 0.55);
   letter-spacing: 1.5px;
-  margin-bottom: 10px;
 }
 
-/* Tags joueurs */
+/* ── 6. TAGS JOUEURS & CONTRÔLES ── */
 .player-wall {
   display: flex;
   flex-wrap: wrap;
@@ -733,10 +724,10 @@ h1 {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 7px 10px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 7px;
-  padding: 7px 10px;
   transition: border-color 0.15s;
 }
 
@@ -745,21 +736,21 @@ h1 {
 }
 
 .player-tag.unassigned {
-  border-color: rgba(29, 233, 192, 0.2);
   background: rgba(29, 233, 192, 0.03);
+  border-color: rgba(29, 233, 192, 0.2);
 }
 
 .tag-avatar {
-  width: 26px;
-  height: 26px;
-  border-radius: 5px;
-  background: rgba(29, 233, 192, 0.15);
-  color: #1de9c0;
-  font-size: 0.75rem;
-  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: rgba(29, 233, 192, 0.15);
+  border-radius: 5px;
+  color: #1de9c0;
+  font-size: 0.75rem;
+  font-weight: 700;
   flex-shrink: 0;
 }
 
@@ -772,12 +763,16 @@ h1 {
 .tag-controls {
   display: flex;
   gap: 4px;
+  margin-left: 0; /* Ajusté par rapport à l'original si besoin */
   padding-left: 10px;
   border-left: 1px solid rgba(255, 255, 255, 0.07);
 }
 
-/* Ctrl buttons */
+/* Boutons de gestion (Kick/Team) */
 .ctrl-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   height: 24px;
   padding: 0 8px;
   border-radius: 4px;
@@ -786,9 +781,6 @@ h1 {
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .t1-btn {
@@ -810,10 +802,10 @@ h1 {
 }
 
 .kick-btn {
+  min-width: 24px;
   background: rgba(248, 113, 113, 0.08);
   border: 1px solid rgba(248, 113, 113, 0.25);
   color: #f87171;
-  min-width: 24px;
 }
 .kick-btn:hover {
   background: rgba(248, 113, 113, 0.2);
@@ -823,24 +815,22 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
-  border: 1px solid rgba(248, 113, 113, 0.3);
-  color: #f87171;
-  border-radius: 4px;
+  flex-shrink: 0;
   width: 22px;
   height: 22px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 4px;
+  color: #f87171;
   cursor: pointer;
   transition: background 0.15s;
-  padding: 0;
-  flex-shrink: 0;
 }
 .tag-kick:hover {
   background: rgba(248, 113, 113, 0.15);
 }
 
-/* ══════════════════════════════════════
-   GRILLE ÉQUIPES
-══════════════════════════════════════ */
+/* ── 7. GRILLE DES ÉQUIPES (TEAM MODE) ── */
 .teams-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -860,11 +850,11 @@ h1 {
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 2px;
-  background: rgba(255, 255, 255, 0.02);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .team-color-bar {
@@ -882,12 +872,12 @@ h1 {
 
 .team-count {
   margin-left: auto;
-  font-size: 0.65rem;
+  padding: 1px 8px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
-  padding: 1px 8px;
   color: #5a8a82;
+  font-size: 0.65rem;
 }
 
 .team-list {
@@ -898,18 +888,19 @@ h1 {
 .team-empty {
   padding: 16px;
   text-align: center;
-  font-size: 0.7rem;
   color: #1e4e49;
+  font-size: 0.7rem;
   letter-spacing: 1px;
 }
 
+/* Ligne de membre d'équipe */
 .member-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 3px;
   padding: 7px 8px;
   border-radius: 6px;
-  margin-bottom: 3px;
   transition: background 0.15s;
 }
 
@@ -924,14 +915,14 @@ h1 {
 }
 
 .member-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 24px;
   height: 24px;
   border-radius: 4px;
   font-size: 0.7rem;
   font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
 }
 
@@ -939,7 +930,6 @@ h1 {
   background: rgba(29, 233, 192, 0.12);
   color: #1de9c0;
 }
-
 .t2-avatar {
   background: rgba(56, 189, 248, 0.12);
   color: #38bdf8;
@@ -958,14 +948,14 @@ h1 {
 
 .btn-swap,
 .btn-remove {
-  width: 26px;
-  height: 26px;
-  border-radius: 5px;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 26px;
+  height: 26px;
   padding: 0;
+  border-radius: 5px;
+  cursor: pointer;
   transition: all 0.15s;
 }
 
@@ -989,14 +979,12 @@ h1 {
   color: #f87171;
 }
 
-/* ══════════════════════════════════════
-   FOOTER
-══════════════════════════════════════ */
+/* ── 8. FOOTER & MESSAGES D'ERREUR ── */
 .hud-footer {
   flex-shrink: 0;
-  border-top: 1px solid rgba(29, 233, 192, 0.08);
   padding: 16px 20px;
   background: rgba(3, 10, 16, 0.4);
+  border-top: 1px solid rgba(29, 233, 192, 0.08);
 }
 
 .error-stack {
@@ -1007,48 +995,46 @@ h1 {
   display: flex;
   align-items: center;
   gap: 7px;
+  margin-bottom: 5px;
+  color: #f87171;
   font-size: 0.75rem;
   font-weight: 700;
-  color: #f87171;
-  margin-bottom: 5px;
   letter-spacing: 0.5px;
 }
 
 .system-err {
-  color: #f87171;
-  font-size: 0.78rem;
   margin-top: 8px;
   text-align: center;
+  color: #f87171;
+  font-size: 0.78rem;
 }
 
+/* ── 9. BOUTONS D'ACTION (CYBER) ── */
 .button-group {
   display: flex;
   gap: 12px;
 }
 
-/* ══════════════════════════════════════
-   BOUTONS PRINCIPAUX
-══════════════════════════════════════ */
 .btn-cyber {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 9px;
   padding: 12px 22px;
-  font-family: "Rajdhani", sans-serif;
-  font-weight: 700;
-  font-size: 0.9rem;
-  letter-spacing: 2px;
-  border-radius: 7px;
   border: none;
+  border-radius: 7px;
+  font-family: "Rajdhani", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 2px;
   cursor: pointer;
   transition: all 0.25s;
 }
 
 .btn-primary {
+  flex: 2;
   background: #1de9c0;
   color: #030a10;
-  flex: 2;
   box-shadow: 0 0 20px rgba(29, 233, 192, 0.2);
 }
 
@@ -1066,10 +1052,10 @@ h1 {
 }
 
 .btn-danger {
+  flex: 1;
   background: rgba(248, 113, 113, 0.08);
   border: 1px solid rgba(248, 113, 113, 0.3);
   color: #f87171;
-  flex: 1;
 }
 
 .btn-danger:hover {
@@ -1078,34 +1064,34 @@ h1 {
   transform: translateY(-1px);
 }
 
-/* ══════════════════════════════════════
-   TRANSITIONS
-══════════════════════════════════════ */
+/* ── 10. ANIMATIONS & TRANSITIONS (Vue) ── */
 .fade-error-enter-active,
 .fade-error-leave-active {
   transition: all 0.25s ease;
 }
+
 .fade-error-enter-from,
 .fade-error-leave-to {
   opacity: 0;
   transform: translateX(-8px);
 }
 
-/* ══════════════════════════════════════
-   RESPONSIVE
-══════════════════════════════════════ */
+/* ── 11. RESPONSIVE (TABLETTES & MOBILES) ── */
 @media (max-width: 900px) {
   .hud-grid {
     flex-direction: column;
   }
+
   .friends-panel {
     width: 100%;
     height: 170px;
     flex-shrink: 0;
   }
+
   .teams-grid {
     grid-template-columns: 1fr;
   }
+
   .room-container {
     height: 95vh;
   }

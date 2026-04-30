@@ -125,7 +125,9 @@ export default {
 </script>
 
 <style scoped>
-/* --- FOND ET LAYOUT GLOBAL --- */
+/* ── 1. FOND ET LAYOUT GLOBAL ── */
+@import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap");
+
 .battle-page {
   min-height: 100vh;
   display: flex;
@@ -139,18 +141,19 @@ export default {
     linear-gradient(90deg, rgba(29, 233, 192, 0.05) 1px, transparent 1px);
   background-size: 40px 40px;
   color: #e0e0e0;
+  font-family: "Inter", sans-serif;
 }
 
-/* --- HEADER TACTIQUE --- */
+/* ── 2. HEADER TACTIQUE ── */
 .tactical-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 15px 30px;
   background: rgba(3, 10, 16, 0.85);
+  backdrop-filter: blur(5px);
   border-bottom: 1px solid rgba(29, 233, 192, 0.3);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(5px);
 }
 
 .header-left {
@@ -161,28 +164,26 @@ export default {
 
 .header-left h1 {
   margin: 0;
-  font-size: 1.5rem;
   color: #1de9c0;
+  font-family: "Rajdhani", sans-serif;
+  font-size: 1.5rem;
   letter-spacing: 2px;
   text-shadow: 0 0 8px rgba(29, 233, 192, 0.4);
-  font-family: "Rajdhani", "Courier New", Courier, monospace;
 }
 
+/* Animation Radar */
 .radar-ping {
+  position: relative;
   width: 12px;
   height: 12px;
   background-color: #1de9c0;
   border-radius: 50%;
-  position: relative;
 }
 
 .radar-ping::after {
   content: "";
   position: absolute;
-  top: -4px;
-  left: -4px;
-  right: -4px;
-  bottom: -4px;
+  inset: -4px;
   border: 1px solid #1de9c0;
   border-radius: 50%;
   animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
@@ -196,18 +197,19 @@ export default {
   }
 }
 
+/* Boutons Header */
 .btn-tactical {
-  background: rgba(3, 10, 16, 0.6);
-  border: 1px solid rgba(29, 233, 192, 0.5);
-  color: #1de9c0;
-  padding: 8px 16px;
   display: flex;
   align-items: center;
   gap: 10px;
-  cursor: pointer;
-  font-family: "Rajdhani", "Courier New", Courier, monospace;
-  font-weight: bold;
+  padding: 8px 16px;
+  background: rgba(3, 10, 16, 0.6);
+  border: 1px solid rgba(29, 233, 192, 0.5);
+  color: #1de9c0;
+  font-family: "Rajdhani", sans-serif;
+  font-weight: 700;
   letter-spacing: 1px;
+  cursor: pointer;
   transition: all 0.2s ease-in-out;
 }
 
@@ -220,32 +222,33 @@ export default {
   display: none;
 }
 
-/* --- STRUCTURE DES PARAMÈTRES --- */
+/* ── 3. STRUCTURE DES PARAMÈTRES ── */
 .settings-layout {
   display: flex;
   justify-content: center;
-  padding: 40px 20px;
   flex: 1;
+  padding: 40px 20px;
 }
 
 .settings-container {
-  width: 100%;
-  max-width: 700px;
   display: flex;
   flex-direction: column;
   gap: 25px;
+  width: 100%;
+  max-width: 700px;
 }
 
 .settings-section {
+  position: relative;
+  padding: 25px;
   background: rgba(3, 10, 16, 0.7);
   border: 1px solid rgba(29, 233, 192, 0.15);
   border-radius: 2px;
-  padding: 25px;
-  position: relative;
   overflow: hidden;
-  font-family: "Rajdhani", "Courier New", Courier, monospace;
+  font-family: "Rajdhani", sans-serif;
 }
 
+/* Effet Scanline interne */
 .settings-section::before {
   content: "";
   position: absolute;
@@ -256,32 +259,32 @@ export default {
 }
 
 .grid-label {
-  font-size: 1.1rem;
-  color: white;
-  margin-top: 0;
-  margin-bottom: 20px;
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: white;
+  font-size: 1.1rem;
   letter-spacing: 1.5px;
 }
 
 .dot {
+  display: inline-block;
   width: 6px;
   height: 6px;
   background-color: #1de9c0;
-  display: inline-block;
   box-shadow: 0 0 5px #1de9c0;
 }
 
-/* --- CONTROLES FORMULAIRE --- */
+/* ── 4. CONTRÔLES FORMULAIRE (INPUTS) ── */
 .field-tactical {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-bottom: 25px;
-  position: relative;
-  z-index: 1;
 }
 
 .field-tactical:last-child {
@@ -289,11 +292,11 @@ export default {
 }
 
 .field-tactical label {
+  margin-bottom: 5px;
+  color: #1de9c0;
   font-size: 0.85rem;
   font-weight: 600;
   letter-spacing: 1.2px;
-  color: #1de9c0;
-  margin-bottom: 5px;
   text-transform: uppercase;
 }
 
@@ -309,50 +312,53 @@ export default {
   gap: 15px;
 }
 
+/* Sliders Tactiques */
 .tactical-slider {
-  -webkit-appearance: none;
   flex: 1;
   height: 4px;
   background: rgba(29, 233, 192, 0.2);
   outline: none;
   border-radius: 2px;
+  -webkit-appearance: none;
 }
 
 .tactical-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
   width: 14px;
   height: 18px;
   background: #1de9c0;
-  cursor: pointer;
   border-radius: 1px;
   box-shadow: 0 0 5px rgba(29, 233, 192, 0.5);
+  cursor: pointer;
+  -webkit-appearance: none;
 }
 
 .value-tag {
-  font-family: monospace;
-  background: rgba(29, 233, 192, 0.1);
+  min-width: 50px;
   padding: 4px 10px;
+  background: rgba(29, 233, 192, 0.1);
   border: 1px solid rgba(29, 233, 192, 0.3);
   color: #1de9c0;
-  min-width: 50px;
+  font-family: monospace;
   text-align: center;
 }
 
+/* Selects Tactiques */
 .select-tactical {
-  background: rgba(3, 10, 16, 0.9);
-  color: #1de9c0;
-  border: 1px solid rgba(29, 233, 192, 0.4);
+  width: 100%;
   padding: 10px 40px 10px 15px;
-  font-family: inherit;
-  font-size: 0.9rem;
-  letter-spacing: 1px;
-  cursor: pointer;
-  outline: none;
-  appearance: none;
+  background: rgba(3, 10, 16, 0.9);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%231de9c0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   background-size: 16px;
+  border: 1px solid rgba(29, 233, 192, 0.4);
+  color: #1de9c0;
+  font-family: inherit;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
 }
 
 .opt-tactical {
@@ -366,7 +372,7 @@ export default {
   box-shadow: 0 0 10px rgba(29, 233, 192, 0.2);
 }
 
-/* Toggle Switch */
+/* ── 5. TOGGLE SWITCH ── */
 .switch {
   position: relative;
   display: inline-block;
@@ -375,31 +381,31 @@ export default {
 }
 
 .switch input {
-  opacity: 0;
   width: 0;
   height: 0;
+  opacity: 0;
 }
 
 .slider {
   position: absolute;
-  cursor: pointer;
   inset: 0;
   background-color: rgba(255, 255, 255, 0.1);
-  transition: 0.3s;
   border: 1px solid rgba(29, 233, 192, 0.3);
   border-radius: 2px;
+  cursor: pointer;
+  transition: 0.3s;
 }
 
 .slider:before {
-  position: absolute;
   content: "";
-  height: 16px;
-  width: 16px;
-  left: 3px;
+  position: absolute;
   bottom: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
   background-color: rgba(255, 255, 255, 0.5);
-  transition: 0.3s;
   border-radius: 1px;
+  transition: 0.3s;
 }
 
 input:checked + .slider {
@@ -408,12 +414,12 @@ input:checked + .slider {
 }
 
 input:checked + .slider:before {
-  transform: translateX(26px);
   background-color: #1de9c0;
   box-shadow: 0 0 8px rgba(29, 233, 192, 0.6);
+  transform: translateX(26px);
 }
 
-/* Mobile */
+/* ── 6. RESPONSIVE MOBILE ── */
 @media (max-width: 600px) {
   .btn-text {
     display: none;
@@ -423,6 +429,9 @@ input:checked + .slider:before {
   }
   .tactical-header {
     padding: 12px 16px;
+  }
+  .settings-layout {
+    padding: 20px 10px;
   }
 }
 </style>

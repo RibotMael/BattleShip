@@ -336,6 +336,7 @@ export default {
 </script>
 
 <style scoped>
+/* ── 1. CONFIGURATION GÉNÉRALE & TYPOGRAPHIE ── */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap");
 
 .background {
@@ -344,6 +345,13 @@ export default {
   font-family: "Inter", sans-serif;
 }
 
+.menu-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* Utilitaires d'icônes */
 .icon {
   display: flex;
   align-items: center;
@@ -356,41 +364,38 @@ export default {
   color: #f59e0b;
 }
 
-.menu-container {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-}
-
-/* ── TOP BAR ── */
+/* ── 2. BARRE SUPÉRIEURE (TOP BAR) ── */
 .top-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  backdrop-filter: blur(0px);
   z-index: 100;
+  backdrop-filter: blur(0px);
 }
 
+/* Bouton Amis */
 .btn-friends {
-  background: rgba(29, 233, 192, 0.05);
-  border: 1px solid rgba(29, 233, 192, 0.2);
-  color: #1de9c0;
-  padding: 0.75rem 1.25rem;
-  font-size: 1.1rem;
-  border-radius: 8px;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
-  cursor: pointer;
+  padding: 0.75rem 1.25rem;
+  background: rgba(29, 233, 192, 0.05);
+  border: 1px solid rgba(29, 233, 192, 0.2);
+  border-radius: 8px;
+  color: #1de9c0;
   font-family: "Rajdhani", sans-serif;
+  font-size: 1.1rem;
   font-weight: 600;
+  cursor: pointer;
   transition: all 0.2s;
-  position: relative;
 }
+
 .btn-friends svg {
   width: 24px;
   height: 24px;
 }
+
 .btn-friends:hover {
   background: rgba(29, 233, 192, 0.15);
   box-shadow: 0 0 15px rgba(29, 233, 192, 0.2);
@@ -400,14 +405,15 @@ export default {
   position: absolute;
   top: -5px;
   right: -5px;
+  padding: 3px 8px;
   background: #f87171;
+  border: 2px solid #06121a;
+  border-radius: 12px;
   color: white;
   font-size: 0.85rem;
-  padding: 3px 8px;
-  border-radius: 12px;
-  border: 2px solid #06121a;
 }
 
+/* Stats Joueur (Pills) */
 .player-stats {
   display: flex;
   gap: 12px;
@@ -423,67 +429,80 @@ export default {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
 }
+
 .gold-pill {
   border-color: rgba(245, 158, 11, 0.3);
   color: #f59e0b;
 }
+
 .level-pill {
   border-color: rgba(29, 233, 192, 0.3);
 }
+
 .pill-value {
-  font-weight: 600;
   font-size: 0.9rem;
+  font-weight: 600;
 }
+
+/* Barre XP miniature */
 .level-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
+
 .level-text {
+  color: #1de9c0;
   font-family: "Rajdhani", sans-serif;
   font-size: 0.7rem;
   font-weight: 700;
-  color: #1de9c0;
 }
+
 .mini-xp-track {
   width: 60px;
   height: 3px;
   background: rgba(29, 233, 192, 0.1);
   border-radius: 2px;
 }
+
 .mini-xp-fill {
   height: 100%;
   background: #1de9c0;
   box-shadow: 0 0 5px #1de9c0;
 }
 
+/* Profil & Dropdown Utilisateur */
 .user-trigger {
   display: flex;
   align-items: center;
   gap: 16px;
-  cursor: pointer;
   padding: 6px 6px 6px 16px;
-  border-radius: 35px;
-  transition: background 0.2s;
   border: 1px solid transparent;
+  border-radius: 35px;
+  cursor: pointer;
+  transition: background 0.2s;
 }
+
 .user-trigger:hover,
 .user-trigger.active {
   background: rgba(29, 233, 192, 0.08);
   border-color: rgba(29, 233, 192, 0.1);
 }
+
 .pseudo {
   color: #dff2ee;
-  font-weight: 600;
   font-size: 1.1rem;
+  font-weight: 600;
 }
+
 .avatar-wrap {
   width: 48px;
   height: 48px;
-  border-radius: 50%;
-  border: 2px solid #1de9c0;
   padding: 2px;
+  border: 2px solid #1de9c0;
+  border-radius: 50%;
 }
+
 .avatar-img {
   width: 100%;
   height: 100%;
@@ -496,43 +515,47 @@ export default {
   top: calc(100% + 15px);
   right: 1.5rem;
   width: 240px;
+  padding: 10px;
   background: rgba(10, 25, 47, 0.95);
   border: 1px solid rgba(29, 233, 192, 0.2);
   border-radius: 12px;
   backdrop-filter: blur(15px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  padding: 10px;
 }
+
 .user-dropdown button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   width: 100%;
   padding: 12px 16px;
   background: none;
   border: none;
+  border-radius: 8px;
   color: #c0ddd8;
-  text-align: left;
   font-family: "Rajdhani", sans-serif;
   font-size: 1.05rem;
   font-weight: 600;
+  text-align: left;
   cursor: pointer;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
 }
+
 .user-dropdown button:hover {
   background: rgba(29, 233, 192, 0.1);
   color: #1de9c0;
 }
+
 .dropdown-divider {
   height: 1px;
-  background: rgba(29, 233, 192, 0.1);
   margin: 6px 0;
+  background: rgba(29, 233, 192, 0.1);
 }
+
 .logout-btn {
   color: #f87171 !important;
 }
 
-/* ── MAIN CONTENT ── */
+/* ── 3. CONTENU PRINCIPAL & LOGO ── */
 .menu-content {
   flex: 1;
   display: flex;
@@ -546,11 +569,13 @@ export default {
   margin-bottom: 3rem;
   perspective: 1000px;
 }
+
 .menu-logo {
   width: 80vw;
   filter: drop-shadow(0 0 30px rgba(29, 233, 192, 0.2));
   animation: logo-float 4s ease-in-out infinite;
 }
+
 @keyframes logo-float {
   0%,
   100% {
@@ -561,6 +586,7 @@ export default {
   }
 }
 
+/* ── 4. BOUTONS DU MENU (STACK) ── */
 .button-stack {
   display: flex;
   flex-direction: column;
@@ -572,23 +598,27 @@ export default {
 .btn-cyber {
   position: relative;
   padding: 1.1rem;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: inherit;
   font-family: "Rajdhani", sans-serif;
   font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   cursor: pointer;
-  border: none;
-  border-radius: 4px;
   transition: all 0.3s;
   overflow: hidden;
 }
 
+/* Variantes de boutons */
 .btn-primary {
   background: #1de9c0;
   color: #030a10;
   box-shadow: 0 0 20px rgba(29, 233, 192, 0.3);
 }
+
 .btn-primary:hover {
   background: #14c9a5;
   box-shadow: 0 0 30px rgba(29, 233, 192, 0.5);
@@ -597,58 +627,62 @@ export default {
 
 .btn-secondary {
   background: rgba(29, 233, 192, 0.05);
-  color: #1de9c0;
   border: 1px solid rgba(29, 233, 192, 0.3);
+  color: #1de9c0;
 }
+
 .btn-secondary:hover {
   background: rgba(29, 233, 192, 0.15);
   border-color: #1de9c0;
 }
 
-/* ── BOUTON SKINS ── */
 .btn-skins {
-  background: rgba(168, 85, 247, 0.07);
-  color: #c084fc;
-  border: 1px solid rgba(168, 85, 247, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
+  background: rgba(168, 85, 247, 0.07);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #c084fc;
 }
+
 .btn-skins:hover {
   background: rgba(168, 85, 247, 0.18);
   border-color: #c084fc;
   box-shadow: 0 0 20px rgba(168, 85, 247, 0.25);
   transform: scale(1.02);
 }
+
 .btn-skins-icon {
   display: flex;
   align-items: center;
 }
 
 .btn-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
   background: none;
   border: none;
   color: #2e6b62;
   font-family: "Rajdhani", sans-serif;
   font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
   cursor: pointer;
-  margin-top: 10px;
   transition: color 0.2s;
 }
+
 .btn-back:hover {
   color: #f87171;
 }
 
-/* ── TRANSITIONS ── */
+/* ── 5. TRANSITIONS (VUE.JS) ── */
 .dropdown-enter-active,
 .dropdown-leave-active {
   transition: all 0.2s ease-out;
 }
+
 .dropdown-enter-from,
 .dropdown-leave-to {
   opacity: 0;
@@ -659,27 +693,32 @@ export default {
 .view-slide-leave-active {
   transition: all 0.3s ease;
 }
+
 .view-slide-enter-from {
   opacity: 0;
   transform: translateX(20px);
 }
+
 .view-slide-leave-to {
   opacity: 0;
   transform: translateX(-20px);
 }
 
-/* ── MOBILE ── */
+/* ── 6. RESPONSIVE (MOBILE) ── */
 @media (max-width: 600px) {
   .btn-label,
   .pseudo {
     display: none;
   }
+
   .top-bar {
     padding: 0.5rem 1rem;
   }
+
   .player-stats {
     margin-right: 10px;
   }
+
   .menu-logo {
     max-width: 300px;
   }
