@@ -566,7 +566,7 @@ router.get("/:gameId/timer", async (req, res) => {
     res.json({
       success: true,
       timeLeft,
-      turnStartAt: game.last_turn_timestamp || null  // ← ajout
+      turnStartAt: game.last_turn_timestamp || null 
     });
   } catch (err) {
     res.status(500).json({ success: false });

@@ -226,12 +226,17 @@ export default {
   components: { AuthForm, FriendsPopup },
   data() {
     return {
+      // --- État de l'Utilisateur ---
       user: null,
-      logo,
+      avatarPreviewUrl: defaultAvatar,
+
+      // --- Interface et Menus ---
       showUserMenu: false,
       showFriendsPopup: false,
       showPlayOptions: false,
-      avatarPreviewUrl: defaultAvatar,
+
+      // --- Assets et Global ---
+      logo,
       i18nStore,
     };
   },
@@ -330,7 +335,7 @@ export default {
     },
     goToShop() {
       this.$router.push("/shop");
-    }, // ← nouvelle route
+    },
   },
 };
 </script>

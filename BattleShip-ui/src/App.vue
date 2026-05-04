@@ -16,7 +16,6 @@ import { useShopStore } from "@/stores/shopStore";
 export default {
   setup() {
     const shopStore = useShopStore();
-    // Exposer pour que this.shopStore fonctionne dans les hooks Options API
     return { settingsStore, shopStore };
   },
 
@@ -26,7 +25,6 @@ export default {
     if (userId) {
       await this.shopStore.fetchShop(userId);
     } else {
-      // Pas connecté : appliquer quand même le thème par défaut
       this.shopStore.applyThemeToDOM();
     }
   },
@@ -36,7 +34,7 @@ export default {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
       const userId = user.id || user.ID_Users;
       if (userId) {
-        socket.emit("register-user", { userId }); // ✅ la bonne façon
+        socket.emit("register-user", { userId });
       }
     };
     socket.on("connect", () => {

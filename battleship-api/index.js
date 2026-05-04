@@ -242,7 +242,7 @@ async function resolveTurn(gameId) {
       }
     }
   } catch (err) {
-    // Mode silencieux 
+    // Mode silencieux
   }
 }
 
@@ -273,7 +273,7 @@ function _startTick(sId, duration) {
         if (!games[sId] || games[sId].finished) return;
         await resolveTurn(sId);
         if (games[sId] && !games[sId].finished) startTurn(sId, duration);
-      }, 1200);
+      }, 1000);
     }
   }, 1000);
 
@@ -310,15 +310,11 @@ async function startTurn(gameId, duration = 7) {
     );
 
     if (upd.affectedRows === 0) {
-
       const [[freshRow]] = await db.query(
         "SELECT last_turn_timestamp FROM games WHERE id_Game = ?",
         [sId]
       );
       if (!freshRow) return;
-
-      const elapsed = Date.now() / 1000 - (freshRow.last_turn_timestamp || 0);
-      const syncedTimeLeft = Math.max(0, Math.ceil(duration - elapsed));
 
       games[sId].turnStartAt = (freshRow.last_turn_timestamp || 0) * 1000;
       games[sId].duration = duration;
@@ -327,7 +323,7 @@ async function startTurn(gameId, duration = 7) {
       games[sId].turnNumber = (games[sId].turnNumber || 0) + 1;
 
       io.to(sId).emit("turn-timer", {
-        timeLeft: syncedTimeLeft,
+        timeLeft: duration,
         gameId: sId,
         turnStartAt: games[sId].turnStartAt,
       });
@@ -350,7 +346,7 @@ async function startTurn(gameId, duration = 7) {
 
     _startTick(sId, duration);
   } catch (err) {
-    // Mode silencieux 
+    // Mode silencieux
   }
 }
 
@@ -408,7 +404,7 @@ io.on("connection", (socket) => {
   socket.on("register-user", async ({ userId }) => {
     connectedUserId = Number(userId);
     userSocketMap[connectedUserId] = socket.id;
-    socket.join(`user_${connectedUserId}`); // salle personnelle
+    socket.join(`user_${connectedUserId}`);
     await db.query("UPDATE users SET Online = 1 WHERE ID_Users = ?", [connectedUserId]);
     await notifyFriendsStatus(connectedUserId, true);
   });
@@ -454,7 +450,7 @@ io.on("connection", (socket) => {
         });
       }
     } catch (err) {
-      // Mode silencieux 
+      // Mode silencieux
     }
   });
 

@@ -104,14 +104,21 @@ const backgroundImgs = Object.fromEntries(
 export default {
   data() {
     return {
+      // --- Gestion des Parties ---
       publicGames: [],
-      loading: false,
-      refreshing: false,
-      user: null,
-      refreshInterval: null,
       selectedLanguage: "",
       selectedMode: "",
+
+      // --- États de Chargement ---
+      loading: false,
+      refreshing: false,
+
+      // --- Utilisateur ---
+      user: null,
       currentUser: JSON.parse(localStorage.getItem("user")) || null,
+
+      // --- Utilitaires ---
+      refreshInterval: null,
     };
   },
   computed: {

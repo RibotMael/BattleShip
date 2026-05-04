@@ -265,19 +265,26 @@ const backgroundImgs = Object.fromEntries(
 export default {
   data() {
     return {
+      // --- Profil et Identité ---
       pseudo: "",
       userId: null,
+      currentUser: JSON.parse(localStorage.getItem("user")) || null,
+      activePrefix: "",
+
+      // --- Avatar ---
       avatars: localAvatarList,
       avatar: null,
       avatarPreviewUrl: defaultAvatar,
-      activePrefix: "",
+
+      // --- Progression et Économie ---
       currentGold: 0,
       currentXp: 0,
       currentLevel: 0,
+
+      // --- Statistiques de Jeu ---
       wins: 0,
       defeats: 0,
       gamesPlayed: 0,
-      currentUser: JSON.parse(localStorage.getItem("user")) || null,
     };
   },
   computed: {
@@ -355,7 +362,6 @@ export default {
       try {
         const res = await api.get("/avatars");
         this.avatars = res.data.avatars;
-        // N'écraser l'aperçu QUE si aucun skin de shop n'est actif
         const prefix = (JSON.parse(localStorage.getItem("user")) || {}).activeAvatarPrefix ?? "";
         if (!prefix && this.avatar) {
           this.updatePreview(this.avatar);
@@ -372,8 +378,6 @@ export default {
           this.currentGold = res.data.gold ?? this.currentGold;
           this.currentXp = res.data.xp ?? this.currentXp;
           this.currentLevel = res.data.level ?? this.currentLevel;
-
-          // Récupération des stats du ratio depuis l'API (à adapter selon les noms de clés de ton backend)
           this.wins = res.data.win ?? this.wins;
           this.defeats = res.data.defeat ?? this.defeats;
           this.gamesPlayed = res.data.game_played ?? this.gamesPlayed;

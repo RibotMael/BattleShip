@@ -10,7 +10,20 @@
           <span class="btn-text">{{
             i18nStore.t(fromGame ? "settings_back_game" : "settings_back_home")
           }}</span>
-          <span class="btn-icon">⬅</span>
+          <span class="btn-icon">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </span>
         </button>
       </div>
     </header>
@@ -52,16 +65,6 @@
         <section class="settings-section">
           <h2 class="grid-label"><span class="dot"></span>{{ i18nStore.t("settings_visuals") }}</h2>
           <div class="settings-content">
-            <div class="field-tactical">
-              <label>{{ i18nStore.t("settings_quality") }}</label>
-              <select v-model="settingsStore.graphicsQuality" class="select-tactical">
-                <option value="low" class="opt-tactical">
-                  {{ i18nStore.t("settings_quality_low") }}
-                </option>
-                <option value="medium">{{ i18nStore.t("settings_quality_med") }}</option>
-                <option value="high">{{ i18nStore.t("settings_quality_high") }}</option>
-              </select>
-            </div>
             <div class="field-tactical switch-wrapper">
               <label>{{ i18nStore.t("settings_heartbeat") }}</label>
               <label class="switch">
@@ -111,7 +114,6 @@ export default {
   methods: {
     goBack() {
       if (this.fromGame) {
-        // Retour vers la partie avec les mêmes paramètres qu'à l'aller
         this.$router.push({
           path: `/game/${this.$route.query.gameId}`,
           query: { gameType: this.$route.query.gameType },

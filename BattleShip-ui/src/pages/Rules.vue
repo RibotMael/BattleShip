@@ -194,13 +194,15 @@
   background-position: center;
   font-family: "Inter", sans-serif;
   color: #dff2ee;
-  z-index: -1;
+  z-index: 0;
 }
 
 .menu-container {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  position: relative;
+  z-index: 1;
 }
 
 /* ── 2. BARRE DE NAVIGATION SUPÉRIEURE ── */

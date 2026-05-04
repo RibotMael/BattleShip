@@ -18,7 +18,6 @@ function getUserId() {
 
 socket.on("connect", () => {
   const userId = getUserId();
-  // "register-user" = ce que le serveur écoute réellement
   if (userId) socket.emit("register-user", { userId: Number(userId) });
 });
 

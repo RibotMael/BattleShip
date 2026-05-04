@@ -1114,17 +1114,22 @@ export default {
   props: { gameId: { type: [String, Number], required: false } },
   data() {
     return {
+      // --- État de la Partie et Session ---
       localGameId: null,
       game: null,
-      players: [],
-      user: JSON.parse(localStorage.getItem("user")) || { id: 999, pseudo: "TestUser" },
-      userId: 0,
-      friends: [],
       isHost: false,
       polling: null,
       errorMsg: "",
-      teamAssignments: {},
+
+      // --- Utilisateur et Identification ---
+      user: JSON.parse(localStorage.getItem("user")) || { id: 999, pseudo: "TestUser" },
       currentUser: JSON.parse(localStorage.getItem("user")) || null,
+      userId: 0,
+
+      // --- Joueurs et Social ---
+      players: [],
+      friends: [],
+      teamAssignments: {},
     };
   },
   computed: {
@@ -1186,9 +1191,7 @@ export default {
     },
   },
 
-  // ── created() UNIQUE — fusion du watcher background + init sockets ──
   async created() {
-    // Watcher background
     watch(
       () => userBus.userUpdated,
       () => {

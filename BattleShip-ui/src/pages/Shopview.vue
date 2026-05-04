@@ -338,10 +338,15 @@ export default {
 
   data() {
     return {
+      // --- Navigation et Sélection ---
       activeCategory: "avatar",
-      buyingId: null,
       activeBateauTheme: localStorage.getItem("activeBateauTheme") || "",
+      buyingId: null,
+
+      // --- Interface et Feedback ---
       toast: { visible: false, message: "", type: "success" },
+
+      // --- Configuration des Catégories ---
       categories: [
         {
           id: "avatar",
@@ -419,7 +424,6 @@ export default {
 
       if (item.category === "fond") {
         if (item.id === 0) return backgroundImgs["Accueil.png"] || "";
-        // image_prefix correspond exactement au suffixe du fichier
         const suffix = (item.image_prefix || "").toLowerCase();
         return backgroundImgs[`Accueil${suffix}.png`] || "";
       }
@@ -506,7 +510,7 @@ export default {
 
     isOwned(item) {
       if (item.price === 0) return true;
-      if (typeof item.id === "string") return true; // hardcoded bateau toujours possédés
+      if (typeof item.id === "string") return true;
       return this.shopStore.ownedIds?.includes(item.id) ?? false;
     },
 

@@ -296,20 +296,29 @@ import { i18nStore } from "@/stores/i18n";
 export default {
   data() {
     return {
+      // --- État du Formulaire ---
       isLogin: true,
+      legalAccepted: false,
+      errorMsg: "",
+
+      // --- Identifiants ---
       email: "",
-      password: "",
-      confirmPassword: "",
       pseudo: "",
       birthDay: "",
+
+      // --- Mot de passe ---
+      password: "",
+      confirmPassword: "",
+      showPassword: false,
+      showConfirmPassword: false,
+
+      // --- Avatar ---
       avatars: [],
       avatar: null,
       selectedBase64: "",
       selectedMime: "",
-      errorMsg: "",
-      legalAccepted: false,
-      showPassword: false,
-      showConfirmPassword: false,
+
+      // --- Internationalisation ---
       i18nStore,
     };
   },
@@ -607,7 +616,6 @@ export default {
   border: 1px solid rgba(29, 233, 192, 0.13);
   border-radius: 7px;
   font-family: "Inter", sans-serif;
-  /* 16px empêche le zoom auto sur iOS */
   font-size: 16px;
   color: #b8ddd6;
   transition:

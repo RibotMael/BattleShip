@@ -129,19 +129,26 @@ export default {
   props: { gameId: { type: String, required: true } },
   data() {
     return {
+      // --- État de la Partie et Jeu ---
       game: { ID_Game: 0, TotalPlayers: 2, mode: "fr" },
       gameLoaded: false,
-      grid: Array.from({ length: 100 }, () => ({ hasShip: false, shipId: null })),
       readyPlayers: [],
+      readyInterval: null,
+
+      // --- Utilisateur ---
       user: JSON.parse(localStorage.getItem("user")),
       userId: 0,
+
+      // --- Grille et Flotte ---
+      grid: Array.from({ length: 100 }, () => ({ hasShip: false, shipId: null })),
       fleet: [],
+
+      // --- Placement et Interaction ---
       selectedShipIndex: null,
+      selectedCell: null,
       orientation: "horizontal",
       hoverCells: [],
       invalidPreview: false,
-      selectedCell: null,
-      readyInterval: null,
     };
   },
   computed: {

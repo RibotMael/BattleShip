@@ -220,12 +220,17 @@ export default {
   props: ["userId"],
   data() {
     return {
+      // --- Listes de Relations ---
       friends: [],
       requests: [],
-      identifier: "",
+
+      // --- Gestion des Avatars ---
       defaultAvatar,
-      refreshInterval: null,
       avatarCache: {},
+
+      // --- Inputs et Utilitaires ---
+      identifier: "",
+      refreshInterval: null,
     };
   },
   computed: {

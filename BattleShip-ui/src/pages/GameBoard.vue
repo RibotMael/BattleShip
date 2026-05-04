@@ -14,11 +14,40 @@
       <div class="header-right">
         <button class="btn-tactical settings" @click="goToSettings" title="Paramètres">
           <span class="btn-text">{{ i18nStore.t("game_params") }}</span>
-          <span class="btn-icon">⚙️</span>
+          <span class="btn-icon">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+              />
+            </svg>
+          </span>
         </button>
         <button class="btn-tactical abandon" @click="abandonGame" title="Abandonner la partie">
           <span class="btn-text">{{ i18nStore.t("game_abandon") }}</span>
-          <span class="btn-icon">✕</span>
+          <span class="btn-icon">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </span>
         </button>
       </div>
     </header>
@@ -41,7 +70,21 @@
           <div class="grid-zone">
             <transition name="mask-fade">
               <div v-if="isGridHidden" class="grid-mask">
-                <span class="grid-mask-icon">🔒</span>
+                <span class="grid-mask-icon">
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                </span>
                 <span class="grid-mask-text">{{ i18nStore.t("game_fleet_hidden") }}</span>
               </div>
             </transition>
@@ -66,7 +109,24 @@
 
         <div class="allies-container" :class="{ 'grid-blurred': isGridHidden }">
           <div v-for="ally in allies" :key="'ally-' + ally.id" class="ally-mini-block">
-            <h3 class="mini-label">🤝 {{ ally.pseudo }}</h3>
+            <h3 class="mini-label">
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              {{ ally.pseudo }}
+            </h3>
             <div class="mini-grid ally-grid">
               <div
                 v-for="(cell, index) in ally.grid"
@@ -88,6 +148,7 @@
           <svg class="progress-ring timer-svg" viewBox="0 0 100 100" width="100%" height="100%">
             <circle class="timer-bg" cx="50" cy="50" r="45" />
             <circle
+              ref="timerCircle"
               class="progress-ring__circle timer-bar"
               cx="50"
               cy="50"
@@ -112,7 +173,26 @@
             :class="{ 'active-target': currentOpponentIndex === i }"
             @click="currentOpponentIndex = i"
           >
-            <span class="dot"></span> ⚔️ {{ enemy.pseudo }}
+            <span class="dot"></span>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="flex-shrink: 0"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <circle cx="12" cy="12" r="3" />
+              <line x1="12" y1="2" x2="12" y2="5" />
+              <line x1="12" y1="19" x2="12" y2="22" />
+              <line x1="2" y1="12" x2="5" y2="12" />
+              <line x1="19" y1="12" x2="22" y2="12" />
+            </svg>
+            {{ enemy.pseudo }}
             <span v-if="currentOpponentIndex === i" class="target-indicator">◀ CIBLE</span>
           </h2>
           <div
@@ -144,8 +224,11 @@
         <div class="grid-container main-player">
           <h2 class="grid-label">
             <span class="dot"></span>{{ i18nStore.t("game_my_fleet") }}
+            <!-- FIX bug #6 : utilisation de i18n au lieu de texte hardcodé -->
             <button class="btn-hide-grid" @click="isGridHidden = !isGridHidden">
-              <span class="hide-label">{{ isGridHidden ? "RÉVÉLER" : "MASQUER" }}</span>
+              <span class="hide-label">{{
+                isGridHidden ? i18nStore.t("game_reveal") : i18nStore.t("game_hide")
+              }}</span>
             </button>
           </h2>
           <div class="grid-zone">
@@ -180,6 +263,7 @@
           <svg class="progress-ring timer-svg" width="100" height="100">
             <circle class="timer-bg" cx="50" cy="50" r="45" />
             <circle
+              ref="timerCircle"
               class="progress-ring__circle timer-bar"
               cx="50"
               cy="50"
@@ -235,21 +319,119 @@
           <div class="glow-line"></div>
 
           <header class="popup-result-banner">
-            <span class="popup-result-icon">{{ popupIcon }}</span>
+            <span class="popup-result-icon">
+              <svg
+                v-if="popupIcon === 'trophy'"
+                width="52"
+                height="52"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                <path d="M4 22h16" />
+                <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+                <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+                <path d="M18 2H6v7a6 6 0 0 0 12 0V2z" />
+              </svg>
+              <svg
+                v-else-if="popupIcon === 'defeat'"
+                width="52"
+                height="52"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M12 2a9 9 0 0 1 9 9c0 3.18-1.65 5.97-4.14 7.6L17 22H7l.14-3.4A9 9 0 0 1 3 11a9 9 0 0 1 9-9z"
+                />
+                <line x1="9" y1="12" x2="9.01" y2="12" stroke-width="3" />
+                <line x1="15" y1="12" x2="15.01" y2="12" stroke-width="3" />
+                <path d="M10 17h4" />
+              </svg>
+              <svg
+                v-else-if="popupIcon === 'draw'"
+                width="52"
+                height="52"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="12" y1="3" x2="12" y2="21" />
+                <path d="M3 6l9-3 9 3" />
+                <path d="M3 18l3-9 3 9a3 3 0 0 1-6 0z" />
+                <path d="M15 18l3-9 3 9a3 3 0 0 1-6 0z" />
+                <line x1="3" y1="21" x2="21" y2="21" />
+              </svg>
+              <svg
+                v-else-if="popupIcon === 'abandon'"
+                width="52"
+                height="52"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                <line x1="4" y1="22" x2="4" y2="15" />
+              </svg>
+            </span>
             <h2 class="popup-result-title">{{ popupMessage }}</h2>
           </header>
 
           <div v-if="rewardData" class="reward-grid rewards-section">
             <div class="rewards-row">
               <div class="reward-box gold reward-card gold-card">
-                <span class="reward-card-icon">🪙</span>
+                <span class="reward-card-icon">
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M14.5 9a2.5 2.5 0 0 0-5 0c0 5 5 3 5 6a2.5 2.5 0 0 1-5 0" />
+                    <path d="M12 6v2m0 8v2" />
+                  </svg>
+                </span>
                 <div class="reward-details">
                   <span class="value reward-card-amount">+{{ rewardData.goldGain }}</span>
                   <span class="label reward-card-label">{{ i18nStore.t("game_credits") }}</span>
                 </div>
               </div>
               <div class="reward-box xp reward-card xp-card">
-                <span class="reward-card-icon">⭐</span>
+                <span class="reward-card-icon">
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polygon
+                      points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+                    />
+                  </svg>
+                </span>
                 <div class="reward-details">
                   <span class="value reward-card-amount">+{{ rewardData.xpGain }}</span>
                   <span class="label reward-card-label">{{ i18nStore.t("game_xp") }}</span>
@@ -261,12 +443,44 @@
               v-if="rewardData.levelUp && rewardData.levelUpGoldGain > 0"
               class="levelup-gold-note"
             >
-              <span>🎁 BONUS MONTÉE DE NIVEAU :</span>
+              <span style="display: flex; align-items: center; gap: 6px">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 12 20 22 4 22 4 12" />
+                  <rect x="2" y="7" width="20" height="5" />
+                  <line x1="12" y1="22" x2="12" y2="7" />
+                  <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+                  <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+                </svg>
+                BONUS MONTÉE DE NIVEAU :
+              </span>
               <span class="levelup-gold-amount">+{{ rewardData.levelUpGoldGain }} 🪙</span>
             </div>
 
             <div v-if="rewardData.levelUp" class="levelup-banner">
-              🎉 {{ i18nStore.t("game_level_reached", { n: rewardData.newLevel }) }}
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                style="display: inline; vertical-align: middle; margin-right: 6px"
+              >
+                <circle cx="12" cy="8" r="7" />
+                <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+              </svg>
+              {{ i18nStore.t("game_level_reached", { n: rewardData.newLevel }) }}
             </div>
 
             <div class="xp-module xp-progress-block">
@@ -307,7 +521,23 @@
 
           <header class="popup-result-banner">
             <h2 class="popup-result-title" style="font-size: 1.2rem; letter-spacing: 3px">
-              ⚙️ CONFIGURATION
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                style="display: inline; vertical-align: middle; margin-right: 8px"
+              >
+                <circle cx="12" cy="12" r="3" />
+                <path
+                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+                />
+              </svg>
+              CONFIGURATION
             </h2>
           </header>
 
@@ -364,6 +594,7 @@ import heartbeatSrc from "@/assets/audio/BattementsDeCoeur.mp3";
 import { userBus } from "@/eventBus.js";
 import { settingsStore } from "@/stores/settings";
 import shootSrc from "@/assets/audio/shoot.mp3";
+import destructionSrc from "@/assets/audio/Destruction.mp3";
 import { i18nStore } from "@/stores/i18n";
 import { useShopStore } from "@/stores/shopStore.js";
 
@@ -381,38 +612,50 @@ export default {
   },
   data() {
     return {
+      // --- Utilisateur et Configuration ---
+      user: JSON.parse(localStorage.getItem("user")) || { id: null, pseudo: "" },
+      settingsStore,
+      i18nStore,
+      showSettings: false,
+
+      // --- Grille et Joueurs ---
       playerGrid: Array.from({ length: 100 }, () => ({ shipNumber: 0, status: "" })),
       opponents: [],
       allies: [],
       enemies: [],
       myTeamNumber: null,
+      isSpectator: false,
+      isGridHidden: false,
+      detectedTeamMode: false,
+      playerStatus: "in_game",
+
+      // --- Logique de Tour et Timers ---
       currentOpponentIndex: 0,
-      turnTimer: 7,
-      gameOver: false,
-      fetchInterval: null,
-      turnInterval: null,
-      user: JSON.parse(localStorage.getItem("user")) || { id: null, pseudo: "" },
-      selectedCell: null,
       selectedEnemyIndex: 0,
+      turnTimer: 7,
+      turnStartAt: null,
+      turnInterval: null,
+      localTimerInterval: null,
+      fetchInterval: null,
+
+      // --- Actions de Jeu ---
+      selectedCell: null,
+      isSelecting: false,
+      hasFiredThisTurn: false,
+      _firingLock: false,
+
+      // --- Fin de partie et Récompenses ---
+      gameOver: false,
       endPopup: false,
       popupMessage: "",
       popupIcon: "",
-      playerStatus: "in_game",
-      hasFiredThisTurn: false,
-      isSelecting: false,
-      heartbeatAudio: null,
-      detectedTeamMode: false,
-      isSpectator: false,
       rewardData: null,
       rewardClaimed: false,
-      turnStartAt: null,
-      localTimerInterval: null,
-      isGridHidden: false,
-      settingsStore,
-      _firingLock: false,
+
+      // --- Audio ---
+      heartbeatAudio: null,
       shootAudio: null,
-      showSettings: false,
-      i18nStore,
+      destructionAudio: null,
     };
   },
   computed: {
@@ -422,9 +665,15 @@ export default {
     is1v1() {
       return this.gameType === "1v1";
     },
+    // FIX bug #7 : compter les navires uniques coulés via shipNumber distinct
+    // (correct pour mode français ET belge quelle que soit la taille des navires)
     lostShipsCount() {
-      const sunkCells = this.playerGrid.filter((cell) => cell.status === "sunk").length;
-      return Math.floor(sunkCells / 3);
+      const sunkShipNumbers = new Set(
+        this.playerGrid
+          .filter((cell) => cell.status === "sunk" && cell.shipNumber > 0)
+          .map((cell) => cell.shipNumber),
+      );
+      return sunkShipNumbers.size;
     },
     heartbeatStyle() {
       if (!this.settingsStore.showHeartbeat || this.lostShipsCount <= 0 || this.gameOver) {
@@ -459,12 +708,15 @@ export default {
         }
       );
     },
+    // FIX bug #8 : utiliser popupIcon (valeur structurée) plutôt que le texte du message
     popupResultClass() {
-      if (!this.popupMessage) return "";
-      if (this.popupMessage.includes("Victoire")) return "popup-victory";
-      if (this.popupMessage.includes("Défaite")) return "popup-defeat";
-      if (this.popupMessage.includes("Égalité")) return "popup-draw";
-      return "popup-defeat";
+      const map = {
+        trophy: "popup-victory",
+        defeat: "popup-defeat",
+        draw: "popup-draw",
+        abandon: "popup-defeat",
+      };
+      return map[this.popupIcon] || "";
     },
     xpProgressPercent() {
       if (!this.rewardData) return 0;
@@ -502,7 +754,10 @@ export default {
     socket.on("turn-ended", () => this.endTurn());
     socket.on("shot-fired", (data) => this.onShotFired(data));
     socket.on("player-eliminated", (data) => this.onPlayerEliminated(data));
-    socket.on("game-over", (data) => this.handleGameOver(data));
+    // FIX bug #2 : guard côté client — ignorer game-over si déjà traité
+    socket.on("game-over", (data) => {
+      if (!this.gameOver) this.handleGameOver(data);
+    });
     socket.on("game-started", (data) => this.handleGameStarted(data));
 
     socket.on("cell-pending", (data) => {
@@ -523,12 +778,9 @@ export default {
     this.$watch(
       () => this.settingsStore.effectsVolume,
       (newVolume) => {
-        if (this.heartbeatAudio) {
-          this.heartbeatAudio.volume = newVolume / 100;
-        }
-        if (this.shootAudio) {
-          this.shootAudio.volume = newVolume / 100;
-        }
+        if (this.heartbeatAudio) this.heartbeatAudio.volume = newVolume / 100;
+        if (this.shootAudio) this.shootAudio.volume = newVolume / 100;
+        if (this.destructionAudio) this.destructionAudio.volume = newVolume / 100;
       },
     );
   },
@@ -704,8 +956,9 @@ export default {
       }
     },
 
+    // FIX bug #4 : utiliser this.$refs.timerCircle au lieu de querySelector
     updateCircle() {
-      const circle = this.$el.querySelector(".progress-ring__circle");
+      const circle = this.$refs.timerCircle;
       if (!circle) return;
       const radius = 45;
       const circumference = 2 * Math.PI * radius;
@@ -890,6 +1143,7 @@ export default {
         const data = await res.json();
         if (!data.success) return;
 
+        // FIX bug #2 : guard — ne pas rappeler handleGameOver si déjà traité
         if (data.status === "finished" && !this.gameOver) {
           this.handleGameOver({
             winnerId: data.winner_id,
@@ -1004,7 +1258,6 @@ export default {
 
       let index = this.selectedCell;
       if (index === null) {
-        // Aucune cellule sélectionnée → tir aléatoire
         const available = [];
         target.grid.forEach((v, i) => {
           if (!["hit", "miss", "sunk"].includes(v)) available.push(i);
@@ -1013,7 +1266,6 @@ export default {
         index = available[Math.floor(Math.random() * available.length)];
       }
 
-      // Marquer comme tiré AVANT l'await pour éviter tout double appel
       this.hasFiredThisTurn = true;
       await this.sendShoot(index, target);
     },
@@ -1025,10 +1277,9 @@ export default {
         if (this.isTeamMode) {
           this.enterSpectatorMode();
         } else {
+          this.popupIcon = data.reason === "abandon" ? "abandon" : "defeat";
           const msg =
-            data.reason === "abandon"
-              ? "🏳️ Éliminé par abandon"
-              : "💥 Tous vos navires ont coulé !";
+            data.reason === "abandon" ? "Éliminé par abandon" : "Tous vos navires ont coulé !";
           this.claimReward(false);
           this.showEndPopup(msg, false);
         }
@@ -1094,7 +1345,9 @@ export default {
     applyShot(targetId, x, y, result, positions) {
       const idx = y * 10 + x;
       const resClean = String(result).toLowerCase();
-
+      if (resClean === "sunk" && positions && positions.length > 0) {
+        this.playDestructionSound();
+      }
       if (String(targetId) === String(this.user.id)) {
         const newGrid = [...this.playerGrid];
         newGrid[idx] = { ...newGrid[idx], status: resClean };
@@ -1114,7 +1367,9 @@ export default {
       const { targetId, x, y, result, positions } = data;
       const idx = parseInt(y) * 10 + parseInt(x);
       const safeResult = result ? String(result).toLowerCase() : "pending";
-
+      if (safeResult === "sunk" && positions && positions.length > 0) {
+        this.playDestructionSound();
+      }
       if (String(targetId) === String(this.user.id)) {
         const newGrid = [...this.playerGrid];
         newGrid[idx] = { ...newGrid[idx], status: safeResult };
@@ -1242,6 +1497,9 @@ export default {
       }
     },
 
+    // FIX bugs #1 et #3 :
+    // - Suppression du double appel claimReward/showEndPopup
+    // - Suppression de la variable icon non initialisée
     handleGameOver(payload) {
       if (this.gameOver) return;
       this.gameOver = true;
@@ -1250,24 +1508,25 @@ export default {
       this.removeSocketListeners();
 
       let isVictory = false;
-      let msg, icon;
+      let msg;
 
       if (payload.isDraw) {
         msg = "Égalité parfaite";
-        icon = "⚖️";
+        this.popupIcon = "draw";
         isVictory = false;
       } else if (this.isTeamMode && payload.winnerTeam != null) {
         isVictory = Number(payload.winnerTeam) === Number(this.myTeamNumber);
         msg = isVictory ? "Victoire" : "Défaite";
-        icon = isVictory ? "🏆" : "💥";
+        this.popupIcon = isVictory ? "trophy" : "defeat";
       } else {
         isVictory = String(payload.winnerId) === String(this.user.id);
         msg = isVictory ? "Victoire" : "Défaite";
-        icon = isVictory ? "🏆" : "💥";
+        this.popupIcon = isVictory ? "trophy" : "defeat";
       }
 
+      // Un seul appel à chaque méthode
       this.claimReward(isVictory);
-      this.showEndPopup(`${icon} ${msg} !`, isVictory);
+      this.showEndPopup(`${msg} !`, isVictory);
     },
 
     async abandonGame() {
@@ -1286,12 +1545,14 @@ export default {
 
         if (data.finished) {
           this.claimReward(myTeamWon);
-          this.showEndPopup(myTeamWon ? "🏆 Victoire !" : "🏳️ Abandon confirmé.", myTeamWon);
+          this.popupIcon = myTeamWon ? "trophy" : "abandon";
+          this.showEndPopup(myTeamWon ? "Victoire !" : "Abandon confirmé.", myTeamWon);
         } else if (this.isTeamMode) {
           this.enterSpectatorMode();
         } else {
           this.claimReward(false);
-          this.showEndPopup("🏳️ Abandon confirmé.", false);
+          this.popupIcon = "abandon";
+          this.showEndPopup("Abandon confirmé.", false);
         }
       } catch (_) {}
     },
@@ -1299,10 +1560,10 @@ export default {
     showEndPopup(msg, isVictory = false) {
       this.popupMessage = msg;
       if (!this.popupIcon) {
-        if (msg.includes("Victoire")) this.popupIcon = "🏆";
-        else if (msg.includes("Égalité")) this.popupIcon = "⚖️";
-        else if (msg.includes("abandon") || msg.includes("Abandon")) this.popupIcon = "🏳️";
-        else this.popupIcon = "💥";
+        if (msg.includes("Victoire")) this.popupIcon = "trophy";
+        else if (msg.includes("Égalité")) this.popupIcon = "draw";
+        else if (msg.toLowerCase().includes("abandon")) this.popupIcon = "abandon";
+        else this.popupIcon = "defeat";
       }
       this.endPopup = true;
       this.gameOver = true;
@@ -1343,14 +1604,17 @@ export default {
 
           let msg, isVic;
           if (data.is_draw) {
-            msg = "⚖️ Égalité parfaite !";
+            msg = "Égalité parfaite !";
             isVic = false;
+            this.popupIcon = "draw";
           } else if (myTeamWon) {
-            msg = "🏆 Victoire !";
+            msg = "Victoire !";
             isVic = true;
+            this.popupIcon = "trophy";
           } else {
-            msg = "💥 Défaite !";
+            msg = "Défaite !";
             isVic = false;
+            this.popupIcon = "defeat";
           }
           this.claimReward(isVic);
           this.showEndPopup(msg, isVic);
@@ -1358,7 +1622,8 @@ export default {
           this.enterSpectatorMode();
         } else {
           this.claimReward(false);
-          this.showEndPopup("💥 Tous vos bateaux sont coulés !", false);
+          this.popupIcon = "defeat";
+          this.showEndPopup("Tous vos bateaux sont coulés !", false);
         }
       } catch (_) {}
     },
@@ -1369,6 +1634,8 @@ export default {
       this.heartbeatAudio.volume = this.settingsStore.effectsVolume / 100;
       this.shootAudio = new Audio(shootSrc);
       this.shootAudio.volume = this.settingsStore.effectsVolume / 100;
+      this.destructionAudio = new Audio(destructionSrc);
+      this.destructionAudio.volume = this.settingsStore.effectsVolume / 100;
     },
     playHeartbeat() {
       this.heartbeatAudio?.play().catch(() => {});
@@ -1400,6 +1667,15 @@ export default {
       } else {
         this.stopHeartbeat();
       }
+    },
+
+    playDestructionSound() {
+      if (!this.destructionAudio) {
+        this.destructionAudio = new Audio(destructionSrc);
+      }
+      this.destructionAudio.currentTime = 0;
+      this.destructionAudio.volume = this.settingsStore.effectsVolume / 100;
+      this.destructionAudio.play().catch(() => {});
     },
 
     goToSettings() {
