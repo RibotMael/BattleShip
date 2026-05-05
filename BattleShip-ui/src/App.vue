@@ -3,20 +3,58 @@
   <div id="app">
     <router-view />
   </div>
+
   <audio id="background-music" autoplay loop>
     <source src="@/assets/audio/SongBattleShip.mp3" type="audio/mp3" />
   </audio>
-</template>
 
+  <!-- ── POPUP COMPTE SUPPRIMÉ ── -->
+  <transition name="fade-overlay">
+    <div v-if="accountDeleted" class="deleted-overlay">
+      <div class="deleted-popup">
+        <div class="deleted-glow-line"></div>
+        <span class="deleted-icon">
+          <svg
+            width="52"
+            height="52"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" stroke-width="3" />
+          </svg>
+        </span>
+        <h2 class="deleted-title">COMPTE SUPPRIMÉ</h2>
+        <p class="deleted-msg">Votre compte a été supprimé. Vous allez être déconnecté.</p>
+        <button class="deleted-btn" @click="handleAccountDeleted">RETOUR À L'ACCUEIL</button>
+      </div>
+    </div>
+  </transition>
+</template>
 <script>
 import { settingsStore } from "@/stores/settings";
 import socket, { registerOnline } from "@/services/socket";
 import { useShopStore } from "@/stores/shopStore";
+import { userBus } from "@/eventBus.js";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL;
+const CHECK_INTERVAL_MS = 15000; // vérification toutes les 15 secondes
 
 export default {
   setup() {
     const shopStore = useShopStore();
     return { settingsStore, shopStore };
+  },
+
+  data() {
+    return {
+      accountDeleted: false,
+      checkInterval: null,
+    };
   },
 
   async created() {
@@ -30,25 +68,35 @@ export default {
   },
 
   mounted() {
-    const registerIfConnected = () => {
+    socket.on("connect", () => {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
       const userId = user.id || user.ID_Users;
       if (userId) {
-        socket.emit("register-user", { userId });
+        registerOnline(userId);
+        socket.emit("join-user-room", { userId }); // ← rejoint sa room privée
       }
-    };
-    socket.on("connect", () => {
-      const userId = localStorage.getItem("userId");
-      if (userId) registerOnline(userId);
+      this.stopAccountCheck();
     });
+
     if (socket.connected) {
-      const userId = localStorage.getItem("userId");
-      if (userId) registerOnline(userId);
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const userId = user.id || user.ID_Users;
+      if (userId) {
+        registerOnline(userId);
+        socket.emit("join-user-room", { userId });
+      }
     }
+
+    // Notification immédiate via socket
+    socket.on("account-deleted", () => {
+      if (!this.accountDeleted) {
+        this.accountDeleted = true;
+        this.stopAccountCheck();
+      }
+    });
 
     const audio = document.getElementById("background-music");
     audio.volume = settingsStore.musicVolume / 100;
-
     this.$watch(
       () => settingsStore.musicVolume,
       (newVal) => {
@@ -61,10 +109,65 @@ export default {
       document.removeEventListener("click", playMusic);
     };
     document.addEventListener("click", playMusic);
+
+    // Démarre la vérification périodique du compte
+    this.startAccountCheck();
   },
 
   beforeUnmount() {
     socket.off("connect");
+    socket.off("account-deleted");
+    this.stopAccountCheck();
+  },
+
+  methods: {
+    getUserId() {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      return user.id || user.ID_Users || null;
+    },
+
+    startAccountCheck() {
+      this.stopAccountCheck();
+      const userId = this.getUserId();
+      if (!userId || this.accountDeleted) return;
+
+      this.checkAccount();
+      this.checkInterval = setInterval(() => this.checkAccount(), 3000); // ← 3s
+    },
+
+    stopAccountCheck() {
+      if (this.checkInterval) {
+        clearInterval(this.checkInterval);
+        this.checkInterval = null;
+      }
+    },
+
+    async checkAccount() {
+      const userId = this.getUserId();
+      if (!userId || this.accountDeleted) return;
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/check-user/${userId}`);
+        if (res.status === 401 || res.status === 404) {
+          this.accountDeleted = true;
+          this.stopAccountCheck();
+        }
+      } catch (_) {
+        // Erreur réseau : on ne déconnecte pas (serveur peut être temporairement indispo)
+      }
+    },
+
+    handleAccountDeleted() {
+      this.accountDeleted = false;
+      localStorage.removeItem("user");
+      localStorage.removeItem("userId");
+      // Nettoie aussi les clés de récompenses
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith("reward_claimed_"))
+        .forEach((k) => localStorage.removeItem(k));
+      userBus.userUpdated = !userBus.userUpdated;
+      this.$router.replace("/");
+    },
   },
 };
 </script>
@@ -181,5 +284,96 @@ body,
 
 .rules-button:hover {
   background-color: #216f9d;
+}
+
+/* ── POPUP COMPTE SUPPRIMÉ ── */
+.deleted-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 8, 13, 0.92);
+  backdrop-filter: blur(10px);
+}
+
+.deleted-popup {
+  position: relative;
+  width: 90%;
+  max-width: 420px;
+  padding: 40px 30px;
+  background: linear-gradient(160deg, rgba(13, 33, 55, 0.98), rgba(6, 22, 33, 0.99));
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  border-radius: 4px;
+  text-align: center;
+  box-shadow:
+    0 0 60px rgba(248, 113, 113, 0.15),
+    0 0 100px rgba(0, 0, 0, 0.8);
+  font-family: "Rajdhani", sans-serif;
+  color: #dff2ee;
+}
+
+.deleted-glow-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: #f87171;
+  box-shadow: 0 0 15px #f87171;
+}
+
+.deleted-icon {
+  display: block;
+  margin-bottom: 16px;
+  color: #f87171;
+}
+
+.deleted-title {
+  margin: 0 0 12px;
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: #f87171;
+  text-shadow: 0 0 15px rgba(248, 113, 113, 0.4);
+}
+
+.deleted-msg {
+  margin: 0 0 28px;
+  color: rgba(223, 242, 238, 0.7);
+  font-size: 1rem;
+  line-height: 1.6;
+  letter-spacing: 1px;
+}
+
+.deleted-btn {
+  width: 100%;
+  padding: 14px;
+  background: rgba(248, 113, 113, 0.15);
+  border: 1px solid #f87171;
+  border-radius: 2px;
+  color: #f87171;
+  font-family: "Rajdhani", sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.deleted-btn:hover {
+  background: #f87171;
+  color: #02080d;
+  box-shadow: 0 0 20px rgba(248, 113, 113, 0.4);
+}
+
+.fade-overlay-enter-active,
+.fade-overlay-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-overlay-enter-from,
+.fade-overlay-leave-to {
+  opacity: 0;
 }
 </style>

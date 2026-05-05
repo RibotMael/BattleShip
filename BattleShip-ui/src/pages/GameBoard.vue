@@ -803,8 +803,13 @@ export default {
     },
 
     async claimReward(isVictory) {
-      if (this.rewardClaimed || this.isSpectator) return;
+      // Vérifie dans le localStorage si la récompense a déjà été réclamée pour cette partie
+      const claimedKey = `reward_claimed_${this.gameId}`;
+      if (this.rewardClaimed || this.isSpectator || localStorage.getItem(claimedKey)) return;
+
       this.rewardClaimed = true;
+      localStorage.setItem(claimedKey, "1"); // ← persiste immédiatement
+
       try {
         const res = await fetch(`${API_BASE_URL}/api/users/${this.user.id}/reward`, {
           method: "POST",
@@ -1018,6 +1023,17 @@ export default {
         await this.shopStore.fetchShop(userId);
       }
       this.shopStore.applyThemeToDOM();
+
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/games/${this.gameId}/status?playerId=${this.user.id}`,
+        );
+        const data = await res.json();
+        if (data.success && data.status === "finished") {
+          this.$router.replace("/");
+          return;
+        }
+      } catch (_) {}
 
       await this.$nextTick();
       await this.syncAllShots();
@@ -1683,7 +1699,12 @@ export default {
     },
 
     goHome() {
-      this.$router.push("/");
+      // Nettoyage optionnel des anciennes clés (garde seulement les 10 dernières parties)
+      const keys = Object.keys(localStorage).filter((k) => k.startsWith("reward_claimed_"));
+      if (keys.length > 10) {
+        keys.slice(0, keys.length - 10).forEach((k) => localStorage.removeItem(k));
+      }
+      this.$router.replace("/");
     },
   },
 };

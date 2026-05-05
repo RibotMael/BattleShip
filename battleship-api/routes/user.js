@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { query } from '../db.js';
 import db from "../db.js";
 import { computeLevel } from "../utils/levelHelpers.js"
-
+import { io } from "../index.js";
 
 const router = Router();
 

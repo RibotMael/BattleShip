@@ -1213,7 +1213,7 @@ export default {
       if (f) f.isOnline = isOnline;
     });
     socket.on("player-kicked", ({ playerId }) => {
-      if (Number(playerId) === this.userId) this.$router.push("/gamemode");
+      if (Number(playerId) === this.userId) this.$router.replace("/gamemode");
       else this.fetchGame();
     });
     socket.on("room-closed", () => {
@@ -1340,7 +1340,7 @@ export default {
     async leaveRoom() {
       try {
         await api.post("/games/leave", { gameId: this.game.ID_Game, playerId: this.userId });
-        this.$router.push("/gamemode");
+        this.$router.replace("/gamemode");
       } catch {}
     },
     async kickPlayer(playerId) {
@@ -1374,7 +1374,7 @@ export default {
     },
     exitDueToClosure(reason = "Salle fermée.") {
       clearInterval(this.polling);
-      this.$router.push("/gamemode");
+      this.$router.replace("/gamemode");
     },
   },
 };

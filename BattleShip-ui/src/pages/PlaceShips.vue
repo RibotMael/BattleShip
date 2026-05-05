@@ -194,7 +194,7 @@ export default {
       const allReady = await this.checkAllPlayersReady();
       if (allReady) {
         clearInterval(this.readyInterval);
-        this.$router.push({ name: "GameBoard", params: { gameId: this.game.ID_Game } });
+        this.$router.replace({ name: "GameBoard", params: { gameId: this.game.ID_Game } });
       }
     }, 2000);
   },

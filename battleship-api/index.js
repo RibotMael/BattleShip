@@ -401,6 +401,12 @@ app.get("/", (req, res) => {
 io.on("connection", (socket) => {
   let connectedUserId = null;
 
+  socket.on("join-user-room", ({ userId }) => {
+  if (userId) {
+    socket.join(`user_${userId}`);
+  }
+});
+
   socket.on("register-user", async ({ userId }) => {
     connectedUserId = Number(userId);
     userSocketMap[connectedUserId] = socket.id;
