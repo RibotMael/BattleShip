@@ -1,21 +1,32 @@
-import express from "express";
-import http from "http";
-import cors from "cors";
-import dotenv from "dotenv";
-import { Server } from "socket.io";
-import db from "./db.js";
+import express from 'express';
+import http from 'http';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import { Server } from 'socket.io';
+import db from './db.js';
+import rateLimit from 'express-rate-limit';
 
 dotenv.config();
 
+// ── Vérifications des variables d'environnement critiques ──────────────────────
+if (!process.env.JWT_SECRET) {
+  console.error('❌ JWT_SECRET manquant dans .env — arrêt du serveur.');
+  process.exit(1);
+}
+if (!process.env.INTERNAL_SECRET) {
+  console.error('❌ INTERNAL_SECRET manquant dans .env — arrêt du serveur.');
+  process.exit(1);
+}
+
 // Routes
-import authRoutes from "./routes/auth.js";
-import userProfileRoutes from "./routes/user.js";
-import checkPseudoRoute from "./api/check-pseudo.js";
-import avatarRouter from "./api/avatar.js";
-import friendsRouter from "./routes/friends.js";
-import invitationsRouter from "./routes/invitations.js";
-import gamesRouter from "./routes/games.js";
-import shopRoutes from "./routes/shop.js";
+import authRoutes from './routes/auth.js';
+import userProfileRoutes from './routes/user.js';
+import checkPseudoRoute from './api/check-pseudo.js';
+import avatarRouter from './api/avatar.js';
+import friendsRouter from './routes/friends.js';
+import invitationsRouter from './routes/invitations.js';
+import gamesRouter from './routes/games.js';
+import shopRoutes from './routes/shop.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -25,9 +36,9 @@ const userSocketMap = {};
    MIDDLEWARE CORS
 ========================== */
 const allowedOrigins = [
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  "https://battle-ship-seven.vercel.app",
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'https://battle-ship-seven.vercel.app',
 ];
 
 app.use(
@@ -36,18 +47,45 @@ app.use(
       if (!origin) return callback(null, true);
       if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
       const isLocalhost =
-        origin.includes("localhost") || origin.includes("127.0.0.1");
+        origin.includes('localhost') || origin.includes('127.0.0.1');
       if (isLocalhost) return callback(null, true);
-      return callback(new Error("Accès refusé par CORS"), false);
+      return callback(new Error('Accès refusé par CORS'), false);
     },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
 
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ limit: "10mb", extended: true }));
+/* ==========================
+   HEADERS DE SÉCURITÉ
+========================== */
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
+/* ==========================
+   BODY PARSING
+========================== */
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+/* ==========================
+   RATE LIMITING GLOBAL
+========================== */
+// Limite générale : 200 req/min par IP sur toutes les routes API
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Trop de requêtes, ralentissez.' },
+});
+app.use('/api', globalLimiter);
 
 /* ==========================
    SOCKET.IO CONFIGURATION
@@ -55,12 +93,12 @@ app.use(express.urlencoded({ limit: "10mb", extended: true }));
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
-    methods: ["GET", "POST"],
+    methods: ['GET', 'POST'],
     credentials: true,
   },
 });
 
-app.set("io", io);
+app.set('io', io);
 
 /* ==========================
    TIMER SERVEUR (LOGIQUE)
@@ -81,6 +119,47 @@ function groupShipCells(board) {
   return Object.values(shipMap);
 }
 
+/**
+ * Attribue les récompenses de fin de partie en appelant la route /reward
+ * via une requête interne authentifiée par INTERNAL_SECRET.
+ * Le frontend ne peut PAS appeler cette route directement.
+ */
+async function grantRewards(gameId, winnerId, winnerTeam, isDraw) {
+  try {
+    const [players] = await db.query(
+      'SELECT id_player, team_number FROM game_players WHERE id_game = ?',
+      [gameId]
+    );
+
+    for (const player of players) {
+      let isVictory;
+      if (isDraw) {
+        isVictory = false;
+      } else if (winnerTeam !== null && winnerTeam !== undefined) {
+        isVictory = player.team_number === winnerTeam;
+      } else {
+        isVictory = player.id_player === winnerId;
+      }
+
+      try {
+        await fetch(`http://localhost:${process.env.PORT || 8080}/api/users/${player.id_player}/reward`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // Secret interne — jamais exposé côté client
+            'X-Internal-Secret': process.env.INTERNAL_SECRET,
+          },
+          body: JSON.stringify({ isVictory, gameId }),
+        });
+      } catch (err) {
+        console.error(`[reward] Erreur pour joueur ${player.id_player}:`, err.message);
+      }
+    }
+  } catch (err) {
+    console.error('[grantRewards]', err.message);
+  }
+}
+
 async function resolveTurn(gameId) {
   const sId = String(gameId);
 
@@ -90,18 +169,14 @@ async function resolveTurn(gameId) {
       [gameId]
     );
 
-    if (!pendingShots.length) {
-      return;
-    }
+    if (!pendingShots.length) return;
 
-    const targetIds = [
-      ...new Set(pendingShots.map((s) => Number(s.target_id))),
-    ];
+    const targetIds = [...new Set(pendingShots.map((s) => Number(s.target_id)))];
     const boardCache = {};
     await Promise.all(
       targetIds.map(async (tid) => {
         const [rows] = await db.query(
-          "SELECT board_json FROM player_boards WHERE game_id = ? AND player_id = ? LIMIT 1",
+          'SELECT board_json FROM player_boards WHERE game_id = ? AND player_id = ? LIMIT 1',
           [gameId, tid]
         );
         if (rows.length) boardCache[tid] = JSON.parse(rows[0].board_json);
@@ -110,12 +185,10 @@ async function resolveTurn(gameId) {
 
     for (const shot of pendingShots) {
       const board = boardCache[Number(shot.target_id)];
-      if (!board) {
-        continue;
-      }
+      if (!board) continue;
 
       const cellValue = board[shot.target_y][shot.target_x];
-      let result = cellValue > 0 ? "hit" : "miss";
+      let result = cellValue > 0 ? 'hit' : 'miss';
       let positions = [];
 
       await db.query(
@@ -123,15 +196,13 @@ async function resolveTurn(gameId) {
         [result, shot.id_shot]
       );
 
-      if (result === "hit") {
+      if (result === 'hit') {
         const shipCells = [];
         for (let y = 0; y < board.length; y++)
           for (let x = 0; x < board[y].length; x++)
             if (board[y][x] === cellValue) shipCells.push({ x, y });
 
-        const conditions = shipCells
-          .map(() => "(target_x=? AND target_y=?)")
-          .join(" OR ");
+        const conditions = shipCells.map(() => '(target_x=? AND target_y=?)').join(' OR ');
         const values = shipCells.flatMap((p) => [p.x, p.y]);
 
         const [[{ hitCount }]] = await db.query(
@@ -143,7 +214,7 @@ async function resolveTurn(gameId) {
         );
 
         if (hitCount >= shipCells.length) {
-          result = "sunk";
+          result = 'sunk';
           positions = shipCells;
           await db.query(
             `UPDATE shots SET result='sunk'
@@ -154,7 +225,7 @@ async function resolveTurn(gameId) {
         }
       }
 
-      io.to(sId).emit("shot-fired", {
+      io.to(sId).emit('shot-fired', {
         gameId: sId,
         shooterId: shot.id_player,
         targetId: shot.target_id,
@@ -184,10 +255,7 @@ async function resolveTurn(gameId) {
           [gameId, tid]
         );
         if (upd.affectedRows > 0) {
-          io.to(sId).emit("player-eliminated", {
-            playerId: tid,
-            reason: "shot",
-          });
+          io.to(sId).emit('player-eliminated', { playerId: tid, reason: 'shot' });
         }
       }
     }
@@ -205,9 +273,7 @@ async function resolveTurn(gameId) {
 
     if (isTeamMode) {
       const aliveTeams = [
-        ...new Set(
-          alivePlayers.map((p) => p.team_number).filter((t) => t !== null)
-        ),
+        ...new Set(alivePlayers.map((p) => p.team_number).filter((t) => t !== null)),
       ];
       if (aliveTeams.length <= 1) {
         finished = true;
@@ -215,8 +281,7 @@ async function resolveTurn(gameId) {
         winnerTeam = isDraw ? null : aliveTeams[0];
         winnerId = isDraw
           ? null
-          : (alivePlayers.find((p) => p.team_number === winnerTeam)
-              ?.id_player ?? null);
+          : (alivePlayers.find((p) => p.team_number === winnerTeam)?.id_player ?? null);
       }
     } else {
       if (alivePlayers.length <= 1) {
@@ -233,7 +298,11 @@ async function resolveTurn(gameId) {
       );
       if (updGame.affectedRows > 0) {
         stopGameTimer(gameId);
-        io.to(sId).emit("game-over", {
+
+        // ── Récompenses attribuées côté serveur uniquement ──────────────────
+        await grantRewards(gameId, winnerId, winnerTeam, isDraw);
+
+        io.to(sId).emit('game-over', {
           winnerId,
           winnerTeam,
           isDraw,
@@ -242,7 +311,7 @@ async function resolveTurn(gameId) {
       }
     }
   } catch (err) {
-    // Mode silencieux
+    console.error('[resolveTurn]', err.message);
   }
 }
 
@@ -258,7 +327,7 @@ function _startTick(sId, duration) {
     const elapsed = (Date.now() - games[sId].turnStartAt) / 1000;
     const timeLeft = Math.max(0, Math.ceil(duration - elapsed));
 
-    io.to(sId).emit("turn-timer", {
+    io.to(sId).emit('turn-timer', {
       timeLeft,
       gameId: sId,
       turnStartAt: games[sId].turnStartAt,
@@ -267,7 +336,7 @@ function _startTick(sId, duration) {
     if (timeLeft <= 0 && !games[sId].ended) {
       games[sId].ended = true;
       clearInterval(interval);
-      io.to(sId).emit("turn-ended", { reason: "timeout", gameId: sId });
+      io.to(sId).emit('turn-ended', { reason: 'timeout', gameId: sId });
 
       setTimeout(async () => {
         if (!games[sId] || games[sId].finished) return;
@@ -288,13 +357,11 @@ async function startTurn(gameId, duration = 7) {
 
   try {
     const [[gameRow]] = await db.query(
-      "SELECT status, last_turn_timestamp FROM games WHERE id_Game = ?",
+      'SELECT status, last_turn_timestamp FROM games WHERE id_Game = ?',
       [sId]
     );
 
-    if (!gameRow || gameRow.status !== "in_progress") {
-      return;
-    }
+    if (!gameRow || gameRow.status !== 'in_progress') return;
 
     const prevTimestamp = gameRow.last_turn_timestamp ?? 0;
     const turnStartAt = Date.now();
@@ -311,7 +378,7 @@ async function startTurn(gameId, duration = 7) {
 
     if (upd.affectedRows === 0) {
       const [[freshRow]] = await db.query(
-        "SELECT last_turn_timestamp FROM games WHERE id_Game = ?",
+        'SELECT last_turn_timestamp FROM games WHERE id_Game = ?',
         [sId]
       );
       if (!freshRow) return;
@@ -322,7 +389,7 @@ async function startTurn(gameId, duration = 7) {
       games[sId].finished = false;
       games[sId].turnNumber = (games[sId].turnNumber || 0) + 1;
 
-      io.to(sId).emit("turn-timer", {
+      io.to(sId).emit('turn-timer', {
         timeLeft: duration,
         gameId: sId,
         turnStartAt: games[sId].turnStartAt,
@@ -338,7 +405,7 @@ async function startTurn(gameId, duration = 7) {
     games[sId].finished = false;
     games[sId].turnNumber = (games[sId].turnNumber || 0) + 1;
 
-    io.to(sId).emit("turn-timer", {
+    io.to(sId).emit('turn-timer', {
       timeLeft: duration,
       gameId: sId,
       turnStartAt,
@@ -346,7 +413,7 @@ async function startTurn(gameId, duration = 7) {
 
     _startTick(sId, duration);
   } catch (err) {
-    // Mode silencieux
+    console.error('[startTurn]', err.message);
   }
 }
 
@@ -354,21 +421,20 @@ async function notifyFriendsStatus(userId, isOnline) {
   try {
     const [friends] = await db.query(
       `SELECT u.ID_Users FROM friends f
-       JOIN users u 
+       JOIN users u
          ON (u.ID_Users = f.Sender_ID AND f.Receiver_ID = ?)
          OR (u.ID_Users = f.Receiver_ID AND f.Sender_ID = ?)
        WHERE f.Status = 'Accepted'`,
       [userId, userId]
     );
-    friends.forEach(f => {
-      io.to(`user_${f.ID_Users}`).emit("friend-status-change", {
+    friends.forEach((f) => {
+      io.to(`user_${f.ID_Users}`).emit('friend-status-change', {
         userId: Number(userId),
         isOnline,
       });
     });
   } catch {}
 }
-
 
 function stopGameTimer(gameId) {
   const sId = String(gameId);
@@ -382,62 +448,61 @@ function stopGameTimer(gameId) {
 /* ==========================
    ROUTES API
 ========================== */
-app.use("/api", authRoutes);
-app.use("/api/users", userProfileRoutes);
-app.use("/api/shop", shopRoutes);
-app.use("/api", checkPseudoRoute);
-app.use("/api/friends", friendsRouter);
-app.use("/api/invitation", invitationsRouter);
-app.use("/api", avatarRouter);
-app.use("/api/games", gamesRouter);
+app.use('/api', authRoutes);
+app.use('/api/users', userProfileRoutes);
+app.use('/api/shop', shopRoutes);
+app.use('/api', checkPseudoRoute);
+app.use('/api/friends', friendsRouter);
+app.use('/api/invitation', invitationsRouter);
+app.use('/api', avatarRouter);
+app.use('/api/games', gamesRouter);
 
-app.get("/", (req, res) => {
-  res.send("Bienvenue sur l'API BattleShip ! 🚢");
+app.get('/', (req, res) => {
+  res.send('Bienvenue sur l\'API BattleShip ! 🚢');
 });
 
 /* ==========================
    SOCKET.IO EVENTS
 ========================== */
-io.on("connection", (socket) => {
+io.on('connection', (socket) => {
   let connectedUserId = null;
 
-  socket.on("join-user-room", ({ userId }) => {
-  if (userId) {
-    socket.join(`user_${userId}`);
-  }
-});
+  socket.on('join-user-room', ({ userId }) => {
+    if (userId) {
+      socket.join(`user_${userId}`);
+    }
+  });
 
-  socket.on("register-user", async ({ userId }) => {
+  socket.on('register-user', async ({ userId }) => {
     connectedUserId = Number(userId);
     userSocketMap[connectedUserId] = socket.id;
     socket.join(`user_${connectedUserId}`);
-    await db.query("UPDATE users SET Online = 1 WHERE ID_Users = ?", [connectedUserId]);
+    await db.query('UPDATE users SET Online = 1 WHERE ID_Users = ?', [connectedUserId]);
     await notifyFriendsStatus(connectedUserId, true);
   });
 
-  socket.on("disconnect", async () => {
+  socket.on('disconnect', async () => {
     if (connectedUserId) {
       delete userSocketMap[connectedUserId];
-      await db.query("UPDATE users SET Online = 0 WHERE ID_Users = ?", [connectedUserId]);
+      await db.query('UPDATE users SET Online = 0 WHERE ID_Users = ?', [connectedUserId]);
       await notifyFriendsStatus(connectedUserId, false);
     }
   });
 
-  socket.on("join-game", ({ gameId }) => {
+  socket.on('join-game', ({ gameId }) => {
     if (!gameId) return;
     socket.join(String(gameId));
   });
 
-  socket.on("player-ready", async ({ gameId, playerId }) => {
+  socket.on('player-ready', async ({ gameId, playerId }) => {
     const sId = String(gameId);
     try {
       const [players] = await db.query(
-        "SELECT player_id FROM player_boards WHERE game_id = ? AND validated = 1",
+        'SELECT player_id FROM player_boards WHERE game_id = ? AND validated = 1',
         [sId]
       );
-
       const [totalRows] = await db.query(
-        "SELECT COUNT(*) AS count FROM game_players WHERE id_game = ?",
+        'SELECT COUNT(*) AS count FROM game_players WHERE id_game = ?',
         [sId]
       );
 
@@ -446,30 +511,30 @@ io.on("connection", (socket) => {
 
       if (readyCount >= totalExpected && totalExpected > 0) {
         if (!games[sId] || !games[sId].timer) {
-          io.to(sId).emit("game-started", { timeLeft: 7 });
+          io.to(sId).emit('game-started', { timeLeft: 7 });
           startTurn(sId);
         }
       } else {
-        io.to(sId).emit("waiting-for-players", {
+        io.to(sId).emit('waiting-for-players', {
           ready: readyCount,
           total: totalExpected,
         });
       }
     } catch (err) {
-      // Mode silencieux
+      console.error('[player-ready]', err.message);
     }
   });
 
-  socket.on("lock-cell", (data) => {
-    socket.to(data.gameId).emit("cell-pending", {
+  socket.on('lock-cell', (data) => {
+    socket.to(data.gameId).emit('cell-pending', {
       targetId: data.targetId,
       index: data.index,
       shooterId: data.shooterId,
     });
   });
 
-  socket.on("unlock-cell", (data) => {
-    socket.to(data.gameId).emit("cell-unlocked", {
+  socket.on('unlock-cell', (data) => {
+    socket.to(data.gameId).emit('cell-unlocked', {
       targetId: data.targetId,
       index: data.index,
       shooterId: data.shooterId,
@@ -478,15 +543,15 @@ io.on("connection", (socket) => {
 });
 
 /* ==========================
-   LANCEMENT
+   404 & LANCEMENT
 ========================== */
 app.use((req, res) => {
-  res.status(404).json({ success: false, message: "Route introuvable" });
+  res.status(404).json({ success: false, message: 'Route introuvable.' });
 });
 
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
-  console.log(`🚀 Backend BattleShip sur le port ${PORT}`);
+  console.log(`🚢 Backend BattleShip sur le port ${PORT}`);
 });
 
 export { io, games, startTurn, stopGameTimer };

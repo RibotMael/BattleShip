@@ -35,6 +35,7 @@
     </div>
   </transition>
 </template>
+
 <script>
 import { settingsStore } from "@/stores/settings";
 import socket, { registerOnline } from "@/services/socket";
@@ -42,7 +43,11 @@ import { useShopStore } from "@/stores/shopStore";
 import { userBus } from "@/eventBus.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
-const CHECK_INTERVAL_MS = 15000; // vérification toutes les 15 secondes
+
+// ── Constantes ─────────────────────────────────────────────────────────────────
+// Le polling HTTP est un dernier recours si le socket est déconnecté.
+// On le laisse à 60s pour ne pas surcharger le serveur.
+const FALLBACK_POLL_INTERVAL_MS = 60_000;
 
 export default {
   setup() {
@@ -53,50 +58,59 @@ export default {
   data() {
     return {
       accountDeleted: false,
-      checkInterval: null,
+      fallbackInterval: null, // polling uniquement si socket déconnecté
     };
   },
 
   async created() {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const userId = user.id || user.ID_Users;
-    if (userId) {
-      await this.shopStore.fetchShop(userId);
+    const user = this.getUser();
+    if (user?.id) {
+      await this.shopStore.fetchShop(user.id);
     } else {
       this.shopStore.applyThemeToDOM();
     }
   },
 
   mounted() {
+    // ── Socket ──────────────────────────────────────────────────────────────
     socket.on("connect", () => {
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
-      const userId = user.id || user.ID_Users;
-      if (userId) {
-        registerOnline(userId);
-        socket.emit("join-user-room", { userId }); // ← rejoint sa room privée
+      const user = this.getUser();
+      if (user?.id) {
+        registerOnline(user.id);
+        socket.emit("join-user-room", { userId: user.id });
       }
-      this.stopAccountCheck();
+      // Socket connecté → on stoppe le fallback polling
+      this.stopFallbackPoll();
+    });
+
+    socket.on("disconnect", () => {
+      // Socket perdu → on démarre le polling de secours
+      this.startFallbackPoll();
     });
 
     if (socket.connected) {
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
-      const userId = user.id || user.ID_Users;
-      if (userId) {
-        registerOnline(userId);
-        socket.emit("join-user-room", { userId });
+      const user = this.getUser();
+      if (user?.id) {
+        registerOnline(user.id);
+        socket.emit("join-user-room", { userId: user.id });
       }
+    } else {
+      // Pas encore connecté au démarrage → fallback actif jusqu'à connexion socket
+      this.startFallbackPoll();
     }
 
-    // Notification immédiate via socket
+    // Notification compte supprimé via socket (chemin principal)
     socket.on("account-deleted", () => {
       if (!this.accountDeleted) {
         this.accountDeleted = true;
-        this.stopAccountCheck();
+        this.stopFallbackPoll();
       }
     });
 
+    // ── Audio ───────────────────────────────────────────────────────────────
     const audio = document.getElementById("background-music");
     audio.volume = settingsStore.musicVolume / 100;
+
     this.$watch(
       () => settingsStore.musicVolume,
       (newVal) => {
@@ -109,59 +123,70 @@ export default {
       document.removeEventListener("click", playMusic);
     };
     document.addEventListener("click", playMusic);
-
-    // Démarre la vérification périodique du compte
-    this.startAccountCheck();
   },
 
   beforeUnmount() {
     socket.off("connect");
+    socket.off("disconnect");
     socket.off("account-deleted");
-    this.stopAccountCheck();
+    this.stopFallbackPoll();
   },
 
   methods: {
-    getUserId() {
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
-      return user.id || user.ID_Users || null;
+    getUser() {
+      try {
+        const raw = localStorage.getItem("user");
+        if (!raw || raw === "null" || raw === "undefined") return null;
+        const user = JSON.parse(raw);
+        return user?.id ? user : null;
+      } catch {
+        return null;
+      }
     },
 
-    startAccountCheck() {
-      this.stopAccountCheck();
-      const userId = this.getUserId();
-      if (!userId || this.accountDeleted) return;
-
-      this.checkAccount();
-      this.checkInterval = setInterval(() => this.checkAccount(), 3000); // ← 3s
+    getToken() {
+      return localStorage.getItem("token") || null;
     },
 
-    stopAccountCheck() {
-      if (this.checkInterval) {
-        clearInterval(this.checkInterval);
-        this.checkInterval = null;
+    // ── Fallback polling (uniquement si socket hors ligne) ──────────────────
+    startFallbackPoll() {
+      this.stopFallbackPoll();
+      const user = this.getUser();
+      if (!user || this.accountDeleted) return;
+
+      this.fallbackInterval = setInterval(() => this.checkAccount(), FALLBACK_POLL_INTERVAL_MS);
+    },
+
+    stopFallbackPoll() {
+      if (this.fallbackInterval) {
+        clearInterval(this.fallbackInterval);
+        this.fallbackInterval = null;
       }
     },
 
     async checkAccount() {
-      const userId = this.getUserId();
-      if (!userId || this.accountDeleted) return;
+      const user = this.getUser();
+      const token = this.getToken();
+      if (!user || this.accountDeleted) return;
 
       try {
-        const res = await fetch(`${API_BASE_URL}/api/check-user/${userId}`);
+        const res = await fetch(`${API_BASE_URL}/api/check-user/${user.id}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (res.status === 401 || res.status === 404) {
           this.accountDeleted = true;
-          this.stopAccountCheck();
+          this.stopFallbackPoll();
         }
-      } catch (_) {
-        // Erreur réseau : on ne déconnecte pas (serveur peut être temporairement indispo)
+      } catch {
+        // Erreur réseau temporaire : on ne déconnecte pas
       }
     },
 
     handleAccountDeleted() {
       this.accountDeleted = false;
       localStorage.removeItem("user");
+      localStorage.removeItem("token");
       localStorage.removeItem("userId");
-      // Nettoie aussi les clés de récompenses
       Object.keys(localStorage)
         .filter((k) => k.startsWith("reward_claimed_"))
         .forEach((k) => localStorage.removeItem(k));

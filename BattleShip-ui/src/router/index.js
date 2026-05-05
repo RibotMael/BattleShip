@@ -1,4 +1,3 @@
-//router/index.js
 import { createRouter, createWebHistory } from 'vue-router';
 import Home from '../pages/Home.vue';
 import Rules from '../pages/Rules.vue';
@@ -11,48 +10,146 @@ import Settings from '../pages/Settings.vue';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
+// ── Cache de validité du compte ───────────────────────────────────────────────
+// On ne re-vérifie pas le compte si la dernière vérification date de moins de 30s.
+// Cela évite un appel HTTP bloquant à chaque navigation.
+let lastCheckTime = 0;
+let lastCheckResult = true; // optimiste par défaut
+const CHECK_CACHE_MS = 30_000;
+
+async function isAccountValid(userId, token) {
+  const now = Date.now();
+  if (now - lastCheckTime < CHECK_CACHE_MS) {
+    return lastCheckResult;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/check-user/${userId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    lastCheckTime = Date.now();
+    lastCheckResult = res.ok; // true si 200, false si 401/404
+    return lastCheckResult;
+  } catch {
+    // Erreur réseau : on laisse passer (serveur temporairement indisponible)
+    return true;
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function getSession() {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw || raw === 'null' || raw === 'undefined') return null;
+    const user = JSON.parse(raw);
+    if (!user?.id) return null;
+    const token = localStorage.getItem('token');
+    return { user, token };
+  } catch {
+    return null;
+  }
+}
+
+function clearSession() {
+  localStorage.removeItem('user');
+  localStorage.removeItem('token');
+  localStorage.removeItem('userId');
+  // Nettoie les clés de récompenses
+  Object.keys(localStorage)
+    .filter((k) => k.startsWith('reward_claimed_'))
+    .forEach((k) => localStorage.removeItem(k));
+  // Réinitialise le cache
+  lastCheckTime = 0;
+  lastCheckResult = true;
+}
+
+// ── Routes ────────────────────────────────────────────────────────────────────
 const routes = [
   { path: '/', component: Home },
   { path: '/rules', component: Rules },
-  { path: '/profile', component: Profile },
-  { path: '/settings', component: Settings },
-  { path: '/gamemode', name: 'GameMode', component: GameMode },
-  { path: '/waiting-room/:gameId', name: 'WaitingRoom', component: WaitingRoom, props: true },
-  { path: '/join/:gameId', name: 'JoinRoom', component: WaitingRoom, props: true },
-  { path: '/place-ships/:gameId', name: 'PlaceShips', component: PlaceShips, props: true },
-  { path: '/game/:gameId', name: 'GameBoard', component: GameBoard, props: true },
-  { path: '/join', name: 'JoinGame', component: () => import('../pages/JoinGame.vue') },
-  { path: '/shop', name: 'Shop', component: () => import('../pages/Shopview.vue') },
+  {
+    path: '/profile',
+    component: Profile,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/settings',
+    component: Settings,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/gamemode',
+    name: 'GameMode',
+    component: GameMode,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/waiting-room/:gameId',
+    name: 'WaitingRoom',
+    component: WaitingRoom,
+    props: true,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/join/:gameId',
+    name: 'JoinRoom',
+    component: WaitingRoom,
+    props: true,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/place-ships/:gameId',
+    name: 'PlaceShips',
+    component: PlaceShips,
+    props: true,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/game/:gameId',
+    name: 'GameBoard',
+    component: GameBoard,
+    props: true,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/join',
+    name: 'JoinGame',
+    component: () => import('../pages/JoinGame.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/shop',
+    name: 'Shop',
+    component: () => import('../pages/Shopview.vue'),
+    meta: { requiresAuth: true },
+  },
 ];
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
 });
 
+// ── Guard de navigation ───────────────────────────────────────────────────────
 router.beforeEach(async (to, from, next) => {
-  // Pas de vérification sur la page d'accueil (formulaire de login)
+  // Page d'accueil : toujours accessible
   if (to.path === '/') return next();
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const userId = user.id || user.ID_Users;
+  // Route sans protection
+  if (!to.meta.requiresAuth) return next();
 
-  // Pas connecté → laisse passer (Home gère l'affichage du formulaire)
-  if (!userId) return next();
+  const session = getSession();
 
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/check-user/${userId}`);
-    if (res.status === 401 || res.status === 404) {
-      // Compte supprimé → nettoie et redirige vers l'accueil
-      localStorage.removeItem('user');
-      localStorage.removeItem('userId');
-      Object.keys(localStorage)
-        .filter((k) => k.startsWith('reward_claimed_'))
-        .forEach((k) => localStorage.removeItem(k));
-      return next('/');
-    }
-  } catch (_) {
-    // Erreur réseau temporaire : laisse passer
+  // Pas connecté → redirige vers l'accueil
+  if (!session) return next('/');
+
+  const { user, token } = session;
+
+  // Vérifie la validité du compte (avec cache 30s)
+  const valid = await isAccountValid(user.id, token);
+  if (!valid) {
+    clearSession();
+    return next('/');
   }
 
   next();
