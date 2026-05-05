@@ -20,33 +20,37 @@
       </div>
 
       <div class="tab-row">
-        <button
-          type="button"
-          class="tab-btn"
-          :class="{ active: isLogin }"
-          @click="
-            isLogin = true;
-            errorMsg = '';
-          "
-        >
+        <button type="button" class="tab-btn" :class="{ active: isLogin }" @click="switchToLogin">
           {{ i18nStore.t("auth_login_tab") }}
         </button>
         <button
           type="button"
           class="tab-btn"
           :class="{ active: !isLogin }"
-          @click="
-            isLogin = false;
-            errorMsg = '';
-          "
+          @click="switchToRegister"
         >
           {{ i18nStore.t("auth_register_tab") }}
         </button>
       </div>
 
+      <!-- [FIX] Modale CGU à la place de alert() -->
+      <div v-if="showLegalModal" class="modal-overlay" @click.self="showLegalModal = false">
+        <div class="modal-card">
+          <h2 class="modal-title">Conditions Générales d'Utilisation</h2>
+          <ul class="modal-list">
+            <li>Aucun bot ni logiciel de triche n'est autorisé.</li>
+            <li>Le respect des autres joueurs est obligatoire.</li>
+            <li>Les comptes multiples sont interdits.</li>
+            <li>Vos statistiques (pseudo, victoires, avatar) sont publiques.</li>
+          </ul>
+          <button class="submit-btn" @click="showLegalModal = false">Fermer</button>
+        </div>
+      </div>
+
       <form @submit.prevent="handleSubmit" class="auth-form-body">
         <div class="field-group">
-          <label class="field-label">{{ i18nStore.t("auth_email") }}</label>
+          <!-- [FIX] id + for pour l'accessibilité -->
+          <label class="field-label" for="field-email">{{ i18nStore.t("auth_email") }}</label>
           <div class="input-wrapper">
             <svg class="input-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
               <rect
@@ -61,17 +65,19 @@
               <path d="M1 5 L8 9.5 L15 5" stroke="currentColor" stroke-width="1.3" />
             </svg>
             <input
+              id="field-email"
               v-model="email"
               type="email"
               placeholder="votre@email.com"
               required
               class="field-input"
+              autocomplete="email"
             />
           </div>
         </div>
 
         <div class="field-group">
-          <label class="field-label">{{ i18nStore.t("auth_password") }}</label>
+          <label class="field-label" for="field-password">{{ i18nStore.t("auth_password") }}</label>
           <div class="input-wrapper">
             <svg class="input-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
               <rect
@@ -87,13 +93,20 @@
               <circle cx="8" cy="10.5" r="1" fill="currentColor" />
             </svg>
             <input
+              id="field-password"
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
               placeholder="••••••••"
               required
               class="field-input"
+              autocomplete="current-password"
             />
-            <button type="button" class="toggle-vis" @click="showPassword = !showPassword">
+            <button
+              type="button"
+              class="toggle-vis"
+              :aria-label="showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+              @click="showPassword = !showPassword"
+            >
               <svg v-if="!showPassword" width="14" height="14" viewBox="0 0 16 16" fill="none">
                 <path
                   d="M1 8s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z"
@@ -116,7 +129,9 @@
 
         <template v-if="!isLogin">
           <div class="field-group">
-            <label class="field-label">{{ i18nStore.t("auth_confirm_password") }}</label>
+            <label class="field-label" for="field-confirm-password">{{
+              i18nStore.t("auth_confirm_password")
+            }}</label>
             <div class="input-wrapper">
               <svg class="input-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
                 <rect
@@ -132,15 +147,20 @@
                 <circle cx="8" cy="10.5" r="1" fill="currentColor" />
               </svg>
               <input
+                id="field-confirm-password"
                 v-model="confirmPassword"
                 :type="showConfirmPassword ? 'text' : 'password'"
                 placeholder="••••••••"
                 required
                 class="field-input"
+                autocomplete="new-password"
               />
               <button
                 type="button"
                 class="toggle-vis"
+                :aria-label="
+                  showConfirmPassword ? 'Masquer la confirmation' : 'Afficher la confirmation'
+                "
                 @click="showConfirmPassword = !showConfirmPassword"
               >
                 <svg
@@ -171,7 +191,7 @@
 
           <div class="field-row">
             <div class="field-group">
-              <label class="field-label">{{ i18nStore.t("auth_pseudo") }}</label>
+              <label class="field-label" for="field-pseudo">{{ i18nStore.t("auth_pseudo") }}</label>
               <div class="input-wrapper">
                 <svg class="input-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
                   <circle cx="8" cy="5.5" r="3" stroke="currentColor" stroke-width="1.3" />
@@ -183,6 +203,7 @@
                   />
                 </svg>
                 <input
+                  id="field-pseudo"
                   v-model="pseudo"
                   type="text"
                   placeholder="Capitaine..."
@@ -193,7 +214,9 @@
               </div>
             </div>
             <div class="field-group">
-              <label class="field-label">{{ i18nStore.t("auth_birthday") }}</label>
+              <label class="field-label" for="field-birthday">{{
+                i18nStore.t("auth_birthday")
+              }}</label>
               <div class="input-wrapper">
                 <svg class="input-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
                   <rect
@@ -213,6 +236,7 @@
                   />
                 </svg>
                 <input
+                  id="field-birthday"
                   v-model="birthDay"
                   type="date"
                   required
@@ -232,20 +256,26 @@
                   :key="av.ID_Avatar"
                   class="avatar-tile"
                   :class="{ selected: avatar === av.ID_Avatar }"
+                  role="radio"
+                  :aria-checked="avatar === av.ID_Avatar"
+                  tabindex="0"
                   @click="selectAvatar(av.ID_Avatar)"
+                  @keydown.enter.space.prevent="selectAvatar(av.ID_Avatar)"
                 >
                   <img
                     :src="'data:' + av.mime_type + ';base64,' + av.Avatar"
                     :alt="'Avatar ' + av.ID_Avatar"
                   />
-                  <span v-if="avatar === av.ID_Avatar" class="avatar-check">✓</span>
+                  <span v-if="avatar === av.ID_Avatar" class="avatar-check" aria-hidden="true"
+                    >✓</span
+                  >
                 </div>
               </div>
               <img
                 v-if="avatar"
                 :src="'data:' + selectedMime + ';base64,' + selectedBase64"
                 class="avatar-preview"
-                alt="Aperçu"
+                alt="Aperçu de l'avatar sélectionné"
               />
             </div>
           </div>
@@ -260,13 +290,14 @@
             />
             <label for="legal" class="legal-label">
               {{ i18nStore.t("auth_terms") }}
-              <a href="#" @click.prevent="showLegal" class="legal-link">CGU</a>
+              <!-- [FIX] Modale à la place de alert() -->
+              <a href="#" @click.prevent="showLegalModal = true" class="legal-link">CGU</a>
               {{ i18nStore.t("auth_terms_suffix") }}
             </label>
           </div>
         </template>
 
-        <p v-if="errorMsg" class="error-msg">
+        <p v-if="errorMsg" class="error-msg" role="alert">
           <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style="flex-shrink: 0">
             <circle cx="7" cy="7" r="6" stroke="#f0837b" stroke-width="1.2" />
             <path d="M7 4v3M7 9.5v.5" stroke="#f0837b" stroke-width="1.3" stroke-linecap="round" />
@@ -274,8 +305,12 @@
           {{ errorMsg }}
         </p>
 
-        <button type="submit" class="submit-btn">
-          {{ isLogin ? i18nStore.t("auth_submit_login") : i18nStore.t("auth_submit_register") }}
+        <!-- [FIX] État de chargement + désactivation pendant la requête -->
+        <button type="submit" class="submit-btn" :disabled="isLoading">
+          <span v-if="isLoading" class="spinner" aria-hidden="true"></span>
+          <span v-else>
+            {{ isLogin ? i18nStore.t("auth_submit_login") : i18nStore.t("auth_submit_register") }}
+          </span>
         </button>
 
         <p class="toggle-link" @click="toggleForm">
@@ -290,8 +325,11 @@
 
 <script>
 import api from "@/api/api.js";
-import socket, { registerOnline } from "@/services/socket";
+import { registerOnline } from "@/services/socket";
 import { i18nStore } from "@/stores/i18n";
+
+// [FIX] Âge minimum requis
+const MIN_AGE_YEARS = 13;
 
 export default {
   data() {
@@ -300,6 +338,8 @@ export default {
       isLogin: true,
       legalAccepted: false,
       errorMsg: "",
+      isLoading: false, // [FIX] Verrou anti-double-submit
+      showLegalModal: false, // [FIX] Modale CGU
 
       // --- Identifiants ---
       email: "",
@@ -324,10 +364,15 @@ export default {
   },
 
   methods: {
-    showLegal() {
-      alert(
-        `Conditions Générales d'Utilisation :\n\n- Aucun bot ni logiciel de triche n'est autorisé.\n- Le respect des autres joueurs est obligatoire.\n- Les comptes multiples sont interdits.\n- Vos statistiques (pseudo, victoires, avatar) sont publiques.`,
-      );
+    // [FIX] Méthodes nommées à la place des handlers inline dans le template
+    switchToLogin() {
+      this.isLogin = true;
+      this.errorMsg = "";
+    },
+
+    switchToRegister() {
+      this.isLogin = false;
+      this.errorMsg = "";
     },
 
     toggleForm() {
@@ -338,18 +383,30 @@ export default {
     validateBirthDay() {
       const birth = new Date(this.birthDay);
       const today = new Date();
+
       if (isNaN(birth.getTime()) || birth > today) {
-        this.errorMsg = "Date de naissance invalide.";
-      } else {
-        this.errorMsg = "";
+        // [FIX] Clé i18n au lieu de string hardcodée en français
+        this.errorMsg = this.i18nStore.t("auth_error_invalid_date");
+        return false;
       }
+
+      // [FIX] Vérification de l'âge minimum
+      const minDate = new Date(today);
+      minDate.setFullYear(minDate.getFullYear() - MIN_AGE_YEARS);
+      if (birth > minDate) {
+        this.errorMsg = this.i18nStore.t("auth_error_min_age");
+        return false;
+      }
+
+      this.errorMsg = "";
+      return true;
     },
 
     async fetchAvatars() {
       try {
         const res = await api.get("/avatars");
         this.avatars = res.data.avatars;
-      } catch (e) {
+      } catch {
         // Mode silencieux
       }
     },
@@ -368,33 +425,48 @@ export default {
       try {
         const res = await api.post("/check-pseudo", { pseudo: this.pseudo });
         if (!res.data.available) {
-          this.errorMsg = "Ce pseudo est déjà pris.";
+          // [FIX] Clé i18n
+          this.errorMsg = this.i18nStore.t("auth_error_pseudo_taken");
         } else {
           this.errorMsg = "";
         }
-      } catch (err) {
-        // Mode silencieux
+      } catch {
+        // Mode silencieux — ne pas bloquer l'UX pour un check non-critique
       }
     },
 
     async handleSubmit() {
+      // [FIX] Verrou anti-double-submit
+      if (this.isLoading) return;
+
       this.errorMsg = "";
 
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(this.email)) {
-        this.errorMsg = "Adresse email invalide.";
+        this.errorMsg = this.i18nStore.t("auth_error_invalid_email");
         return;
       }
 
-      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
-      if (!this.isLogin && !passwordRegex.test(this.password)) {
-        this.errorMsg = "Mot de passe trop faible (8 car., Maj, Min, Chiffre, Spécial).";
-        return;
-      }
+      if (!this.isLogin) {
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+        if (!passwordRegex.test(this.password)) {
+          this.errorMsg = this.i18nStore.t("auth_error_weak_password");
+          return;
+        }
 
-      if (!this.isLogin && this.password !== this.confirmPassword) {
-        this.errorMsg = "Les mots de passe ne correspondent pas.";
-        return;
+        if (this.password !== this.confirmPassword) {
+          this.errorMsg = this.i18nStore.t("auth_error_password_mismatch");
+          return;
+        }
+
+        // [FIX] Validation de la date dans handleSubmit (pas seulement au blur)
+        if (!this.validateBirthDay()) return;
+
+        // [FIX] Avatar obligatoire — plus de fallback silencieux sur avatar 1
+        if (!this.avatar) {
+          this.errorMsg = this.i18nStore.t("auth_error_no_avatar");
+          return;
+        }
       }
 
       const formData = {
@@ -402,11 +474,12 @@ export default {
         password: this.password || null,
         pseudo: this.pseudo || null,
         birthDay: this.birthDay || null,
-        avatar: this.avatar || 1,
+        avatar: this.avatar,
       };
 
       const endpoint = this.isLogin ? "/login" : "/register";
 
+      this.isLoading = true;
       try {
         const response = await api.post(endpoint, formData);
         const data = response.data;
@@ -414,6 +487,9 @@ export default {
         if (data.success) {
           if (this.isLogin) {
             this.$emit("login-success", data.user);
+            // [NOTE] Idéalement, l'authentification devrait reposer sur un cookie
+            // httpOnly positionné par le serveur plutôt que sur localStorage,
+            // afin de limiter l'exposition à une attaque XSS.
             localStorage.setItem("userId", data.user.id);
             registerOnline(data.user.id);
             this.$router.push("/");
@@ -422,10 +498,14 @@ export default {
             this.resetFields();
           }
         } else {
-          this.errorMsg = data.message || "Une erreur est survenue.";
+          // [FIX] Message générique pour ne pas leaker d'infos backend
+          this.errorMsg = this.i18nStore.t("auth_error_generic");
         }
       } catch (error) {
-        this.errorMsg = error.response?.data?.message || "Erreur de communication avec le serveur.";
+        // [FIX] On n'affiche pas error.response?.data?.message directement
+        this.errorMsg = this.i18nStore.t("auth_error_network");
+      } finally {
+        this.isLoading = false;
       }
     },
 
@@ -436,6 +516,11 @@ export default {
       this.pseudo = "";
       this.birthDay = "";
       this.avatar = null;
+      this.selectedBase64 = "";
+      this.selectedMime = "";
+      this.legalAccepted = false; // [FIX] Oubli de l'original
+      this.showPassword = false;
+      this.showConfirmPassword = false;
     },
   },
 
@@ -789,14 +874,43 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator {
     transform 0.12s;
   margin-top: 0.1rem;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.2rem;
 }
 
-.submit-btn:hover {
+/* [FIX] État désactivé pendant le chargement */
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.submit-btn:hover:not(:disabled) {
   opacity: 0.88;
   transform: translateY(-1px);
 }
-.submit-btn:active {
+.submit-btn:active:not(:disabled) {
   transform: translateY(0);
+}
+
+/* [FIX] Spinner de chargement */
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(4, 26, 20, 0.3);
+  border-top-color: #041a14;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Lien bascule ── */
@@ -811,6 +925,51 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator {
 }
 .toggle-link:hover {
   color: #1de9c0;
+}
+
+/* ── Modale CGU ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 100;
+}
+
+.modal-card {
+  background: rgba(6, 18, 26, 0.97);
+  border: 1px solid rgba(29, 233, 192, 0.25);
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 360px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+.modal-title {
+  font-family: "Rajdhani", sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1de9c0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 1rem;
+}
+
+.modal-list {
+  font-family: "Inter", sans-serif;
+  font-size: 0.78rem;
+  color: #7ab8b0;
+  line-height: 1.6;
+  padding-left: 1.1rem;
+  margin: 0 0 1.25rem;
+}
+
+.modal-list li + li {
+  margin-top: 0.4rem;
 }
 
 /* ── Ajustements petits écrans ── */

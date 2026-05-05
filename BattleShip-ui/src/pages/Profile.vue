@@ -470,7 +470,7 @@ export default {
     },
 
     async deleteAccount() {
-      if (!confirm("⚠️ Cette action est irréversible. Supprimer votre compte ?")) return;
+      //if (!confirm("⚠️ Cette action est irréversible. Supprimer votre compte ?")) return;
       try {
         await api.delete(`/users/${this.userId}`);
         localStorage.removeItem("user");
