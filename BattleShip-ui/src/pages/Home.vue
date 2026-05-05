@@ -292,8 +292,32 @@ export default {
   },
   methods: {
     refreshUser() {
-      const savedUser = localStorage.getItem("user");
-      this.user = savedUser ? JSON.parse(savedUser) : null;
+      try {
+        const savedUser = localStorage.getItem("user");
+
+        // On vérifie que la donnée existe et n'est pas une chaîne "null" ou "undefined"
+        if (savedUser && savedUser !== "undefined" && savedUser !== "null") {
+          const parsedUser = JSON.parse(savedUser);
+
+          // On s'assure que l'utilisateur est un objet valide contenant au moins un 'id'
+          if (parsedUser && parsedUser.id) {
+            this.user = parsedUser;
+          } else {
+            // Données invalides (ex: objet vide), on nettoie et on retourne au formulaire
+            this.user = null;
+            localStorage.removeItem("user");
+            localStorage.removeItem("userId"); // Nettoyage supplémentaire
+          }
+        } else {
+          this.user = null;
+          localStorage.removeItem("user");
+        }
+      } catch (error) {
+        // Si le JSON est corrompu et fait planter le code, on réinitialise tout
+        this.user = null;
+        localStorage.removeItem("user");
+        localStorage.removeItem("userId");
+      }
     },
     handleLoginSuccess(userData) {
       if (!userData.avatar) userData.avatar = defaultAvatar;
