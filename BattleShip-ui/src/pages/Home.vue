@@ -1,6 +1,7 @@
 <template>
   <div class="background" :style="backgroundStyle">
-    <div class="game-menu">
+    <div v-if="isCheckingAuth" class="auth-checking"></div>
+    <div class="game-menu" v-else>
       <div v-if="!user" class="auth-wrapper">
         <AuthForm @login-success="handleLoginSuccess" />
       </div>
@@ -226,6 +227,7 @@ export default {
   data() {
     return {
       //  État de l'Utilisateur
+      isCheckingAuth: true,
       user: null,
       avatarPreviewUrl: defaultAvatar,
 
@@ -290,28 +292,29 @@ export default {
     );
   },
   methods: {
-    refreshUser() {
+    async refreshUser() {
+      this.isCheckingAuth = true;
       try {
         const savedUser = localStorage.getItem("user");
+        const token = localStorage.getItem("token");
 
-        if (savedUser && savedUser !== "undefined" && savedUser !== "null") {
-          const parsedUser = JSON.parse(savedUser);
-
-          if (parsedUser && parsedUser.id) {
-            this.user = parsedUser;
-          } else {
-            this.user = null;
-            localStorage.removeItem("user");
-            localStorage.removeItem("userId");
-          }
-        } else {
-          this.user = null;
-          localStorage.removeItem("user");
+        if (!savedUser || savedUser === "undefined" || !token) {
+          throw new Error("Pas de session");
         }
-      } catch (error) {
+
+        const parsedUser = JSON.parse(savedUser);
+        if (!parsedUser?.id) throw new Error("User invalide");
+
+        // Vérifie que le token est encore accepté par le backend
+        await api.get(`/users/${parsedUser.id}`);
+        this.user = parsedUser;
+      } catch {
         this.user = null;
         localStorage.removeItem("user");
         localStorage.removeItem("userId");
+        localStorage.removeItem("token");
+      } finally {
+        this.isCheckingAuth = false;
       }
     },
     handleLoginSuccess(userData) {
@@ -367,6 +370,12 @@ export default {
   position: fixed;
   inset: 0;
   font-family: "Inter", sans-serif;
+}
+
+.auth-checking {
+  position: fixed;
+  inset: 0;
+  background: #06121a; /* même couleur que ton fond de carte */
 }
 
 .menu-container {

@@ -9,8 +9,8 @@ import { requireAuth } from '../middleware/auth.js';
 const router = Router();
 
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
+  windowMs: 5 * 60 * 1000,
+  max: 2000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Trop de tentatives, réessayez dans 15 minutes.' },

@@ -77,8 +77,8 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
    RATE LIMITING GLOBAL
 ========================== */
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: 5 * 60 * 1000,
+  max: 5000,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { success: false, message: 'Trop de requêtes, ralentissez.' },

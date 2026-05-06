@@ -1114,19 +1114,19 @@ export default {
   props: { gameId: { type: [String, Number], required: false } },
   data() {
     return {
-      // --- État de la Partie et Session ---
+      //  État de la Partie et Session
       localGameId: null,
       game: null,
       isHost: false,
       polling: null,
       errorMsg: "",
 
-      // --- Utilisateur et Identification ---
+      //  Utilisateur et Identification
       user: JSON.parse(localStorage.getItem("user")) || { id: 999, pseudo: "TestUser" },
       currentUser: JSON.parse(localStorage.getItem("user")) || null,
       userId: 0,
 
-      // --- Joueurs et Social ---
+      //  Joueurs et Social
       players: [],
       friends: [],
       teamAssignments: {},

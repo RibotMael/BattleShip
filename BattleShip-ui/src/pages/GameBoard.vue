@@ -57,6 +57,7 @@
     </div>
 
     <main v-if="isTeamMode" class="tactical-layout team-layout">
+      <!-- GAUCHE : ma grille + alliés en accordéon -->
       <section class="fleet-side team-left">
         <div class="grid-container main-player">
           <h2 class="grid-label">
@@ -70,18 +71,16 @@
           <div class="grid-zone">
             <transition name="mask-fade">
               <div v-if="isGridHidden" class="grid-mask">
-                <span class="grid-mask-icon">
-                  <svg
+                <span class="grid-mask-icon"
+                  ><svg
                     width="32"
                     height="32"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
                     stroke-width="1.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
                   >
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
                     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
                 </span>
@@ -107,42 +106,44 @@
           </div>
         </div>
 
-        <div class="allies-container" :class="{ 'grid-blurred': isGridHidden }">
-          <div v-for="ally in allies" :key="'ally-' + ally.id" class="ally-mini-block">
-            <h3 class="mini-label">
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-              {{ ally.pseudo }}
-            </h3>
-            <div class="mini-grid ally-grid">
-              <div
-                v-for="(cell, index) in ally.grid"
-                :key="'ally-cell-' + index"
-                class="cell ally-cell"
-                :class="{
-                  hit: cell === 'hit',
-                  miss: cell === 'miss',
-                  sunk: cell === 'sunk',
-                }"
-              ></div>
+        <!-- Alliés : panneau collapsible -->
+        <div class="allies-panel" v-if="allies.length > 0">
+          <button class="allies-toggle" @click="showAllies = !showAllies">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            ALLIÉS ({{ allies.length }})
+            <span class="toggle-chevron" :class="{ rotated: showAllies }">▸</span>
+          </button>
+          <transition name="allies-slide">
+            <div v-if="showAllies" class="allies-container">
+              <div v-for="ally in allies" :key="'ally-' + ally.id" class="ally-mini-block">
+                <h3 class="mini-label">{{ ally.pseudo }}</h3>
+                <div class="mini-grid ally-grid">
+                  <div
+                    v-for="(cell, index) in ally.grid"
+                    :key="'ally-cell-' + index"
+                    class="cell ally-cell"
+                    :class="{ hit: cell === 'hit', miss: cell === 'miss', sunk: cell === 'sunk' }"
+                  ></div>
+                </div>
+              </div>
             </div>
-          </div>
+          </transition>
         </div>
       </section>
 
+      <!-- CENTRE : timer -->
       <section class="system-status timer-container">
         <div class="timer-module">
           <svg class="progress-ring timer-svg" viewBox="0 0 100 100" width="100%" height="100%">
@@ -162,17 +163,32 @@
         </div>
       </section>
 
+      <!-- DROITE : ennemis avec onglets -->
       <section class="fleet-side team-right">
-        <div
-          v-for="(enemy, i) in enemies"
-          :key="'enemy-' + enemy.id"
-          class="grid-container enemy-section"
-        >
-          <h2
-            class="grid-label enemy clickable-title"
-            :class="{ 'active-target': currentOpponentIndex === i }"
-            @click="currentOpponentIndex = i"
+        <!-- Barre d'onglets ennemis -->
+        <div class="enemy-tabs" v-if="enemies.length > 0">
+          <button
+            v-for="(enemy, i) in enemies"
+            :key="'tab-' + enemy.id"
+            class="enemy-tab"
+            :class="{
+              'active-tab': currentOpponentIndex === i,
+              'eliminated-tab': enemy.eliminated,
+            }"
+            @click="
+              currentOpponentIndex = i;
+              selectedCell = null;
+            "
           >
+            <span class="tab-dot"></span>
+            <span class="tab-pseudo">{{ enemy.pseudo }}</span>
+            <span v-if="currentOpponentIndex === i" class="tab-target-icon">◎</span>
+          </button>
+        </div>
+
+        <!-- Grille de l'ennemi actif uniquement -->
+        <div class="grid-container enemy-section" v-if="currentEnemy">
+          <h2 class="grid-label enemy">
             <span class="dot"></span>
             <svg
               width="13"
@@ -181,9 +197,6 @@
               fill="none"
               stroke="currentColor"
               stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              style="flex-shrink: 0"
             >
               <circle cx="12" cy="12" r="10" />
               <circle cx="12" cy="12" r="3" />
@@ -192,16 +205,13 @@
               <line x1="2" y1="12" x2="5" y2="12" />
               <line x1="19" y1="12" x2="22" y2="12" />
             </svg>
-            {{ enemy.pseudo }}
-            <span v-if="currentOpponentIndex === i" class="target-indicator">◀ CIBLE</span>
+            {{ currentEnemy.pseudo }}
+            <span class="target-indicator">◀ CIBLE</span>
           </h2>
-          <div
-            class="grid-wrapper target-focus"
-            :class="{ 'is-targeted': currentOpponentIndex === i }"
-          >
+          <div class="grid-wrapper target-focus is-targeted">
             <div class="grid-radar opponent-grid">
               <div
-                v-for="(cell, index) in enemy.grid"
+                v-for="(cell, index) in currentEnemy.grid"
                 :key="'enemy-cell-' + index"
                 class="cell clickable-cell"
                 :class="{
@@ -211,8 +221,33 @@
                   selected: cell === 'selected',
                   pending: cell === 'pending',
                 }"
-                @click="selectEnemyCell(i, index)"
+                @click="selectEnemyCell(currentOpponentIndex, index)"
               ></div>
+            </div>
+          </div>
+
+          <!-- Résumé des autres ennemis -->
+          <div class="other-enemies-row" v-if="enemies.length > 1">
+            <div
+              v-for="(enemy, i) in enemies"
+              :key="'thumb-' + enemy.id"
+              v-show="i !== currentOpponentIndex"
+              class="enemy-thumb"
+              @click="
+                currentOpponentIndex = i;
+                selectedCell = null;
+              "
+              :title="'Cibler ' + enemy.pseudo"
+            >
+              <span class="thumb-pseudo">{{ enemy.pseudo }}</span>
+              <div class="thumb-grid">
+                <div
+                  v-for="(cell, idx) in enemy.grid"
+                  :key="idx"
+                  class="thumb-cell"
+                  :class="{ hit: cell === 'hit', miss: cell === 'miss', sunk: cell === 'sunk' }"
+                ></div>
+              </div>
             </div>
           </div>
         </div>
@@ -631,6 +666,7 @@ export default {
       isGridHidden: false,
       detectedTeamMode: false,
       playerStatus: "in_game",
+      showAllies: true,
 
       //  Logique de Tour et Timers
       currentOpponentIndex: 0,
@@ -907,26 +943,20 @@ export default {
     socketTurnTimer({ timeLeft, turnStartAt }) {
       if (this.gameOver) return;
 
-      this.turnStartAt = turnStartAt
-        ? turnStartAt
-        : Date.now() - (7 - Math.max(0, timeLeft)) * 1000;
+      const isNewTurn = timeLeft >= 6.5;
 
-      if (timeLeft >= 6.5) {
+      this.turnStartAt = turnStartAt || Date.now() - (7 - Math.max(0, timeLeft)) * 1000;
+
+      if (isNewTurn) {
         this.hasFiredThisTurn = false;
         this._firingLock = false;
         this.isSelecting = false;
         this.selectedCell = null;
-
         this.clearPendingCells();
         this.turnTimer = 7;
-        this.$nextTick(() => {
-          if (typeof this.updateCircle === "function") this.updateCircle();
-        });
-      } else {
-        this.turnTimer = timeLeft;
+        this._startLocalTick();
+        this.$nextTick(() => this.updateCircle());
       }
-
-      this._startLocalTick();
     },
 
     _startLocalTick() {
@@ -941,14 +971,16 @@ export default {
         const elapsed = (Date.now() - this.turnStartAt) / 1000;
         const computed = Math.max(0, Math.ceil(7 - elapsed));
 
-        this.turnTimer = computed;
-        this.$nextTick(this.updateCircle);
+        if (computed !== this.turnTimer) {
+          this.turnTimer = computed;
+          this.$nextTick(this.updateCircle);
+        }
 
         if (computed <= 0) {
           clearInterval(this.localTimerInterval);
           this.localTimerInterval = null;
         }
-      }, 200);
+      }, 500);
     },
 
     async resyncTimer() {
@@ -2689,5 +2721,182 @@ body {
   .btn-hide-grid {
     padding: 3px 7px;
   }
+}
+
+/* ---- ONGLETS ENNEMIS ---- */
+.enemy-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.enemy-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  background: rgba(248, 113, 113, 0.06);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  border-radius: 4px;
+  color: rgba(248, 113, 113, 0.65);
+  font-family: "Rajdhani", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.enemy-tab:hover {
+  background: rgba(248, 113, 113, 0.14);
+  color: #f87171;
+}
+
+.enemy-tab.active-tab {
+  background: rgba(248, 113, 113, 0.18);
+  border-color: #f87171;
+  color: #f87171;
+  box-shadow: 0 0 10px rgba(248, 113, 113, 0.2);
+}
+
+.enemy-tab.eliminated-tab {
+  opacity: 0.35;
+  text-decoration: line-through;
+  pointer-events: none;
+}
+
+.tab-dot {
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tab-target-icon {
+  font-size: 0.9rem;
+  animation: ping 1.5s infinite ease-out;
+}
+
+/* ---- THUMBNAILS AUTRES ENNEMIS ---- */
+.other-enemies-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(248, 113, 113, 0.12);
+}
+
+.enemy-thumb {
+  flex: 1;
+  min-width: 90px;
+  max-width: 130px;
+  cursor: pointer;
+  opacity: 0.55;
+  transition:
+    opacity 0.2s,
+    transform 0.15s;
+}
+
+.enemy-thumb:hover {
+  opacity: 1;
+  transform: scale(1.04);
+}
+
+.thumb-pseudo {
+  display: block;
+  margin-bottom: 5px;
+  color: #f87171;
+  font-family: "Rajdhani", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.thumb-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 1px;
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 2px;
+}
+
+.thumb-cell {
+  aspect-ratio: 1;
+  background: #030a10;
+}
+
+.thumb-cell.hit {
+  background: #f87171;
+}
+.thumb-cell.miss {
+  background: rgba(255, 255, 255, 0.08);
+}
+.thumb-cell.sunk {
+  background: #1a202c;
+}
+
+/* ---- PANNEAU ALLIÉS ---- */
+.allies-panel {
+  width: 100%;
+  max-width: 380px;
+}
+
+.allies-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(29, 233, 192, 0.05);
+  border: 1px solid rgba(29, 233, 192, 0.18);
+  border-radius: 4px;
+  color: rgba(29, 233, 192, 0.7);
+  font-family: "Rajdhani", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+
+.allies-toggle:hover {
+  background: rgba(29, 233, 192, 0.1);
+  color: #1de9c0;
+}
+
+.toggle-chevron {
+  margin-left: auto;
+  display: inline-block;
+  transition: transform 0.2s;
+}
+
+.toggle-chevron.rotated {
+  transform: rotate(90deg);
+}
+
+.allies-slide-enter-active,
+.allies-slide-leave-active {
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+
+.allies-slide-enter-from,
+.allies-slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+.allies-slide-enter-to,
+.allies-slide-leave-from {
+  max-height: 600px;
+  opacity: 1;
 }
 </style>
