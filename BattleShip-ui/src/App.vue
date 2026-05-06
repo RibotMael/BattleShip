@@ -68,6 +68,9 @@ export default {
   },
 
   mounted() {
+    window.addEventListener("socket-unreachable", () => {
+      // afficher un toast "Connexion perdue, vérifiez votre réseau"
+    });
     socket.on("connect", () => {
       const user = this.getUser();
       if (user?.id) {

@@ -623,7 +623,7 @@
 </template>
 
 <script>
-import socket from "../services/socket.js";
+import socket, { rejoinGame, setActiveGame, clearActiveGame } from "../services/socket.js";
 import heartbeatSrc from "@/assets/audio/BattementsDeCoeur.mp3";
 import { userBus } from "@/eventBus.js";
 import { settingsStore } from "@/stores/settings";
@@ -795,9 +795,15 @@ export default {
     this.initAudio();
     this.playHeartbeat();
 
-    socket.on("connect", () => {
-      if (!this.gameOver) this.resyncTimer();
-    });
+    socket.on(
+      "connect",
+      (this._onSocketReconnect = () => {
+        if (!this.gameOver && this.opponents.length > 0) {
+          rejoinGame(this.gameId, this.userId);
+          this.resyncTimer();
+        }
+      }),
+    );
 
     socket.on("turn-timer", (data) => {
       if (data.timeLeft >= 7) this.clearPendingCells();
@@ -872,6 +878,10 @@ export default {
   },
   methods: {
     removeSocketListeners() {
+      if (this._onSocketReconnect) {
+        socket.off("connect", this._onSocketReconnect);
+        this._onSocketReconnect = null;
+      }
       socket.off("turn-timer");
       socket.off("turn-ended");
       socket.off("shot-fired");
@@ -1085,6 +1095,7 @@ export default {
         this.fetchEnemyShots();
       }, 5000);
       this.resetGameState();
+      setActiveGame(this.gameId);
       await this.fetchPlayerBoard();
       await this.fetchOpponents();
       const userId = this.user?.id || this.user?.ID_Users;
@@ -1654,6 +1665,7 @@ export default {
       this.gameOver = true;
       clearInterval(this.fetchInterval);
       clearInterval(this.turnInterval);
+      clearActiveGame();
       this.removeSocketListeners();
       this.turnTimer = 7;
       this.updateCircle();
