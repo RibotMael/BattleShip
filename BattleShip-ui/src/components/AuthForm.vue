@@ -486,6 +486,7 @@ export default {
 
         if (data.success) {
           if (this.isLogin) {
+            localStorage.setItem("token", data.token);
             this.$emit("login-success", data.user);
             // [NOTE] Idéalement, l'authentification devrait reposer sur un cookie
             // httpOnly positionné par le serveur plutôt que sur localStorage,

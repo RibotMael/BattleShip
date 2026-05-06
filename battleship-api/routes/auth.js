@@ -9,14 +9,13 @@ import { requireAuth } from '../middleware/auth.js';
 const router = Router();
 
 // ── Rate limiting ──────────────────────────────────────────────────────────────
-// 10 tentatives / 15 min sur les routes d'authentification
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Trop de tentatives, réessayez dans 15 minutes.' },
-  keyGenerator: (req) => req.ip,
+  validate: { xForwardedForHeader: false },
 });
 
 // ── Helpers ────────────────────────────────────────────────────────────────────

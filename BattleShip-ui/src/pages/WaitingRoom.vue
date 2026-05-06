@@ -179,7 +179,7 @@
                     (player.Pseudo || player.pseudo || "?")[0].toUpperCase()
                   }}</span>
                   <span class="tag-name">{{ player.Pseudo || player.pseudo }}</span>
-                  <div class="tag-controls">
+                  <div class="tag-controls" v-if="isHost">
                     <button class="ctrl-btn t1-btn" @click="assignTeam(getUserId(player), 1)">
                       T1
                     </button>
@@ -187,10 +187,11 @@
                       T2
                     </button>
                     <button
-                      v-if="isHost && getUserId(player) !== userId"
+                      v-if="getUserId(player) !== userId"
                       class="ctrl-btn kick-btn"
                       @click="kickPlayer(getUserId(player))"
                     >
+                      <!-- SVG KICK -->
                       <svg
                         width="10"
                         height="10"
@@ -198,7 +199,6 @@
                         fill="none"
                         stroke="currentColor"
                         stroke-width="2.5"
-                        stroke-linecap="round"
                       >
                         <line x1="18" y1="6" x2="6" y2="18" />
                         <line x1="6" y1="6" x2="18" y2="18" />
@@ -226,7 +226,7 @@
                       }}</span>
                       <span class="member-name">{{ player.Pseudo || player.pseudo }}</span>
                     </div>
-                    <div class="member-actions">
+                    <div class="member-actions" v-if="isHost">
                       <button
                         @click="assignTeam(getUserId(player), 2)"
                         class="btn-swap"
@@ -284,7 +284,7 @@
                       }}</span>
                       <span class="member-name">{{ player.Pseudo || player.pseudo }}</span>
                     </div>
-                    <div class="member-actions">
+                    <div class="member-actions" v-if="isHost">
                       <button
                         @click="assignTeam(getUserId(player), 1)"
                         class="btn-swap"
@@ -1326,11 +1326,13 @@ export default {
       }
     },
     async assignTeam(playerId, team) {
+      if (!this.isHost) return;
       try {
         await api.post("/games/assign-team", {
           gameId: Number(this.game.ID_Game),
           playerId: Number(playerId),
           team,
+          hostId: Number(this.userId),
         });
         await this.fetchGame();
       } catch {

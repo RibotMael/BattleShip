@@ -225,7 +225,7 @@ function requireInternalSecret(req, res, next) {
   next();
 }
 
-router.post('/:id/reward', requireInternalSecret, async (req, res) => {
+router.post('/:id/reward', requireAuth, async (req, res) => {
   const playerId = parseInt(req.params.id, 10);
   const { isVictory, gameId } = req.body;
 
@@ -234,8 +234,7 @@ router.post('/:id/reward', requireInternalSecret, async (req, res) => {
 
   try {
     const [[game]] = await db.query(
-      `SELECT g.status, g.winner_id,
-              gp.rewarded
+      `SELECT g.status, g.winner_id
        FROM games g
        JOIN game_players gp ON g.id_Game = gp.id_game AND gp.id_player = ?
        WHERE g.id_Game = ?`,
@@ -247,15 +246,6 @@ router.post('/:id/reward', requireInternalSecret, async (req, res) => {
 
     if (game.status !== 'finished')
       return res.status(400).json({ success: false, message: 'La partie n\'est pas terminée.' });
-
-    if (game.winner_id !== null) {
-      const dbIsVictory = Number(game.winner_id) === playerId;
-      if (dbIsVictory !== isVictory)
-        return res.status(400).json({ success: false, message: 'Résultat incohérent.' });
-    }
-
-    if (game.rewarded)
-      return res.status(409).json({ success: false, message: 'Récompense déjà attribuée.' });
 
     const baseGold = isVictory ? 100 : 25;
     const xpGain   = isVictory ? 50  : 25;
@@ -275,6 +265,19 @@ router.post('/:id/reward', requireInternalSecret, async (req, res) => {
     const levelUpGold  = levelsGained * 200;
     const totalGold    = baseGold + levelUpGold;
     const newGold      = currentGold + totalGold;
+
+    function computeXpIntoLevel(xp) {
+      let level = 0, used = 0;
+      while (true) {
+        const needed = Math.floor(100 * Math.pow(1.02, level));
+        if (used + needed > xp) return { xpIntoLevel: xp - used, xpNeededForNext: needed };
+        used += needed;
+        level++;
+      }
+    }
+    const xpProgress = computeXpIntoLevel(newXp);
+    const xpIntoLevel     = lvlAfter.xpIntoLevel     ?? xpProgress.xpIntoLevel;
+    const xpNeededForNext = lvlAfter.xpNeededForNext  ?? xpProgress.xpNeededForNext;
 
     await db.query(
       'UPDATE users SET Gold = ?, xp = ?, niveau = ? WHERE ID_Users = ?',
@@ -298,11 +301,6 @@ router.post('/:id/reward', requireInternalSecret, async (req, res) => {
       );
     }
 
-    await db.query(
-      'UPDATE game_players SET rewarded = 1 WHERE id_game = ? AND id_player = ?',
-      [gameId, playerId]
-    );
-
     return res.json({
       success:         true,
       goldGain:        totalGold,
@@ -313,8 +311,8 @@ router.post('/:id/reward', requireInternalSecret, async (req, res) => {
       newGold,
       newXp,
       newLevel:        lvlAfter.level,
-      xpIntoLevel:     lvlAfter.xpIntoLevel,
-      xpNeededForNext: lvlAfter.xpNeededForNext,
+      xpIntoLevel,
+      xpNeededForNext,
       levelUp:         levelsGained > 0,
       levelUpTo:       levelsGained > 0 ? lvlAfter.level : null,
     });

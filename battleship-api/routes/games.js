@@ -1,8 +1,7 @@
 import express from "express";
 import db from "../db.js";
 import { fleetsByVersion } from "../utils/fleets.js";
-import { io } from "../index.js";
-import { stopGameTimer } from "../index.js";
+import { io, stopGameTimer, grantRewards } from '../index.js';
 
 const router = express.Router();
 
@@ -370,9 +369,14 @@ router.post("/kick", async (req, res) => {
 });
 
 router.post("/assign-team", async (req, res) => {
-  const { gameId, playerId, team } = req.body;
+  const { gameId, playerId, team, hostId } = req.body;
 
   try {
+    const [game] = await db.execute("SELECT id_creator FROM games WHERE id_Game = ?", [gameId]);
+    if (!game.length || Number(game[0].id_creator) !== Number(hostId)) {
+      return res.status(403).json({ success: false, message: "Action non autorisée. Seul l'hôte peut modifier les équipes." });
+    }
+
     await db.execute(
       "UPDATE game_players SET team_number = ? WHERE id_game = ? AND id_player = ?",
       [team, gameId, playerId]
@@ -380,9 +384,7 @@ router.post("/assign-team", async (req, res) => {
 
     res.json({ success: true, message: "Équipe mise à jour" });
   } catch (err) {
-    res
-      .status(500)
-      .json({ success: false, message: "Erreur lors de l'assignation" });
+    res.status(500).json({ success: false, message: "Erreur lors de l'assignation" });
   }
 });
 
@@ -566,7 +568,7 @@ router.get("/:gameId/timer", async (req, res) => {
     res.json({
       success: true,
       timeLeft,
-      turnStartAt: game.last_turn_timestamp || null 
+      turnStartAt: game.last_turn_timestamp || null
     });
   } catch (err) {
     res.status(500).json({ success: false });
@@ -982,11 +984,14 @@ router.post("/eliminate-player", async (req, res) => {
 
     if (finished) {
       if (typeof stopGameTimer === "function") stopGameTimer(gameId);
+      // ── FIX : grantRewards (→ reward-granted) émis AVANT game-over ──────
+      await grantRewards(gameId, winnerId, winnerTeam, isDraw);
       io.to(String(gameId)).emit("game-over", {
         winnerId,
         winnerTeam,
         isDraw,
       });
+      // ─────────────────────────────────────────────────────────────────────
     } else {
       const [[eliminated]] = await conn.query(
         "SELECT team_number FROM game_players WHERE id_game=? AND id_player=?",
@@ -1076,15 +1081,12 @@ router.get("/:id/stats", async (req, res) => {
     if (!rows.length) return res.status(404).json({ success: false });
 
     const { Gold, xp } = rows[0];
-    const lvl = computeLevel(xp);
 
     return res.json({
       success: true,
       gold: Gold,
       xp,
-      level: lvl.level,
-      xpIntoLevel: lvl.xpIntoLevel,
-      xpNeededForNext: lvl.xpNeededForNext,
+      level: rows[0].niveau,
     });
   } catch (err) {
     return res.status(500).json({ success: false });

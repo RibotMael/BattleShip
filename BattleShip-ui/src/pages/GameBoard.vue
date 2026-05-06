@@ -224,7 +224,6 @@
         <div class="grid-container main-player">
           <h2 class="grid-label">
             <span class="dot"></span>{{ i18nStore.t("game_my_fleet") }}
-            <!-- FIX bug #6 : utilisation de i18n au lieu de texte hardcodé -->
             <button class="btn-hide-grid" @click="isGridHidden = !isGridHidden">
               <span class="hide-label">{{
                 isGridHidden ? i18nStore.t("game_reveal") : i18nStore.t("game_hide")
@@ -492,7 +491,7 @@
                 >
               </div>
               <div class="xp-track xp-bar-track">
-                <div class="xp-fill xp-bar-fill" :style="{ width: xpProgressPercent + '%' }"></div>
+                <div class="xp-fill xp-bar-fill" :style="{ width: animatedXpPercent + '%' }"></div>
               </div>
             </div>
           </div>
@@ -611,9 +610,13 @@ export default {
     gameType: { type: String, default: "" },
   },
   data() {
+    const rawUser = JSON.parse(localStorage.getItem("user")) || {};
+
+    if (!rawUser.id && rawUser.ID_Users) rawUser.id = rawUser.ID_Users;
+
     return {
       // --- Utilisateur et Configuration ---
-      user: JSON.parse(localStorage.getItem("user")) || { id: null, pseudo: "" },
+      user: rawUser,
       settingsStore,
       i18nStore,
       showSettings: false,
@@ -637,6 +640,7 @@ export default {
       turnInterval: null,
       localTimerInterval: null,
       fetchInterval: null,
+      pollingTimer: null,
 
       // --- Actions de Jeu ---
       selectedCell: null,
@@ -651,6 +655,7 @@ export default {
       popupIcon: "",
       rewardData: null,
       rewardClaimed: false,
+      animatedXpPercent: 0,
 
       // --- Audio ---
       heartbeatAudio: null,
@@ -659,14 +664,15 @@ export default {
     };
   },
   computed: {
+    userId() {
+      return this.user?.id || this.user?.ID_Users || null;
+    },
     isTeamMode() {
       return ["2v2", "3v3", "4v4"].includes(this.gameType) || this.detectedTeamMode;
     },
     is1v1() {
       return this.gameType === "1v1";
     },
-    // FIX bug #7 : compter les navires uniques coulés via shipNumber distinct
-    // (correct pour mode français ET belge quelle que soit la taille des navires)
     lostShipsCount() {
       const sunkShipNumbers = new Set(
         this.playerGrid
@@ -708,7 +714,6 @@ export default {
         }
       );
     },
-    // FIX bug #8 : utiliser popupIcon (valeur structurée) plutôt que le texte du message
     popupResultClass() {
       const map = {
         trophy: "popup-victory",
@@ -726,6 +731,18 @@ export default {
     },
   },
   watch: {
+    rewardData(val) {
+      if (!val) {
+        this.animatedXpPercent = 0;
+        return;
+      }
+      this.animatedXpPercent = 0;
+      this.$nextTick(() => {
+        setTimeout(() => {
+          this.animatedXpPercent = this.xpProgressPercent;
+        }, 400);
+      });
+    },
     playerGrid: {
       deep: true,
       handler() {
@@ -754,7 +771,6 @@ export default {
     socket.on("turn-ended", () => this.endTurn());
     socket.on("shot-fired", (data) => this.onShotFired(data));
     socket.on("player-eliminated", (data) => this.onPlayerEliminated(data));
-    // FIX bug #2 : guard côté client — ignorer game-over si déjà traité
     socket.on("game-over", (data) => {
       if (!this.gameOver) this.handleGameOver(data);
     });
@@ -775,6 +791,36 @@ export default {
       }
     });
 
+    // ── FIX : reward-granted est enregistré ici et se désinscrit lui-même
+    // après réception. Il N'EST PAS supprimé par removeSocketListeners()
+    // ni par handleGameOver(), ce qui garantit qu'il arrive bien après game-over.
+    socket.on("reward-granted", (data) => {
+      // Se désinscrit immédiatement pour éviter tout double appel
+      socket.off("reward-granted");
+
+      if (this.rewardClaimed || this.isSpectator) return;
+      this.rewardClaimed = true;
+      this.rewardData = data;
+
+      // Mise à jour localStorage + home/profil
+      const stored = JSON.parse(localStorage.getItem("user")) || {};
+      stored.gold = data.newGold;
+      stored.xp = data.newXp;
+      stored.level = data.newLevel;
+      stored.niveau = data.newLevel;
+      localStorage.setItem("user", JSON.stringify(stored));
+      userBus.userUpdated = !userBus.userUpdated;
+    });
+
+    socket.on("shot-result", (data) => {
+      if (!data.success) {
+        this.hasFiredThisTurn = false;
+        this._firingLock = false;
+        return;
+      }
+      this.selectedCell = null;
+    });
+
     this.$watch(
       () => this.settingsStore.effectsVolume,
       (newVolume) => {
@@ -785,12 +831,18 @@ export default {
     );
   },
   beforeUnmount() {
+    if (this.pollingInterval) clearInterval(this.pollingInterval);
+    if (this.localTickInterval) clearInterval(this.localTickInterval);
     clearInterval(this.fetchInterval);
     clearInterval(this.turnInterval);
     this.removeSocketListeners();
     this.stopHeartbeat();
+    this.stopPolling();
   },
   methods: {
+    // ── FIX : reward-granted est intentionnellement absent de cette liste.
+    // Il se gère lui-même (auto-désinscription après réception) et ne doit
+    // pas être supprimé prématurément avant la fin de partie.
     removeSocketListeners() {
       socket.off("turn-timer");
       socket.off("turn-ended");
@@ -800,44 +852,27 @@ export default {
       socket.off("game-started");
       socket.off("cell-pending");
       socket.off("cell-unlocked");
+      socket.off("shot-result");
+      // NE PAS mettre socket.off("reward-granted") ici
     },
 
-    async claimReward(isVictory) {
-      // Vérifie dans le localStorage si la récompense a déjà été réclamée pour cette partie
-      const claimedKey = `reward_claimed_${this.gameId}`;
-      if (this.rewardClaimed || this.isSpectator || localStorage.getItem(claimedKey)) return;
+    startPolling() {
+      this.stopPolling();
+      this.pollingTimer = setInterval(() => {
+        this.fetchEnemyShots();
+        this.checkGameStatus();
+      }, 5000);
+    },
 
-      this.rewardClaimed = true;
-      localStorage.setItem(claimedKey, "1"); // ← persiste immédiatement
-
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/users/${this.user.id}/reward`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ isVictory, gameId: this.gameId }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          this.rewardData = data;
-          const stored = JSON.parse(localStorage.getItem("user")) || {};
-          stored.gold = data.newGold;
-          stored.level = data.newLevel;
-          stored.xp = data.newXp;
-          localStorage.setItem("user", JSON.stringify(stored));
-          userBus.userUpdated = !userBus.userUpdated;
-        }
-      } catch (_) {
-        this.rewardData = {
-          goldGain: isVictory ? 100 : 25,
-          xpGain: isVictory ? 50 : 25,
-          newLevel: this.user.niveau || 0,
-          xpIntoLevel: 0,
-          xpNeededForNext: 100,
-          levelUp: false,
-          newGold: this.user.gold ?? 0,
-        };
+    stopPolling() {
+      if (this.pollingTimer) {
+        clearInterval(this.pollingTimer);
+        this.pollingTimer = null;
       }
+    },
+
+    claimReward() {
+      // Les récompenses arrivent via socket 'reward-granted' — rien à faire ici
     },
 
     async syncAllShots() {
@@ -885,12 +920,19 @@ export default {
         ? turnStartAt
         : Date.now() - (7 - Math.max(0, timeLeft)) * 1000;
 
-      if (timeLeft >= 7) {
+      if (timeLeft >= 6.5) {
         this.hasFiredThisTurn = false;
         this._firingLock = false;
+        this.isSelecting = false;
+        this.selectedCell = null;
+
         this.clearPendingCells();
         this.turnTimer = 7;
-        this.$nextTick(this.updateCircle);
+        this.$nextTick(() => {
+          if (typeof this.updateCircle === "function") this.updateCircle();
+        });
+      } else {
+        this.turnTimer = timeLeft;
       }
 
       this._startLocalTick();
@@ -961,7 +1003,6 @@ export default {
       }
     },
 
-    // FIX bug #4 : utiliser this.$refs.timerCircle au lieu de querySelector
     updateCircle() {
       const circle = this.$refs.timerCircle;
       if (!circle) return;
@@ -979,7 +1020,7 @@ export default {
       this.fetchInterval = setInterval(async () => {
         await this.fetchEnemyShots();
         await this.checkGameStatus();
-      }, 2000);
+      }, 5000);
 
       this.syncAllShots();
 
@@ -1015,6 +1056,11 @@ export default {
     },
 
     async initGame() {
+      if (this.pollingInterval) clearInterval(this.pollingInterval);
+      this.pollingInterval = setInterval(() => {
+        this.checkGameStatus();
+        this.fetchEnemyShots();
+      }, 5000);
       this.resetGameState();
       await this.fetchPlayerBoard();
       await this.fetchOpponents();
@@ -1039,6 +1085,7 @@ export default {
       await this.syncAllShots();
       await this.fetchEnemyShots();
       socket.emit("join-game", { gameId: this.gameId, playerId: this.user.id });
+      socket.emit("join-user-room", { userId: this.userId });
       socket.emit("player-ready", { gameId: this.gameId, playerId: this.user.id });
 
       if (!this.fetchInterval) {
@@ -1048,7 +1095,7 @@ export default {
           if (this.turnTimer === 0 && !this.gameOver) {
             await this.resyncTimer();
           }
-        }, 2000);
+        }, 5000);
       }
     },
 
@@ -1159,7 +1206,6 @@ export default {
         const data = await res.json();
         if (!data.success) return;
 
-        // FIX bug #2 : guard — ne pas rappeler handleGameOver si déjà traité
         if (data.status === "finished" && !this.gameOver) {
           this.handleGameOver({
             winnerId: data.winner_id,
@@ -1270,7 +1316,11 @@ export default {
 
       const targetPool = this.isTeamMode ? this.enemies : this.opponents;
       const target = targetPool[this.currentOpponentIndex];
-      if (!target) return;
+
+      if (!target) {
+        this._firingLock = false;
+        return;
+      }
 
       let index = this.selectedCell;
       if (index === null) {
@@ -1278,12 +1328,24 @@ export default {
         target.grid.forEach((v, i) => {
           if (!["hit", "miss", "sunk"].includes(v)) available.push(i);
         });
-        if (!available.length) return;
+
+        if (!available.length) {
+          this._firingLock = false;
+          return;
+        }
         index = available[Math.floor(Math.random() * available.length)];
       }
 
       this.hasFiredThisTurn = true;
-      await this.sendShoot(index, target);
+      this._firingLock = true;
+
+      try {
+        await this.sendShoot(index, target);
+      } catch (error) {
+        console.error("Erreur lors de l'envoi du tir:", error);
+        this.hasFiredThisTurn = false;
+        this._firingLock = false;
+      }
     },
 
     onPlayerEliminated(data) {
@@ -1325,37 +1387,25 @@ export default {
       if (!this.shootAudio) {
         this.shootAudio = new Audio(shootSrc);
       }
-
       this.shootAudio.currentTime = 0;
       this.shootAudio.volume = this.settingsStore.effectsVolume / 100;
       this.shootAudio.play().catch(() => {});
     },
 
-    async sendShoot(index, targetOverride = null) {
+    sendShoot(index, targetOverride = null) {
       const target = targetOverride || (this.isTeamMode ? this.currentEnemy : this.currentOpponent);
       const x = index % 10;
       const y = Math.floor(index / 10);
 
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/games/shoot`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            gameId: this.gameId,
-            playerId: this.user.id,
-            targetId: target.id,
-            x,
-            y,
-          }),
-        });
+      socket.emit("shoot", {
+        gameId: this.gameId,
+        playerId: this.user.id,
+        targetId: target.id,
+        x,
+        y,
+      });
 
-        const data = await res.json();
-        if (data.success) {
-          const finalResult = data.result ? data.result : "pending";
-          this.applyShot(target.id, x, y, finalResult, data.positions);
-        }
-        this.selectedCell = null;
-      } catch (_) {}
+      this.updateGridCell(target.id, index, "pending");
     },
 
     applyShot(targetId, x, y, result, positions) {
@@ -1513,14 +1563,15 @@ export default {
       }
     },
 
-    // FIX bugs #1 et #3 :
-    // - Suppression du double appel claimReward/showEndPopup
-    // - Suppression de la variable icon non initialisée
     handleGameOver(payload) {
       if (this.gameOver) return;
       this.gameOver = true;
       clearInterval(this.fetchInterval);
       clearInterval(this.turnInterval);
+      // ── FIX : on ne supprime PAS reward-granted ici.
+      // removeSocketListeners() ne le supprime plus non plus.
+      // Le listener reward-granted reste actif et se désinscrira
+      // tout seul dès réception du payload du serveur.
       this.removeSocketListeners();
 
       let isVictory = false;
@@ -1540,18 +1591,17 @@ export default {
         this.popupIcon = isVictory ? "trophy" : "defeat";
       }
 
-      // Un seul appel à chaque méthode
       this.claimReward(isVictory);
       this.showEndPopup(`${msg} !`, isVictory);
     },
 
     async abandonGame() {
-      if (!confirm("Voulez-vous vraiment abandonner ?")) return;
+      if (!this.userId) return;
       try {
         const res = await fetch(`${API_BASE_URL}/api/games/eliminate-player`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ gameId: this.gameId, playerId: this.user.id, reason: "abandon" }),
+          body: JSON.stringify({ gameId: this.gameId, playerId: this.userId, reason: "abandon" }),
         });
         const data = await res.json();
         if (!data.success) return;
@@ -1699,7 +1749,6 @@ export default {
     },
 
     goHome() {
-      // Nettoyage optionnel des anciennes clés (garde seulement les 10 dernières parties)
       const keys = Object.keys(localStorage).filter((k) => k.startsWith("reward_claimed_"));
       if (keys.length > 10) {
         keys.slice(0, keys.length - 10).forEach((k) => localStorage.removeItem(k));
@@ -1920,7 +1969,6 @@ body {
   cursor: crosshair;
 }
 
-/* Navires Joueur */
 .player-grid .cell.ship {
   background: rgba(var(--brass-rgb, 200, 147, 62), 0.28);
   border: 1px solid rgba(var(--brass-rgb, 200, 147, 62), 0.7);
@@ -1929,7 +1977,6 @@ body {
     0 0 6px rgba(var(--brass-rgb, 200, 147, 62), 0.2);
 }
 
-/* États des tirs */
 .cell.hit {
   z-index: 1;
   background: #f87171 !important;
@@ -2170,7 +2217,6 @@ body {
   box-shadow: 0 0 15px var(--accent, #1de9c0);
 }
 
-/* Variantes Popup */
 .popup-victory {
   border-color: rgba(251, 191, 36, 0.5);
 }
@@ -2210,7 +2256,6 @@ body {
   margin: 0;
 }
 
-/* Récompenses */
 .reward-grid {
   display: flex;
   flex-direction: column;
@@ -2318,7 +2363,7 @@ body {
   height: 100%;
   background: linear-gradient(90deg, var(--accent, #1de9c0), var(--brass, #c8933e));
   box-shadow: 0 0 12px var(--accent, #1de9c0);
-  transition: width 1s ease 0.5s;
+  transition: width 1.2s ease 0.6s;
 }
 
 .btn-radar {
@@ -2341,7 +2386,6 @@ body {
   box-shadow: 0 0 20px rgba(var(--accent-rgb, 29, 233, 192), 0.4);
 }
 
-/* Loading */
 .rewards-loading {
   display: flex;
   justify-content: center;
@@ -2427,7 +2471,6 @@ body {
   box-shadow: 0 0 8px rgba(var(--accent-rgb, 29, 233, 192), 0.2);
 }
 
-/* Transitions Vue */
 .mask-fade-enter-active,
 .mask-fade-leave-active {
   transition: opacity 0.25s ease;
@@ -2485,6 +2528,7 @@ body {
   border-radius: 2px;
   outline: none;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .settings-modal-slider::-webkit-slider-thumb {

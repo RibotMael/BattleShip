@@ -20,6 +20,23 @@
       </header>
 
       <div class="tactical-layout">
+        <div v-if="hasValidated" class="validation-overlay">
+          <div class="validation-content">
+            <svg
+              class="success-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <h2>FLOTTE DÉPLOYÉE</h2>
+            <p>Position confirmée. En attente des autres commandants...</p>
+            <div class="loading-bar"><div class="loading-progress"></div></div>
+          </div>
+        </div>
         <section class="grid-section">
           <div class="grid-wrapper">
             <div class="grid-radar" v-if="gameLoaded" @mouseleave="hoverCells = []">
@@ -149,6 +166,7 @@ export default {
       orientation: "horizontal",
       hoverCells: [],
       invalidPreview: false,
+      hasValidated: false,
     };
   },
   computed: {
@@ -225,7 +243,7 @@ export default {
     },
 
     async validatePlacement() {
-      if (!this.canValidate) return; //alert("Placez tous vos bateaux avant de valider !");
+      if (!this.canValidate || this.hasValidated) return;
       const shipsNumbers = this.grid.map((c) => (c.hasShip ? c.shipId + 1 : 0));
 
       try {
@@ -237,6 +255,7 @@ export default {
         });
 
         if (res.data.success) {
+          this.hasValidated = true;
           await this.checkAllPlayersReady();
         } else {
           //alert("Erreur : " + res.data.message);
@@ -784,6 +803,99 @@ h1 {
 
   .fleet-list {
     max-height: 300px;
+  }
+}
+
+/* ── ETAT DESACTIVE ── */
+.is-disabled {
+  pointer-events: none;
+  opacity: 0.5;
+  filter: grayscale(0.8);
+  transition: all 0.5s ease;
+}
+
+/* ── OVERLAY DE VALIDATION ── */
+.validation-overlay {
+  position: absolute;
+  inset: -20px; /* Couvre légèrement au-delà du layout */
+  background: rgba(3, 10, 16, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 12px;
+  border: 1px solid rgba(29, 233, 192, 0.2);
+}
+
+.validation-content {
+  text-align: center;
+  color: #1de9c0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  padding: 40px;
+  background: rgba(6, 18, 26, 0.9);
+  border: 1px solid #1de9c0;
+  border-radius: 8px;
+  box-shadow: 0 0 30px rgba(29, 233, 192, 0.15);
+  animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.success-icon {
+  width: 60px;
+  height: 60px;
+  color: #1de9c0;
+  filter: drop-shadow(0 0 10px rgba(29, 233, 192, 0.5));
+}
+
+.validation-content h2 {
+  font-size: 2rem;
+  margin: 0;
+  letter-spacing: 4px;
+}
+
+.validation-content p {
+  color: #a8cdc7;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.loading-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(29, 233, 192, 0.1);
+  border-radius: 2px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.loading-progress {
+  width: 30%;
+  height: 100%;
+  background: #1de9c0;
+  box-shadow: 0 0 10px #1de9c0;
+  animation: scanning 2s infinite ease-in-out;
+}
+
+@keyframes scanning {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+@keyframes popIn {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
   }
 }
 </style>

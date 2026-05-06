@@ -77,13 +77,13 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 /* ==========================
    RATE LIMITING GLOBAL
 ========================== */
-// Limite générale : 200 req/min par IP sur toutes les routes API
 const globalLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 200,
-  standardHeaders: true,
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { success: false, message: 'Trop de requêtes, ralentissez.' },
+  validate: { xForwardedForHeader: false },
 });
 app.use('/api', globalLimiter);
 
@@ -119,12 +119,17 @@ function groupShipCells(board) {
   return Object.values(shipMap);
 }
 
-/**
- * Attribue les récompenses de fin de partie en appelant la route /reward
- * via une requête interne authentifiée par INTERNAL_SECRET.
- * Le frontend ne peut PAS appeler cette route directement.
- */
 async function grantRewards(gameId, winnerId, winnerTeam, isDraw) {
+  function computeXpProgress(xp) {
+    let level = 0, used = 0;
+    while (true) {
+      const needed = Math.floor(100 * Math.pow(1.02, level));
+      if (used + needed > xp) return { level, xpIntoLevel: xp - used, xpNeededForNext: needed };
+      used += needed;
+      level++;
+    }
+  }
+
   try {
     const [players] = await db.query(
       'SELECT id_player, team_number FROM game_players WHERE id_game = ?',
@@ -133,26 +138,69 @@ async function grantRewards(gameId, winnerId, winnerTeam, isDraw) {
 
     for (const player of players) {
       let isVictory;
-      if (isDraw) {
-        isVictory = false;
-      } else if (winnerTeam !== null && winnerTeam !== undefined) {
+      if (isDraw) isVictory = false;
+      else if (winnerTeam !== null && winnerTeam !== undefined)
         isVictory = player.team_number === winnerTeam;
-      } else {
-        isVictory = player.id_player === winnerId;
-      }
+      else isVictory = player.id_player === winnerId;
 
       try {
-        await fetch(`http://localhost:${process.env.PORT || 8080}/api/users/${player.id_player}/reward`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            // Secret interne — jamais exposé côté client
-            'X-Internal-Secret': process.env.INTERNAL_SECRET,
-          },
-          body: JSON.stringify({ isVictory, gameId }),
+        const baseGold = isVictory ? 100 : 25;
+        const xpGain   = isVictory ? 50  : 25;
+
+        const [rows] = await db.query(
+          'SELECT Gold, xp FROM users WHERE ID_Users = ?',
+          [player.id_player]
+        );
+        if (!rows.length) continue;
+
+        const { Gold: currentGold, xp: currentXp } = rows[0];
+        const lvlBefore    = computeXpProgress(currentXp);
+        const newXp        = currentXp + xpGain;
+        const lvlAfter     = computeXpProgress(newXp);
+        const levelsGained = lvlAfter.level - lvlBefore.level;
+        const levelUpGold  = levelsGained * 200;
+        const totalGold    = baseGold + levelUpGold;
+        const newGold      = currentGold + totalGold;
+
+        await db.query(
+          'UPDATE users SET Gold = ?, xp = ?, niveau = ? WHERE ID_Users = ?',
+          [newGold, newXp, lvlAfter.level, player.id_player]
+        );
+        await db.query(
+          'INSERT IGNORE INTO ratio (ID_Profil, Win, Defeat, Game_Played) VALUES (?, 0, 0, 0)',
+          [player.id_player]
+        );
+        if (isVictory) {
+          await db.query(
+            'UPDATE ratio SET Win = Win + 1, Game_Played = Game_Played + 1 WHERE ID_Profil = ?',
+            [player.id_player]
+          );
+        } else {
+          await db.query(
+            'UPDATE ratio SET Defeat = Defeat + 1, Game_Played = Game_Played + 1 WHERE ID_Profil = ?',
+            [player.id_player]
+          );
+        }
+
+        // ── FIX : reward-granted émis AVANT game-over pour que le client
+        // reçoive les récompenses avant de supprimer ses listeners socket ──
+        io.to(`user_${player.id_player}`).emit('reward-granted', {
+          success:         true,
+          goldGain:        totalGold,
+          baseGoldGain:    baseGold,
+          levelUpGoldGain: levelUpGold,
+          xpGain,
+          levelsGained,
+          newGold,
+          newXp,
+          newLevel:        lvlAfter.level,
+          xpIntoLevel:     lvlAfter.xpIntoLevel,
+          xpNeededForNext: lvlAfter.xpNeededForNext,
+          levelUp:         levelsGained > 0,
+          levelUpTo:       levelsGained > 0 ? lvlAfter.level : null,
         });
       } catch (err) {
-        console.error(`[reward] Erreur pour joueur ${player.id_player}:`, err.message);
+        console.error(`[reward] Joueur ${player.id_player}:`, err.message);
       }
     }
   } catch (err) {
@@ -298,16 +346,15 @@ async function resolveTurn(gameId) {
       );
       if (updGame.affectedRows > 0) {
         stopGameTimer(gameId);
-
-        // ── Récompenses attribuées côté serveur uniquement ──────────────────
+        // ── FIX : grantRewards (→ reward-granted) émis AVANT game-over ──────
         await grantRewards(gameId, winnerId, winnerTeam, isDraw);
-
         io.to(sId).emit('game-over', {
           winnerId,
           winnerTeam,
           isDraw,
           gameId: sId,
         });
+        // ─────────────────────────────────────────────────────────────────────
       }
     }
   } catch (err) {
@@ -446,6 +493,39 @@ function stopGameTimer(gameId) {
 }
 
 /* ==========================
+   LOGIQUE DE TIR SOCKET
+========================== */
+async function processShot(gameId, playerId, targetId, x, y) {
+  if (x < 0 || x > 9 || y < 0 || y > 9) {
+    return { success: false, message: 'Coordonnées invalides' };
+  }
+
+  const [existingShots] = await db.query(
+    `SELECT id_shot, result, state
+     FROM shots
+     WHERE id_game=? AND target_x=? AND target_y=? AND target_id=? AND id_player=?`,
+    [gameId, x, y, targetId, playerId]
+  );
+
+  if (existingShots.length > 0) {
+    return {
+      success: false,
+      message: 'Case déjà sélectionnée ou tirée',
+      result: existingShots[0].result,
+      state: existingShots[0].state,
+    };
+  }
+
+  await db.query(
+    `INSERT INTO shots (id_game, id_player, target_id, target_x, target_y, result, state)
+     VALUES (?, ?, ?, ?, ?, NULL, 'pending')`,
+    [gameId, playerId, targetId, x, y]
+  );
+
+  return { success: true, result: 'pending', state: 'pending', positions: [] };
+}
+
+/* ==========================
    ROUTES API
 ========================== */
 app.use('/api', authRoutes);
@@ -525,6 +605,20 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('shoot', async ({ gameId, playerId, targetId, x, y }) => {
+    if (!gameId || !playerId || !targetId || x == null || y == null) {
+      return socket.emit('shot-result', { success: false, message: 'Paramètres manquants' });
+    }
+
+    try {
+      const result = await processShot(gameId, playerId, targetId, x, y);
+      socket.emit('shot-result', result);
+    } catch (err) {
+      console.error('[shoot socket]', err.message);
+      socket.emit('shot-result', { success: false, message: 'Erreur serveur' });
+    }
+  });
+
   socket.on('lock-cell', (data) => {
     socket.to(data.gameId).emit('cell-pending', {
       targetId: data.targetId,
@@ -554,4 +648,4 @@ server.listen(PORT, () => {
   console.log(`🚢 Backend BattleShip sur le port ${PORT}`);
 });
 
-export { io, games, startTurn, stopGameTimer };
+export { io, games, startTurn, stopGameTimer, grantRewards };
