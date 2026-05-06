@@ -615,13 +615,13 @@ export default {
     if (!rawUser.id && rawUser.ID_Users) rawUser.id = rawUser.ID_Users;
 
     return {
-      // --- Utilisateur et Configuration ---
+      //  Utilisateur et Configuration
       user: rawUser,
       settingsStore,
       i18nStore,
       showSettings: false,
 
-      // --- Grille et Joueurs ---
+      //  Grille et Joueurs
       playerGrid: Array.from({ length: 100 }, () => ({ shipNumber: 0, status: "" })),
       opponents: [],
       allies: [],
@@ -632,7 +632,7 @@ export default {
       detectedTeamMode: false,
       playerStatus: "in_game",
 
-      // --- Logique de Tour et Timers ---
+      //  Logique de Tour et Timers
       currentOpponentIndex: 0,
       selectedEnemyIndex: 0,
       turnTimer: 7,
@@ -642,13 +642,13 @@ export default {
       fetchInterval: null,
       pollingTimer: null,
 
-      // --- Actions de Jeu ---
+      //  Actions de Jeu
       selectedCell: null,
       isSelecting: false,
       hasFiredThisTurn: false,
       _firingLock: false,
 
-      // --- Fin de partie et Récompenses ---
+      //  Fin de partie et Récompenses
       gameOver: false,
       endPopup: false,
       popupMessage: "",
@@ -657,7 +657,7 @@ export default {
       rewardClaimed: false,
       animatedXpPercent: 0,
 
-      // --- Audio ---
+      //  Audio
       heartbeatAudio: null,
       shootAudio: null,
       destructionAudio: null,
@@ -791,18 +791,13 @@ export default {
       }
     });
 
-    // ── FIX : reward-granted est enregistré ici et se désinscrit lui-même
-    // après réception. Il N'EST PAS supprimé par removeSocketListeners()
-    // ni par handleGameOver(), ce qui garantit qu'il arrive bien après game-over.
     socket.on("reward-granted", (data) => {
-      // Se désinscrit immédiatement pour éviter tout double appel
       socket.off("reward-granted");
 
       if (this.rewardClaimed || this.isSpectator) return;
       this.rewardClaimed = true;
       this.rewardData = data;
 
-      // Mise à jour localStorage + home/profil
       const stored = JSON.parse(localStorage.getItem("user")) || {};
       stored.gold = data.newGold;
       stored.xp = data.newXp;
@@ -840,9 +835,6 @@ export default {
     this.stopPolling();
   },
   methods: {
-    // ── FIX : reward-granted est intentionnellement absent de cette liste.
-    // Il se gère lui-même (auto-désinscription après réception) et ne doit
-    // pas être supprimé prématurément avant la fin de partie.
     removeSocketListeners() {
       socket.off("turn-timer");
       socket.off("turn-ended");
@@ -853,7 +845,6 @@ export default {
       socket.off("cell-pending");
       socket.off("cell-unlocked");
       socket.off("shot-result");
-      // NE PAS mettre socket.off("reward-granted") ici
     },
 
     startPolling() {
@@ -872,7 +863,7 @@ export default {
     },
 
     claimReward() {
-      // Les récompenses arrivent via socket 'reward-granted' — rien à faire ici
+      // Les récompenses arrivent via socket
     },
 
     async syncAllShots() {
@@ -1568,10 +1559,6 @@ export default {
       this.gameOver = true;
       clearInterval(this.fetchInterval);
       clearInterval(this.turnInterval);
-      // ── FIX : on ne supprime PAS reward-granted ici.
-      // removeSocketListeners() ne le supprime plus non plus.
-      // Le listener reward-granted reste actif et se désinscrira
-      // tout seul dès réception du payload du serveur.
       this.removeSocketListeners();
 
       let isVictory = false;
@@ -1760,7 +1747,7 @@ export default {
 </script>
 
 <style scoped>
-/* ── 1. IMPORT & CONFIGURATION GLOBALE ── */
+/*  1. IMPORT & CONFIGURATION GLOBALE  */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap");
 
 html,
@@ -1770,7 +1757,7 @@ body {
   overflow-x: hidden;
 }
 
-/* ── 2. LAYOUT PRINCIPAL ── */
+/*  2. LAYOUT PRINCIPAL  */
 .battle-page {
   position: relative;
   display: flex;
@@ -1822,7 +1809,7 @@ body {
   align-items: flex-start;
 }
 
-/* ── 3. HEADER & NAVIGATION ── */
+/*  3. HEADER & NAVIGATION  */
 .tactical-header {
   display: flex;
   justify-content: space-between;
@@ -1899,7 +1886,7 @@ body {
   transform: translateX(-50%);
 }
 
-/* ── 4. GRILLES (RADAR & JOUEUR) ── */
+/*  4. GRILLES (RADAR & JOUEUR)  */
 .grid-container {
   width: 100%;
   max-width: 380px;
@@ -1944,7 +1931,7 @@ body {
   background: rgba(var(--accent-rgb, 29, 233, 192), 0.05);
 }
 
-/* ── 5. CELLULES & ÉTATS DE JEU ── */
+/*  5. CELLULES & ÉTATS DE JEU  */
 .cell {
   position: relative;
   display: flex;
@@ -2023,7 +2010,7 @@ body {
   font-size: 12px;
 }
 
-/* ── 6. SYSTÈME DE CIBLAGE & LABELS ── */
+/*  6. SYSTÈME DE CIBLAGE & LABELS  */
 .grid-label {
   display: flex;
   align-items: center;
@@ -2078,7 +2065,7 @@ body {
   animation: pulse 1s infinite alternate;
 }
 
-/* ── 7. MODULE TIMER ── */
+/*  7. MODULE TIMER  */
 .system-status {
   display: flex;
   flex-direction: column;
@@ -2140,7 +2127,7 @@ body {
   text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 }
 
-/* ── 8. ALLIÉS ── */
+/*  8. ALLIÉS  */
 .allies-container {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -2176,7 +2163,7 @@ body {
   cursor: default;
 }
 
-/* ── 9. HUD / VICTOIRE / RÉCOMPENSES ── */
+/*  9. HUD / VICTOIRE / RÉCOMPENSES  */
 .hud-overlay {
   position: fixed;
   inset: 0;
@@ -2408,7 +2395,7 @@ body {
   animation-delay: 0.4s;
 }
 
-/* ── 10. FOG OF WAR (MASQUE GRILLE) ── */
+/*  10. FOG OF WAR (MASQUE GRILLE)  */
 .grid-zone {
   position: relative;
 }
@@ -2480,7 +2467,7 @@ body {
   opacity: 0;
 }
 
-/* ── 11. SETTINGS MODAL ── */
+/*  11. SETTINGS MODAL  */
 .settings-modal-overlay {
   z-index: 9999;
 }
@@ -2565,7 +2552,7 @@ body {
   outline: none;
 }
 
-/* ── 12. ANIMATIONS (KEYFRAMES) ── */
+/*  12. ANIMATIONS (KEYFRAMES)  */
 .damage-overlay {
   position: fixed;
   inset: 0;
@@ -2642,7 +2629,7 @@ body {
   }
 }
 
-/* ── 13. RESPONSIVE ── */
+/*  13. RESPONSIVE  */
 @media (max-width: 850px) {
   .tactical-header h1 {
     font-size: 1rem;

@@ -182,10 +182,8 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import api from "@/api/api.js";
 
-// --- INITIALISATION ---
 const router = useRouter();
 
-// --- ÉTAT DU COMPOSANT (Anciennement data) ---
 const language = ref("fr");
 const mode = ref("1v1");
 const isPrivate = ref(false);
@@ -195,12 +193,10 @@ const showMode = ref(false);
 const loading = ref(false);
 const user = ref(null);
 
-// --- CYCLE DE VIE (Anciennement mounted) ---
 onMounted(() => {
   user.value = JSON.parse(localStorage.getItem("user"));
 });
 
-// --- VARIABLES CALCULÉES (Anciennement computed) ---
 const canStart = computed(() => {
   if (mode.value === "battle-royale") return !!user.value;
   if (isPrivate.value)
@@ -208,7 +204,6 @@ const canStart = computed(() => {
   return !!user.value;
 });
 
-// --- MÉTHODES D'INTERFACE ---
 const selectLang = (val) => {
   language.value = val;
   showLang.value = false;
@@ -221,7 +216,6 @@ const selectMode = (val) => {
 
 const formatMode = (m) => (m === "battle-royale" ? "BATTLE ROYALE" : m.replace("v", " VS "));
 
-// --- LOGIQUE API ET MÉTIER (Anciennement methods) ---
 const getTeamModeFromSelection = (gameType) => {
   switch (gameType) {
     case "1v1":
@@ -241,7 +235,6 @@ const getTeamModeFromSelection = (gameType) => {
 
 const startGame = async () => {
   if (!user.value?.id) {
-    //alert("⚠️ Utilisateur non connecté !");
     return;
   }
 
@@ -296,13 +289,11 @@ const startGame = async () => {
     });
   } catch (err) {
     const errorMsg = err.response?.data?.message || "Impossible de contacter le serveur.";
-    //alert(errorMsg);
   } finally {
     loading.value = false;
   }
 };
 
-// --- DIRECTIVE PERSONNALISÉE ---
 const vClickOutside = {
   mounted(el, binding) {
     el.clickOutsideEvent = (event) => {
@@ -319,7 +310,7 @@ const vClickOutside = {
 </script>
 
 <style scoped>
-/* ── 1. IMPORT & CONFIGURATION GLOBALE ── */
+/*  1. IMPORT & CONFIGURATION GLOBALE  */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&display=swap");
 
 .background {
@@ -346,7 +337,7 @@ const vClickOutside = {
   margin-left: auto;
 }
 
-/* ── 2. CARTE DE CONFIGURATION (CARD) ── */
+/*  2. CARTE DE CONFIGURATION (CARD)  */
 .config-card {
   width: 100%;
   max-width: 380px;
@@ -365,7 +356,7 @@ const vClickOutside = {
   letter-spacing: 3px;
 }
 
-/* ── 3. FORMULAIRE & LABELS ── */
+/*  3. FORMULAIRE & LABELS  */
 .form-group {
   margin-bottom: 1.5rem;
 }
@@ -378,7 +369,7 @@ label {
   letter-spacing: 1px;
 }
 
-/* ── 4. CUSTOM DROPDOWN ── */
+/*  4. CUSTOM DROPDOWN  */
 .custom-dropdown {
   position: relative;
   cursor: pointer;
@@ -437,7 +428,7 @@ label {
   color: #030a10;
 }
 
-/* ── 5. INPUTS (NOMBRE) & BADGES ── */
+/*  5. INPUTS (NOMBRE) & BADGES  */
 .input-container {
   position: relative;
   display: flex;
@@ -472,7 +463,7 @@ input[type="number"] {
   color: #f87171;
 }
 
-/* ── 6. CHECKBOX PERSONNALISÉE ── */
+/*  6. CHECKBOX PERSONNALISÉE  */
 .checkbox-card {
   display: flex;
   align-items: center;
@@ -509,7 +500,7 @@ input:checked + .check-box {
   background: #1de9c0;
 }
 
-/* ── 7. BOUTONS ── */
+/*  7. BOUTONS  */
 .btn-cyber {
   width: 100%;
   margin-top: 1rem;
@@ -542,7 +533,7 @@ input:checked + .check-box {
   color: #f87171;
 }
 
-/* ── 8. TRANSITIONS & ANIMATIONS ── */
+/*  8. TRANSITIONS & ANIMATIONS  */
 .dropdown-enter-active,
 .dropdown-leave-active {
   transition: all 0.2s ease;

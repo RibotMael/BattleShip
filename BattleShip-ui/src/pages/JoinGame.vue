@@ -104,20 +104,20 @@ const backgroundImgs = Object.fromEntries(
 export default {
   data() {
     return {
-      // --- Gestion des Parties ---
+      //  Gestion des Parties
       publicGames: [],
       selectedLanguage: "",
       selectedMode: "",
 
-      // --- États de Chargement ---
+      //  États de Chargement
       loading: false,
       refreshing: false,
 
-      // --- Utilisateur ---
+      //  Utilisateur
       user: null,
       currentUser: JSON.parse(localStorage.getItem("user")) || null,
 
-      // --- Utilitaires ---
+      //  Utilitaires
       refreshInterval: null,
     };
   },
@@ -182,7 +182,6 @@ export default {
 
     async joinGame(gameId) {
       if (!this.user) {
-        //alert("Vous devez être connecté pour rejoindre une partie.");
         return;
       }
 
@@ -217,7 +216,7 @@ export default {
 </script>
 
 <style scoped>
-/* ── 1. IMPORT & CONTENEUR PRINCIPAL ── */
+/*  1. IMPORT & CONTENEUR PRINCIPAL  */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap");
 
 .join-container {
@@ -235,7 +234,7 @@ export default {
   overflow: hidden;
 }
 
-/* ── 2. HEADER DE LA PAGE ── */
+/*  2. HEADER DE LA PAGE  */
 .page-header {
   display: flex;
   align-items: center;
@@ -294,7 +293,7 @@ export default {
   animation: pulse 1.5s infinite;
 }
 
-/* ── 3. FILTRES DE RECHERCHE ── */
+/*  3. FILTRES DE RECHERCHE  */
 .filters-bar {
   display: flex;
   flex-wrap: wrap;
@@ -362,7 +361,7 @@ select option {
   padding: 10px;
 }
 
-/* ── 4. GRILLE DES PARTIES & CARTES ── */
+/*  4. GRILLE DES PARTIES & CARTES  */
 .content-scroll {
   flex: 1;
   padding: 1.5rem;
@@ -462,7 +461,7 @@ select option {
   border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
-/* ── 5. BOUTON D'ACTION ── */
+/*  5. BOUTON D'ACTION  */
 .btn-join {
   position: relative;
   width: 100%;
@@ -483,7 +482,7 @@ select option {
   color: #030a10;
 }
 
-/* ── 6. MESSAGES D'ÉTAT & CHARGEMENT ── */
+/*  6. MESSAGES D'ÉTAT & CHARGEMENT  */
 .state-msg {
   display: flex;
   flex-direction: column;
@@ -505,7 +504,7 @@ select option {
   animation: scan 2s ease-in-out infinite;
 }
 
-/* ── 7. ANIMATIONS & RESPONSIVE ── */
+/*  7. ANIMATIONS & RESPONSIVE  */
 @keyframes scan {
   0%,
   100% {

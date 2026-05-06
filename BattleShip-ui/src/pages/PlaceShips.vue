@@ -146,21 +146,21 @@ export default {
   props: { gameId: { type: String, required: true } },
   data() {
     return {
-      // --- État de la Partie et Jeu ---
+      //  État de la Partie et Jeu
       game: { ID_Game: 0, TotalPlayers: 2, mode: "fr" },
       gameLoaded: false,
       readyPlayers: [],
       readyInterval: null,
 
-      // --- Utilisateur ---
+      //  Utilisateur
       user: JSON.parse(localStorage.getItem("user")),
       userId: 0,
 
-      // --- Grille et Flotte ---
+      //  Grille et Flotte
       grid: Array.from({ length: 100 }, () => ({ hasShip: false, shipId: null })),
       fleet: [],
 
-      // --- Placement et Interaction ---
+      //  Placement et Interaction
       selectedShipIndex: null,
       selectedCell: null,
       orientation: "horizontal",
@@ -398,7 +398,7 @@ export default {
 </script>
 
 <style scoped>
-/* ── 1. IMPORT & CONFIGURATION GLOBALE ── */
+/*  1. IMPORT & CONFIGURATION GLOBALE  */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&display=swap");
 
 html,
@@ -430,7 +430,7 @@ body {
   padding: 40px 20px;
 }
 
-/* ── 2. LAYOUT & CONTAINERS ── */
+/*  2. LAYOUT & CONTAINERS  */
 .hud-container {
   width: 100%;
   max-width: 1100px;
@@ -450,7 +450,7 @@ body {
   min-width: 0;
 }
 
-/* ── 3. HEADER & STATUTS ── */
+/*  3. HEADER & STATUTS  */
 .tactical-header {
   display: flex;
   justify-content: space-between;
@@ -502,7 +502,7 @@ h1 {
   color: #1de9c0;
 }
 
-/* ── 4. GRILLE DE PLACEMENT (SONAR) ── */
+/*  4. GRILLE DE PLACEMENT (SONAR)  */
 .grid-wrapper {
   position: relative;
   max-width: 100%;
@@ -551,7 +551,7 @@ h1 {
   box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
-/* ── 5. PANEL DE LA FLOTTE ── */
+/*  5. PANEL DE LA FLOTTE  */
 .fleet-panel {
   width: 100%;
   max-width: 320px;
@@ -692,7 +692,7 @@ h1 {
   font-weight: 800;
 }
 
-/* ── 6. BOUTONS D'ACTIONS ── */
+/*  6. BOUTONS D'ACTIONS  */
 .grid-actions {
   display: flex;
   gap: 15px;
@@ -731,7 +731,7 @@ h1 {
   color: #2e6b62;
 }
 
-/* ── 7. ANIMATIONS & SCROLLBAR ── */
+/*  7. ANIMATIONS & SCROLLBAR  */
 @keyframes ping {
   0% {
     transform: scale(1);
@@ -751,7 +751,7 @@ h1 {
   background: rgba(29, 233, 192, 0.2);
 }
 
-/* ── 8. RESPONSIVE DESIGN ── */
+/*  8. RESPONSIVE DESIGN  */
 @media (max-width: 850px) {
   .place-ships-page {
     padding: 20px 10px;
@@ -806,7 +806,7 @@ h1 {
   }
 }
 
-/* ── ETAT DESACTIVE ── */
+/*  ETAT DESACTIVE  */
 .is-disabled {
   pointer-events: none;
   opacity: 0.5;
@@ -814,7 +814,7 @@ h1 {
   transition: all 0.5s ease;
 }
 
-/* ── OVERLAY DE VALIDATION ── */
+/*  OVERLAY DE VALIDATION  */
 .validation-overlay {
   position: absolute;
   inset: -20px; /* Couvre légèrement au-delà du layout */

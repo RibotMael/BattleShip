@@ -10,11 +10,8 @@ import Settings from '../pages/Settings.vue';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
-// ── Cache de validité du compte ───────────────────────────────────────────────
-// On ne re-vérifie pas le compte si la dernière vérification date de moins de 30s.
-// Cela évite un appel HTTP bloquant à chaque navigation.
 let lastCheckTime = 0;
-let lastCheckResult = true; // optimiste par défaut
+let lastCheckResult = true; 
 const CHECK_CACHE_MS = 30_000;
 
 async function isAccountValid(userId, token) {
@@ -28,15 +25,14 @@ async function isAccountValid(userId, token) {
       headers: { Authorization: `Bearer ${token}` },
     });
     lastCheckTime = Date.now();
-    lastCheckResult = res.ok; // true si 200, false si 401/404
+    lastCheckResult = res.ok; 
     return lastCheckResult;
   } catch {
-    // Erreur réseau : on laisse passer (serveur temporairement indisponible)
+    // Erreur réseau 
     return true;
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function getSession() {
   try {
     const raw = localStorage.getItem('user');
@@ -54,16 +50,13 @@ function clearSession() {
   localStorage.removeItem('user');
   localStorage.removeItem('token');
   localStorage.removeItem('userId');
-  // Nettoie les clés de récompenses
   Object.keys(localStorage)
     .filter((k) => k.startsWith('reward_claimed_'))
     .forEach((k) => localStorage.removeItem(k));
-  // Réinitialise le cache
   lastCheckTime = 0;
   lastCheckResult = true;
 }
 
-// ── Routes ────────────────────────────────────────────────────────────────────
 const routes = [
   { path: '/', component: Home },
   { path: '/rules', component: Rules },
@@ -130,22 +123,12 @@ const router = createRouter({
   routes,
 });
 
-// ── Guard de navigation ───────────────────────────────────────────────────────
 router.beforeEach(async (to, from, next) => {
-  // Page d'accueil : toujours accessible
   if (to.path === '/') return next();
-
-  // Route sans protection
   if (!to.meta.requiresAuth) return next();
-
   const session = getSession();
-
-  // Pas connecté → redirige vers l'accueil
   if (!session) return next('/');
-
   const { user, token } = session;
-
-  // Vérifie la validité du compte (avec cache 30s)
   const valid = await isAccountValid(user.id, token);
   if (!valid) {
     clearSession();

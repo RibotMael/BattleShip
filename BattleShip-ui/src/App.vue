@@ -8,7 +8,6 @@
     <source src="@/assets/audio/SongBattleShip.mp3" type="audio/mp3" />
   </audio>
 
-  <!-- ── POPUP COMPTE SUPPRIMÉ ── -->
   <transition name="fade-overlay">
     <div v-if="accountDeleted" class="deleted-overlay">
       <div class="deleted-popup">
@@ -44,9 +43,6 @@ import { userBus } from "@/eventBus.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
-// ── Constantes ─────────────────────────────────────────────────────────────────
-// Le polling HTTP est un dernier recours si le socket est déconnecté.
-// On le laisse à 60s pour ne pas surcharger le serveur.
 const FALLBACK_POLL_INTERVAL_MS = 60_000;
 
 export default {
@@ -58,7 +54,7 @@ export default {
   data() {
     return {
       accountDeleted: false,
-      fallbackInterval: null, // polling uniquement si socket déconnecté
+      fallbackInterval: null,
     };
   },
 
@@ -72,19 +68,16 @@ export default {
   },
 
   mounted() {
-    // ── Socket ──────────────────────────────────────────────────────────────
     socket.on("connect", () => {
       const user = this.getUser();
       if (user?.id) {
         registerOnline(user.id);
         socket.emit("join-user-room", { userId: user.id });
       }
-      // Socket connecté → on stoppe le fallback polling
       this.stopFallbackPoll();
     });
 
     socket.on("disconnect", () => {
-      // Socket perdu → on démarre le polling de secours
       this.startFallbackPoll();
     });
 
@@ -95,11 +88,9 @@ export default {
         socket.emit("join-user-room", { userId: user.id });
       }
     } else {
-      // Pas encore connecté au démarrage → fallback actif jusqu'à connexion socket
       this.startFallbackPoll();
     }
 
-    // Notification compte supprimé via socket (chemin principal)
     socket.on("account-deleted", () => {
       if (!this.accountDeleted) {
         this.accountDeleted = true;
@@ -107,7 +98,6 @@ export default {
       }
     });
 
-    // ── Audio ───────────────────────────────────────────────────────────────
     const audio = document.getElementById("background-music");
     audio.volume = settingsStore.musicVolume / 100;
 
@@ -148,7 +138,6 @@ export default {
       return localStorage.getItem("token") || null;
     },
 
-    // ── Fallback polling (uniquement si socket hors ligne) ──────────────────
     startFallbackPoll() {
       this.stopFallbackPoll();
       const user = this.getUser();
@@ -311,7 +300,6 @@ body,
   background-color: #216f9d;
 }
 
-/* ── POPUP COMPTE SUPPRIMÉ ── */
 .deleted-overlay {
   position: fixed;
   inset: 0;

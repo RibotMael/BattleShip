@@ -127,7 +127,7 @@ export default {
 </script>
 
 <style scoped>
-/* ── 1. FOND ET LAYOUT GLOBAL ── */
+/*  1. FOND ET LAYOUT GLOBAL  */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap");
 
 .battle-page {
@@ -146,7 +146,7 @@ export default {
   font-family: "Inter", sans-serif;
 }
 
-/* ── 2. HEADER TACTIQUE ── */
+/*  2. HEADER TACTIQUE  */
 .tactical-header {
   display: flex;
   justify-content: space-between;
@@ -224,7 +224,7 @@ export default {
   display: none;
 }
 
-/* ── 3. STRUCTURE DES PARAMÈTRES ── */
+/*  3. STRUCTURE DES PARAMÈTRES  */
 .settings-layout {
   display: flex;
   justify-content: center;
@@ -279,7 +279,7 @@ export default {
   box-shadow: 0 0 5px #1de9c0;
 }
 
-/* ── 4. CONTRÔLES FORMULAIRE (INPUTS) ── */
+/*  4. CONTRÔLES FORMULAIRE (INPUTS)  */
 .field-tactical {
   position: relative;
   z-index: 1;
@@ -322,6 +322,7 @@ export default {
   outline: none;
   border-radius: 2px;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .tactical-slider::-webkit-slider-thumb {
@@ -332,6 +333,7 @@ export default {
   box-shadow: 0 0 5px rgba(29, 233, 192, 0.5);
   cursor: pointer;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .value-tag {
@@ -374,7 +376,7 @@ export default {
   box-shadow: 0 0 10px rgba(29, 233, 192, 0.2);
 }
 
-/* ── 5. TOGGLE SWITCH ── */
+/*  5. TOGGLE SWITCH  */
 .switch {
   position: relative;
   display: inline-block;
@@ -421,7 +423,7 @@ input:checked + .slider:before {
   transform: translateX(26px);
 }
 
-/* ── 6. RESPONSIVE MOBILE ── */
+/*  6. RESPONSIVE MOBILE  */
 @media (max-width: 600px) {
   .btn-text {
     display: none;

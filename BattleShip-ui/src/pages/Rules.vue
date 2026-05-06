@@ -181,7 +181,7 @@
 </template>
 
 <style scoped>
-/* ── 1. FOND & MISE EN PAGE GLOBALE ── */
+/*  1. FOND & MISE EN PAGE GLOBALE  */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap");
 
 .background {
@@ -205,7 +205,7 @@
   z-index: 1;
 }
 
-/* ── 2. BARRE DE NAVIGATION SUPÉRIEURE ── */
+/*  2. BARRE DE NAVIGATION SUPÉRIEURE  */
 .top-bar {
   display: flex;
   justify-content: space-between;
@@ -244,7 +244,7 @@
   border-bottom: 1px solid rgba(29, 233, 192, 0.2);
 }
 
-/* ── 3. CONTENU SCROLLABLE & TITRES ── */
+/*  3. CONTENU SCROLLABLE & TITRES  */
 .content-scroll {
   flex: 1;
   padding: 0 20px 50px 20px;
@@ -281,7 +281,7 @@
   background: #1de9c0;
 }
 
-/* ── 4. SECTIONS & GRILLES DE CARTES ── */
+/*  4. SECTIONS & GRILLES DE CARTES  */
 .section-header {
   display: flex;
   align-items: center;
@@ -343,7 +343,7 @@
   letter-spacing: 1px;
 }
 
-/* ── 5. LISTE DES VAISSEAUX & DÉTAILS ── */
+/*  5. LISTE DES VAISSEAUX & DÉTAILS  */
 .spec-row {
   display: flex;
   justify-content: space-between;
@@ -389,7 +389,7 @@
   text-transform: uppercase;
 }
 
-/* ── 6. PROTOCOLES & BADGES ── */
+/*  6. PROTOCOLES & BADGES  */
 .protocol-list {
   display: flex;
   flex-direction: column;
@@ -451,7 +451,7 @@
   color: #f87171;
 }
 
-/* ── 7. SCROLLBAR PERSONNALISÉE ── */
+/*  7. SCROLLBAR PERSONNALISÉE  */
 .content-scroll::-webkit-scrollbar {
   width: 6px;
 }

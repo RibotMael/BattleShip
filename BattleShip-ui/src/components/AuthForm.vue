@@ -328,43 +328,41 @@ import api from "@/api/api.js";
 import { registerOnline } from "@/services/socket";
 import { i18nStore } from "@/stores/i18n";
 
-// [FIX] Âge minimum requis
 const MIN_AGE_YEARS = 13;
 
 export default {
   data() {
     return {
-      // --- État du Formulaire ---
+      //  État du Formulaire
       isLogin: true,
       legalAccepted: false,
       errorMsg: "",
-      isLoading: false, // [FIX] Verrou anti-double-submit
-      showLegalModal: false, // [FIX] Modale CGU
+      isLoading: false,
+      showLegalModal: false,
 
-      // --- Identifiants ---
+      //  Identifiants
       email: "",
       pseudo: "",
       birthDay: "",
 
-      // --- Mot de passe ---
+      //  Mot de passe
       password: "",
       confirmPassword: "",
       showPassword: false,
       showConfirmPassword: false,
 
-      // --- Avatar ---
+      //  Avatar
       avatars: [],
       avatar: null,
       selectedBase64: "",
       selectedMime: "",
 
-      // --- Internationalisation ---
+      //  Internationalisation
       i18nStore,
     };
   },
 
   methods: {
-    // [FIX] Méthodes nommées à la place des handlers inline dans le template
     switchToLogin() {
       this.isLogin = true;
       this.errorMsg = "";
@@ -385,12 +383,10 @@ export default {
       const today = new Date();
 
       if (isNaN(birth.getTime()) || birth > today) {
-        // [FIX] Clé i18n au lieu de string hardcodée en français
         this.errorMsg = this.i18nStore.t("auth_error_invalid_date");
         return false;
       }
 
-      // [FIX] Vérification de l'âge minimum
       const minDate = new Date(today);
       minDate.setFullYear(minDate.getFullYear() - MIN_AGE_YEARS);
       if (birth > minDate) {
@@ -425,18 +421,16 @@ export default {
       try {
         const res = await api.post("/check-pseudo", { pseudo: this.pseudo });
         if (!res.data.available) {
-          // [FIX] Clé i18n
           this.errorMsg = this.i18nStore.t("auth_error_pseudo_taken");
         } else {
           this.errorMsg = "";
         }
       } catch {
-        // Mode silencieux — ne pas bloquer l'UX pour un check non-critique
+        // Mode silencieux
       }
     },
 
     async handleSubmit() {
-      // [FIX] Verrou anti-double-submit
       if (this.isLoading) return;
 
       this.errorMsg = "";
@@ -459,10 +453,8 @@ export default {
           return;
         }
 
-        // [FIX] Validation de la date dans handleSubmit (pas seulement au blur)
         if (!this.validateBirthDay()) return;
 
-        // [FIX] Avatar obligatoire — plus de fallback silencieux sur avatar 1
         if (!this.avatar) {
           this.errorMsg = this.i18nStore.t("auth_error_no_avatar");
           return;
@@ -488,9 +480,6 @@ export default {
           if (this.isLogin) {
             localStorage.setItem("token", data.token);
             this.$emit("login-success", data.user);
-            // [NOTE] Idéalement, l'authentification devrait reposer sur un cookie
-            // httpOnly positionné par le serveur plutôt que sur localStorage,
-            // afin de limiter l'exposition à une attaque XSS.
             localStorage.setItem("userId", data.user.id);
             registerOnline(data.user.id);
             this.$router.push("/");
@@ -499,11 +488,9 @@ export default {
             this.resetFields();
           }
         } else {
-          // [FIX] Message générique pour ne pas leaker d'infos backend
           this.errorMsg = this.i18nStore.t("auth_error_generic");
         }
       } catch (error) {
-        // [FIX] On n'affiche pas error.response?.data?.message directement
         this.errorMsg = this.i18nStore.t("auth_error_network");
       } finally {
         this.isLoading = false;
@@ -519,7 +506,7 @@ export default {
       this.avatar = null;
       this.selectedBase64 = "";
       this.selectedMime = "";
-      this.legalAccepted = false; // [FIX] Oubli de l'original
+      this.legalAccepted = false;
       this.showPassword = false;
       this.showConfirmPassword = false;
     },
@@ -534,7 +521,7 @@ export default {
 <style scoped>
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500&display=swap");
 
-/* ── Overlay : position fixe, fond transparent → image du parent visible ── */
+/*  Overlay  */
 .auth-overlay {
   position: fixed;
   inset: 0;
@@ -544,7 +531,7 @@ export default {
   padding: 0.75rem;
 }
 
-/* ── Card : hauteur max = viewport, défilement interne ── */
+/*  Card  */
 .auth-card {
   width: 100%;
   max-width: 400px;
@@ -561,7 +548,7 @@ export default {
   overflow: hidden;
 }
 
-/* ── Header (non scrollable) ── */
+/*  Header  */
 .auth-header {
   display: flex;
   align-items: center;
@@ -599,7 +586,7 @@ export default {
   margin: 1px 0 0;
 }
 
-/* ── Tabs (non scrollable) ── */
+/*  Tabs  */
 .tab-row {
   display: flex;
   margin: 0 1.25rem 0.5rem;
@@ -636,7 +623,7 @@ export default {
   color: #7ab8b0;
 }
 
-/* ── Corps du formulaire : défile si nécessaire ── */
+/*  Corps du formulaire  */
 .auth-form-body {
   padding: 0 1.25rem 1.25rem;
   display: flex;
@@ -660,7 +647,7 @@ export default {
   border-radius: 2px;
 }
 
-/* ── Champs ── */
+/*  Champs  */
 .field-group {
   display: flex;
   flex-direction: column;
@@ -743,7 +730,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator {
   background: none;
 }
 
-/* ── Avatars ── */
+/*  Avatars  */
 .avatar-row {
   display: flex;
   align-items: center;
@@ -810,7 +797,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator {
   flex-shrink: 0;
 }
 
-/* ── CGU ── */
+/*  CGU  */
 .legal-row {
   display: flex;
   align-items: flex-start;
@@ -841,7 +828,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator {
   text-decoration: underline;
 }
 
-/* ── Erreur ── */
+/*  Erreur  */
 .error-msg {
   display: flex;
   align-items: center;
@@ -856,7 +843,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator {
   margin: 0;
 }
 
-/* ── Bouton ── */
+/*  Bouton  */
 .submit-btn {
   width: 100%;
   padding: 0.6rem;
@@ -882,7 +869,6 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator {
   min-height: 2.2rem;
 }
 
-/* [FIX] État désactivé pendant le chargement */
 .submit-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -897,7 +883,6 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator {
   transform: translateY(0);
 }
 
-/* [FIX] Spinner de chargement */
 .spinner {
   width: 14px;
   height: 14px;
@@ -914,7 +899,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator {
   }
 }
 
-/* ── Lien bascule ── */
+/*  Lien bascule  */
 .toggle-link {
   text-align: center;
   font-family: "Inter", sans-serif;
@@ -928,7 +913,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator {
   color: #1de9c0;
 }
 
-/* ── Modale CGU ── */
+/*  Modale CGU  */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -973,7 +958,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator {
   margin-top: 0.4rem;
 }
 
-/* ── Ajustements petits écrans ── */
+/*  Ajustements petits écrans  */
 @media (max-width: 380px) {
   .auth-header {
     padding: 0.75rem 1rem 0.5rem;

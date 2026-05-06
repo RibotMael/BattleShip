@@ -220,15 +220,15 @@ export default {
   props: ["userId"],
   data() {
     return {
-      // --- Listes de Relations ---
+      //  Listes de Relations
       friends: [],
       requests: [],
 
-      // --- Gestion des Avatars ---
+      //  Gestion des Avatars
       defaultAvatar,
       avatarCache: {},
 
-      // --- Inputs et Utilitaires ---
+      //  Inputs et Utilitaires
       identifier: "",
       refreshInterval: null,
     };
@@ -267,7 +267,6 @@ export default {
         const data = res.data.friends || res.data || [];
         this.friends = data.map((f) => {
           const id = f.ID_Users ?? f.id;
-          // Utiliser le cache avatar : ne recalculer que si l'avatar change
           const rawAvatar = f.Avatar;
           if (rawAvatar && !this.avatarCache[id]) {
             this.avatarCache[id] = `data:${f.mime_type || "image/png"};base64,${rawAvatar}`;
@@ -310,7 +309,7 @@ export default {
     },
 
     async addFriend() {
-      if (!this.identifier.trim()) return; //alert("Pseudo requis");
+      if (!this.identifier.trim()) return;
       try {
         await api.post("/friends/add", {
           userId: this.userId,
@@ -368,7 +367,6 @@ export default {
     },
 
     async removeFriend(friendId) {
-      //if (!confirm("Voulez-vous vraiment supprimer cet ami ?")) return;
       try {
         await api.post("/friends/remove", { userId: this.userId, friendId });
         this.fetchFriends();
@@ -384,7 +382,7 @@ export default {
 <style scoped>
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500&display=swap");
 
-/* ── Overlay ── */
+/*  Overlay  */
 .popup-overlay {
   position: fixed;
   inset: 0;
@@ -398,7 +396,7 @@ export default {
   padding: 1rem;
 }
 
-/* ── Panel ── */
+/*  Panel  */
 .popup-content {
   width: 100%;
   max-width: 420px;
@@ -418,7 +416,7 @@ export default {
   font-family: "Inter", sans-serif;
 }
 
-/* ── Header ── */
+/*  Header  */
 .popup-header {
   display: flex;
   align-items: center;
@@ -484,7 +482,7 @@ export default {
   background: rgba(29, 233, 192, 0.1);
 }
 
-/* ── Barre de recherche ── */
+/*  Barre de recherche  */
 .search-bar {
   display: flex;
   align-items: center;
@@ -546,7 +544,7 @@ export default {
   transform: scale(1.07);
 }
 
-/* ── Zone scrollable ── */
+/*  Zone scrollable  */
 .scroll-area {
   flex: 1;
   overflow-y: auto;
@@ -566,7 +564,7 @@ export default {
   border-radius: 2px;
 }
 
-/* ── Sections ── */
+/*  Sections  */
 .section {
   margin-bottom: 1.25rem;
 }
@@ -630,7 +628,7 @@ export default {
   border: 1px solid rgba(96, 165, 250, 0.2);
 }
 
-/* ── Cartes d'ami ── */
+/*  Cartes d'ami  */
 .card-list {
   display: flex;
   flex-direction: column;
@@ -667,7 +665,7 @@ export default {
   background: rgba(96, 165, 250, 0.04);
 }
 
-/* ── Avatar ── */
+/*  Avatar  */
 .friend-left {
   display: flex;
   align-items: center;
@@ -708,7 +706,7 @@ export default {
   background: #2d5a54;
 }
 
-/* ── Textes ami ── */
+/*  Textes ami  */
 .friend-info {
   display: flex;
   flex-direction: column;
@@ -767,7 +765,7 @@ export default {
   color: #1e4e49;
 }
 
-/* ── Actions ── */
+/*  Actions  */
 .friend-right {
   display: flex;
   align-items: center;
@@ -826,7 +824,7 @@ export default {
   background: rgba(239, 68, 68, 0.08);
 }
 
-/* ── État vide ── */
+/*  État vide  */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -841,7 +839,7 @@ export default {
   margin: 0;
 }
 
-/* ── Mobile ── */
+/*  Mobile  */
 @media (max-width: 380px) {
   .popup-overlay {
     padding: 0.5rem;

@@ -147,7 +147,6 @@
               <button class="btn-cyber btn-secondary" @click="showRules">
                 {{ i18nStore.t("menu_rules") }}
               </button>
-              <!-- ── NOUVEAU BOUTON SKINS ── -->
               <button class="btn-cyber btn-skins" @click="goToShop">
                 <span class="btn-skins-icon">
                   <svg
@@ -226,16 +225,16 @@ export default {
   components: { AuthForm, FriendsPopup },
   data() {
     return {
-      // --- État de l'Utilisateur ---
+      //  État de l'Utilisateur
       user: null,
       avatarPreviewUrl: defaultAvatar,
 
-      // --- Interface et Menus ---
+      //  Interface et Menus
       showUserMenu: false,
       showFriendsPopup: false,
       showPlayOptions: false,
 
-      // --- Assets et Global ---
+      //  Assets et Global
       logo,
       i18nStore,
     };
@@ -295,25 +294,21 @@ export default {
       try {
         const savedUser = localStorage.getItem("user");
 
-        // On vérifie que la donnée existe et n'est pas une chaîne "null" ou "undefined"
         if (savedUser && savedUser !== "undefined" && savedUser !== "null") {
           const parsedUser = JSON.parse(savedUser);
 
-          // On s'assure que l'utilisateur est un objet valide contenant au moins un 'id'
           if (parsedUser && parsedUser.id) {
             this.user = parsedUser;
           } else {
-            // Données invalides (ex: objet vide), on nettoie et on retourne au formulaire
             this.user = null;
             localStorage.removeItem("user");
-            localStorage.removeItem("userId"); // Nettoyage supplémentaire
+            localStorage.removeItem("userId");
           }
         } else {
           this.user = null;
           localStorage.removeItem("user");
         }
       } catch (error) {
-        // Si le JSON est corrompu et fait planter le code, on réinitialise tout
         this.user = null;
         localStorage.removeItem("user");
         localStorage.removeItem("userId");
@@ -365,7 +360,7 @@ export default {
 </script>
 
 <style scoped>
-/* ── 1. CONFIGURATION GÉNÉRALE & TYPOGRAPHIE ── */
+/*  1. CONFIGURATION GÉNÉRALE & TYPOGRAPHIE  */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap");
 
 .background {
@@ -393,7 +388,7 @@ export default {
   color: #f59e0b;
 }
 
-/* ── 2. BARRE SUPÉRIEURE (TOP BAR) ── */
+/*  2. BARRE SUPÉRIEURE (TOP BAR)  */
 .top-bar {
   display: flex;
   justify-content: space-between;
@@ -584,7 +579,7 @@ export default {
   color: #f87171 !important;
 }
 
-/* ── 3. CONTENU PRINCIPAL & LOGO ── */
+/*  3. CONTENU PRINCIPAL & LOGO  */
 .menu-content {
   flex: 1;
   display: flex;
@@ -615,7 +610,7 @@ export default {
   }
 }
 
-/* ── 4. BOUTONS DU MENU (STACK) ── */
+/*  4. BOUTONS DU MENU (STACK)  */
 .button-stack {
   display: flex;
   flex-direction: column;
@@ -706,7 +701,7 @@ export default {
   color: #f87171;
 }
 
-/* ── 5. TRANSITIONS (VUE.JS) ── */
+/*  5. TRANSITIONS (VUE.JS)  */
 .dropdown-enter-active,
 .dropdown-leave-active {
   transition: all 0.2s ease-out;
@@ -733,7 +728,7 @@ export default {
   transform: translateX(-20px);
 }
 
-/* ── 6. RESPONSIVE (MOBILE) ── */
+/*  6. RESPONSIVE (MOBILE)  */
 @media (max-width: 600px) {
   .btn-label,
   .pseudo {

@@ -338,15 +338,15 @@ export default {
 
   data() {
     return {
-      // --- Navigation et Sélection ---
+      //  Navigation et Sélection
       activeCategory: "avatar",
       activeBateauTheme: localStorage.getItem("activeBateauTheme") || "",
       buyingId: null,
 
-      // --- Interface et Feedback ---
+      //  Interface et Feedback
       toast: { visible: false, message: "", type: "success" },
 
-      // --- Configuration des Catégories ---
+      //  Configuration des Catégories
       categories: [
         {
           id: "avatar",
@@ -594,7 +594,7 @@ export default {
 </script>
 
 <style scoped>
-/* ── 1. IMPORTS & CONFIGURATION GLOBALE ── */
+/*  1. IMPORTS & CONFIGURATION GLOBALE  */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Exo+2:wght@400;500;700;800&display=swap");
 
 .shop-bg {
@@ -614,7 +614,7 @@ export default {
   padding: 2rem 1.5rem 4rem;
 }
 
-/* ── 2. ANIMATION PARTICULES ── */
+/*  2. ANIMATION PARTICULES  */
 .particles {
   position: fixed;
   inset: 0;
@@ -646,7 +646,7 @@ export default {
   }
 }
 
-/* ── 3. HEADER (TITRE, RETOUR, OR) ── */
+/*  3. HEADER (TITRE, RETOUR, OR)  */
 .shop-header {
   display: flex;
   align-items: center;
@@ -734,7 +734,7 @@ export default {
   font-weight: 700;
 }
 
-/* ── 4. NAVIGATION PAR CATÉGORIES ── */
+/*  4. NAVIGATION PAR CATÉGORIES  */
 .category-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -781,7 +781,7 @@ export default {
   color: #b0d8d0;
 }
 
-/* ── 5. SYSTÈME DE GRILLE ET CARTES ── */
+/*  5. SYSTÈME DE GRILLE ET CARTES  */
 .items-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
@@ -824,7 +824,7 @@ export default {
   opacity: 0.65;
 }
 
-/* ── 6. ZONE DE PRÉVISUALISATION (IMAGES/BATEAUX/FONDS) ── */
+/*  6. ZONE DE PRÉVISUALISATION (IMAGES/BATEAUX/FONDS)  */
 .item-preview {
   position: relative;
   display: flex;
@@ -957,7 +957,7 @@ export default {
   white-space: nowrap;
 }
 
-/* ── 7. BADGES DE STATUT ── */
+/*  7. BADGES DE STATUT  */
 .status-badge {
   position: absolute;
   top: 10px;
@@ -987,7 +987,7 @@ export default {
   border: 1px solid rgba(74, 222, 128, 0.3);
 }
 
-/* ── 8. CORPS DE LA CARTE (NOM, RARETÉ, COULEURS) ── */
+/*  8. CORPS DE LA CARTE (NOM, RARETÉ, COULEURS)  */
 .item-body {
   display: flex;
   flex-direction: column;
@@ -1032,7 +1032,7 @@ export default {
   transform: scale(1.4);
 }
 
-/* ── 9. ACTIONS (BOUTONS) ── */
+/*  9. ACTIONS (BOUTONS)  */
 .item-actions {
   margin-top: auto;
   padding-top: 0.75rem;
@@ -1110,7 +1110,7 @@ export default {
   }
 }
 
-/* ── 10. ÉTATS CHARGEMENT & VIDE ── */
+/*  10. ÉTATS CHARGEMENT & VIDE  */
 .loading-state,
 .empty-state {
   grid-column: 1/-1;
@@ -1141,7 +1141,7 @@ export default {
   animation: spin 1.2s linear infinite;
 }
 
-/* ── 11. TOAST NOTIFICATIONS ── */
+/*  11. TOAST NOTIFICATIONS  */
 .toast {
   position: fixed;
   bottom: 2.5rem;
@@ -1183,7 +1183,7 @@ export default {
   transform: translateX(-50%) translateY(20px) scale(0.9);
 }
 
-/* ── 12. RESPONSIVE MOBILE ── */
+/*  12. RESPONSIVE MOBILE  */
 @media (max-width: 640px) {
   .shop-header {
     flex-wrap: wrap;

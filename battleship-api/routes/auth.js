@@ -8,7 +8,6 @@ import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
-// ── Rate limiting ──────────────────────────────────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -18,7 +17,6 @@ const authLimiter = rateLimit({
   validate: { xForwardedForHeader: false },
 });
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
 function generateToken(user) {
   return jwt.sign(
     { id: user.ID_Users, email: user.Email, pseudo: user.Pseudo },
@@ -27,7 +25,6 @@ function generateToken(user) {
   );
 }
 
-// ── INSCRIPTION ────────────────────────────────────────────────────────────────
 router.post('/register', authLimiter, validateRegister, async (req, res) => {
   const { email, password, pseudo, birthDay, avatar } = req.body;
 
@@ -54,7 +51,6 @@ router.post('/register', authLimiter, validateRegister, async (req, res) => {
       INSERT INTO users (Email, Password, Pseudo, BirthDay, Avatar, niveau, Online, Gold)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    // query() retourne [result, fields] pour un INSERT
     const [result] = await query(insertUserSql, [
       email.toLowerCase().trim(),
       hashedPassword,
@@ -66,7 +62,6 @@ router.post('/register', authLimiter, validateRegister, async (req, res) => {
       0,
     ]);
 
-    // Insérer une entrée ratio pour le nouvel utilisateur
     await query(
       'INSERT IGNORE INTO ratio (ID_Profil, Win, Defeat, Game_Played) VALUES (?, 0, 0, 0)',
       [result.insertId]
@@ -93,7 +88,6 @@ router.post('/register', authLimiter, validateRegister, async (req, res) => {
   }
 });
 
-// ── CONNEXION ──────────────────────────────────────────────────────────────────
 router.post('/login', authLimiter, validateLogin, async (req, res) => {
   const { email, password } = req.body;
 
@@ -107,7 +101,6 @@ router.post('/login', authLimiter, validateLogin, async (req, res) => {
     `;
     const [results] = await query(sql, [email.toLowerCase().trim()]);
 
-    // Message générique pour ne pas indiquer si l'email existe
     if (results.length === 0) {
       return res.status(401).json({ success: false, message: 'Email ou mot de passe incorrect.' });
     }
@@ -147,7 +140,6 @@ router.post('/login', authLimiter, validateLogin, async (req, res) => {
   }
 });
 
-// ── DÉCONNEXION ────────────────────────────────────────────────────────────────
 router.post('/logout', requireAuth, async (req, res) => {
   try {
     await query('UPDATE users SET Online = 0 WHERE ID_Users = ?', [req.user.id]);
@@ -158,7 +150,6 @@ router.post('/logout', requireAuth, async (req, res) => {
   }
 });
 
-// ── GET USER (public, utilisé par d'autres joueurs) ───────────────────────────
 router.get('/users/:id', requireAuth, async (req, res) => {
   const userId = parseInt(req.params.id, 10);
   if (isNaN(userId)) {
@@ -193,15 +184,12 @@ router.get('/users/:id', requireAuth, async (req, res) => {
   }
 });
 
-// ── CHECK USER ─────────────────────────────────────────────────────────────────
-// Route protégée par token pour éviter l'énumération d'IDs
 router.get('/check-user/:id', requireAuth, async (req, res) => {
   const userId = parseInt(req.params.id, 10);
   if (isNaN(userId)) {
     return res.status(400).json({ success: false, message: 'ID invalide.' });
   }
 
-  // Un utilisateur ne peut vérifier que son propre compte
   if (req.user.id !== userId) {
     return res.status(403).json({ success: false, message: 'Accès interdit.' });
   }

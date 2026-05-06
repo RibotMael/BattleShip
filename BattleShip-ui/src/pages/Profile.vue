@@ -265,23 +265,23 @@ const backgroundImgs = Object.fromEntries(
 export default {
   data() {
     return {
-      // --- Profil et Identité ---
+      //  Profil et Identité
       pseudo: "",
       userId: null,
       currentUser: JSON.parse(localStorage.getItem("user")) || null,
       activePrefix: "",
 
-      // --- Avatar ---
+      //  Avatar
       avatars: localAvatarList,
       avatar: null,
       avatarPreviewUrl: defaultAvatar,
 
-      // --- Progression et Économie ---
+      //  Progression et Économie
       currentGold: 0,
       currentXp: 0,
       currentLevel: 0,
 
-      // --- Statistiques de Jeu ---
+      //  Statistiques de Jeu
       wins: 0,
       defeats: 0,
       gamesPlayed: 0,
@@ -406,7 +406,6 @@ export default {
 
     selectAvatar(id) {
       this.avatar = id;
-      // On garde le prefix actif, on ne le réinitialise plus
       const stored = JSON.parse(localStorage.getItem("user")) || {};
       stored.avatarId = id;
       localStorage.setItem("user", JSON.stringify(stored));
@@ -453,7 +452,6 @@ export default {
         };
         localStorage.setItem("user", JSON.stringify(newStored));
 
-        // Recalcule l'aperçu en tenant compte du skin actif
         const avatarId = updatedUser.avatarId ?? this.avatar ?? 1;
         if (activePrefix) {
           this.avatarPreviewUrl =
@@ -463,19 +461,16 @@ export default {
         }
 
         userBus.userUpdated = !userBus.userUpdated;
-        //alert("Profil mis à jour !");
       } catch (err) {
         // Mode silencieux
       }
     },
 
     async deleteAccount() {
-      //if (!confirm("⚠️ Cette action est irréversible. Supprimer votre compte ?")) return;
       try {
         await api.delete(`/users/${this.userId}`);
         localStorage.removeItem("user");
         userBus.userUpdated = !userBus.userUpdated;
-        //alert("Compte supprimé avec succès.");
         this.$router.push("/");
       } catch (err) {
         // Mode silencieux
@@ -486,7 +481,7 @@ export default {
 </script>
 
 <style scoped>
-/* ── 1. IMPORT & CONFIGURATION GÉNÉRALE ── */
+/*  1. IMPORT & CONFIGURATION GÉNÉRALE  */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap");
 
 .profile-card {
@@ -522,7 +517,7 @@ export default {
   border-radius: 2px;
 }
 
-/* ── 2. HEADER DU PROFIL ── */
+/*  2. HEADER DU PROFIL  */
 .profile-header {
   display: flex;
   align-items: center;
@@ -568,7 +563,7 @@ export default {
   width: 32px;
 }
 
-/* ── 3. CONTENU ET SECTIONS ── */
+/*  3. CONTENU ET SECTIONS  */
 .profile-content {
   display: flex;
   flex-direction: column;
@@ -609,7 +604,7 @@ export default {
   box-shadow: 0 0 6px rgba(192, 132, 252, 0.5);
 }
 
-/* ── 4. AVATAR & SÉLECTION ── */
+/*  4. AVATAR & SÉLECTION  */
 .avatar-section {
   display: flex;
   flex-direction: column;
@@ -680,7 +675,7 @@ export default {
   object-fit: cover;
 }
 
-/* ── 5. STATISTIQUES (PILLS) ── */
+/*  5. STATISTIQUES (PILLS)  */
 .stats-row {
   display: flex;
   gap: 10px;
@@ -785,7 +780,7 @@ export default {
   color: #f87171;
 }
 
-/* ── 6. BARRES DE PROGRESSION (XP) ── */
+/*  6. BARRES DE PROGRESSION (XP)  */
 .xp-block {
   display: flex;
   flex-direction: column;
@@ -851,7 +846,7 @@ export default {
   color: #1e4e49;
 }
 
-/* ── 7. FORMULAIRE & ACTIONS ── */
+/*  7. FORMULAIRE & ACTIONS  */
 .info-section {
   display: flex;
   flex-direction: column;

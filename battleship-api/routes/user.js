@@ -7,7 +7,6 @@ import { requireAuth, requireSelf } from '../middleware/auth.js';
 
 const router = Router();
 
-// ── GET utilisateur avec avatar ───────────────────────────────────────────────
 router.get('/:id', requireAuth, async (req, res) => {
   const userId = parseInt(req.params.id, 10);
   if (isNaN(userId)) return res.status(400).json({ success: false, message: 'ID invalide.' });
@@ -49,7 +48,6 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
-// ── Liste des amis ─────────────────────────────────────────────────────────────
 router.get('/:id/list', requireAuth, requireSelf, async (req, res) => {
   const userId = parseInt(req.params.id, 10);
 
@@ -84,7 +82,6 @@ router.get('/:id/list', requireAuth, requireSelf, async (req, res) => {
   }
 });
 
-// ── Modifier pseudo + avatar ───────────────────────────────────────────────────
 router.put('/:id', requireAuth, requireSelf, async (req, res) => {
   const userId = parseInt(req.params.id, 10);
   const { pseudo, avatar, mimeType = 'image/png' } = req.body;
@@ -128,7 +125,6 @@ router.put('/:id', requireAuth, requireSelf, async (req, res) => {
         pseudo.trim(), newAvatarId, userId,
       ]);
 
-      // IDs <= 18 = avatars prédéfinis (AUTO_INCREMENT actuel = 19)
       if (oldAvatarId && oldAvatarId > 18) {
         await query('DELETE FROM avatar WHERE ID_Avatar = ?', [oldAvatarId]);
       }
@@ -167,7 +163,6 @@ router.put('/:id', requireAuth, requireSelf, async (req, res) => {
   }
 });
 
-// ── Supprimer un utilisateur ───────────────────────────────────────────────────
 router.delete('/:id', requireAuth, requireSelf, async (req, res) => {
   const userId = parseInt(req.params.id, 10);
 
@@ -181,7 +176,6 @@ router.delete('/:id', requireAuth, requireSelf, async (req, res) => {
   }
 });
 
-// ── Stats utilisateur ──────────────────────────────────────────────────────────
 router.get('/:id/stats', requireAuth, async (req, res) => {
   const userId = parseInt(req.params.id, 10);
   if (isNaN(userId)) return res.status(400).json({ success: false });
@@ -214,10 +208,6 @@ router.get('/:id/stats', requireAuth, async (req, res) => {
   }
 });
 
-// ── Récompense de fin de partie ────────────────────────────────────────────────
-// ⚠️  Appelée UNIQUEMENT par le serveur via INTERNAL_SECRET — jamais depuis le frontend.
-// PRÉREQUIS : la colonne `rewarded` doit exister dans game_players.
-// Migration SQL : ALTER TABLE game_players ADD COLUMN rewarded TINYINT(1) NOT NULL DEFAULT 0;
 function requireInternalSecret(req, res, next) {
   const secret = req.headers['x-internal-secret'];
   if (!secret || secret !== process.env.INTERNAL_SECRET)

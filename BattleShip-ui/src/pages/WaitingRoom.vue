@@ -438,7 +438,7 @@
 </template>
 
 <style scoped>
-/* ── 1. CONFIGURATION & LAYOUT GLOBAL ── */
+/*  1. CONFIGURATION & LAYOUT GLOBAL  */
 @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap");
 
 .waiting-page {
@@ -461,7 +461,7 @@
   height: 85vh;
 }
 
-/* ── 2. HEADER (HUD) ── */
+/*  2. HEADER (HUD)  */
 .hud-header {
   display: flex;
   justify-content: space-between;
@@ -544,7 +544,7 @@ h1 {
   letter-spacing: 2px;
 }
 
-/* ── 3. STRUCTURE DES PANNEAUX ── */
+/*  3. STRUCTURE DES PANNEAUX  */
 .hud-grid {
   display: flex;
   gap: 16px;
@@ -576,7 +576,7 @@ h1 {
   letter-spacing: 1.5px;
 }
 
-/* ── 4. PANNEAU LATÉRAL (AMIS / CONTACTS) ── */
+/*  4. PANNEAU LATÉRAL (AMIS / CONTACTS)  */
 .friends-panel {
   width: 260px;
   flex-shrink: 0;
@@ -681,7 +681,7 @@ h1 {
   text-align: center;
 }
 
-/* ── 5. PANNEAU CENTRAL (ÉQUIPES / JOUEURS) ── */
+/*  5. PANNEAU CENTRAL (ÉQUIPES / JOUEURS)  */
 .main-panel {
   flex: 1;
   display: flex;
@@ -713,7 +713,7 @@ h1 {
   letter-spacing: 1.5px;
 }
 
-/* ── 6. TAGS JOUEURS & CONTRÔLES ── */
+/*  6. TAGS JOUEURS & CONTRÔLES  */
 .player-wall {
   display: flex;
   flex-wrap: wrap;
@@ -830,7 +830,7 @@ h1 {
   background: rgba(248, 113, 113, 0.15);
 }
 
-/* ── 7. GRILLE DES ÉQUIPES (TEAM MODE) ── */
+/*  7. GRILLE DES ÉQUIPES (TEAM MODE)  */
 .teams-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -979,7 +979,7 @@ h1 {
   color: #f87171;
 }
 
-/* ── 8. FOOTER & MESSAGES D'ERREUR ── */
+/*  8. FOOTER & MESSAGES D'ERREUR  */
 .hud-footer {
   flex-shrink: 0;
   padding: 16px 20px;
@@ -1009,7 +1009,7 @@ h1 {
   font-size: 0.78rem;
 }
 
-/* ── 9. BOUTONS D'ACTION (CYBER) ── */
+/*  9. BOUTONS D'ACTION (CYBER)  */
 .button-group {
   display: flex;
   gap: 12px;
@@ -1064,7 +1064,7 @@ h1 {
   transform: translateY(-1px);
 }
 
-/* ── 10. ANIMATIONS & TRANSITIONS (Vue) ── */
+/*  10. ANIMATIONS & TRANSITIONS (Vue)  */
 .fade-error-enter-active,
 .fade-error-leave-active {
   transition: all 0.25s ease;
@@ -1076,7 +1076,7 @@ h1 {
   transform: translateX(-8px);
 }
 
-/* ── 11. RESPONSIVE (TABLETTES & MOBILES) ── */
+/*  11. RESPONSIVE (TABLETTES & MOBILES)  */
 @media (max-width: 900px) {
   .hud-grid {
     flex-direction: column;

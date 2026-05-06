@@ -8,7 +8,6 @@ import rateLimit from 'express-rate-limit';
 
 dotenv.config();
 
-// ── Vérifications des variables d'environnement critiques ──────────────────────
 if (!process.env.JWT_SECRET) {
   console.error('❌ JWT_SECRET manquant dans .env — arrêt du serveur.');
   process.exit(1);
@@ -182,8 +181,6 @@ async function grantRewards(gameId, winnerId, winnerTeam, isDraw) {
           );
         }
 
-        // ── FIX : reward-granted émis AVANT game-over pour que le client
-        // reçoive les récompenses avant de supprimer ses listeners socket ──
         io.to(`user_${player.id_player}`).emit('reward-granted', {
           success:         true,
           goldGain:        totalGold,
@@ -346,7 +343,6 @@ async function resolveTurn(gameId) {
       );
       if (updGame.affectedRows > 0) {
         stopGameTimer(gameId);
-        // ── FIX : grantRewards (→ reward-granted) émis AVANT game-over ──────
         await grantRewards(gameId, winnerId, winnerTeam, isDraw);
         io.to(sId).emit('game-over', {
           winnerId,
@@ -354,7 +350,6 @@ async function resolveTurn(gameId) {
           isDraw,
           gameId: sId,
         });
-        // ─────────────────────────────────────────────────────────────────────
       }
     }
   } catch (err) {

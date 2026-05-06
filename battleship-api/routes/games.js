@@ -984,14 +984,12 @@ router.post("/eliminate-player", async (req, res) => {
 
     if (finished) {
       if (typeof stopGameTimer === "function") stopGameTimer(gameId);
-      // ── FIX : grantRewards (→ reward-granted) émis AVANT game-over ──────
       await grantRewards(gameId, winnerId, winnerTeam, isDraw);
       io.to(String(gameId)).emit("game-over", {
         winnerId,
         winnerTeam,
         isDraw,
       });
-      // ─────────────────────────────────────────────────────────────────────
     } else {
       const [[eliminated]] = await conn.query(
         "SELECT team_number FROM game_players WHERE id_game=? AND id_player=?",
