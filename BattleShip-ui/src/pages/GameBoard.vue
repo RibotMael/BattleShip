@@ -812,7 +812,9 @@ export default {
 
     socket.on("turn-ended", () => this.endTurn());
     socket.on("shot-fired", (data) => this.onShotFired(data));
-    socket.on("player-eliminated", (data) => this.onPlayerEliminated(data));
+    socket.on("player-eliminated", ({ playerId }) => {
+      this.onPlayerEliminated({ playerId });
+    });
     socket.on("game-over", (data) => {
       if (!this.gameOver) this.handleGameOver(data);
     });
@@ -964,6 +966,13 @@ export default {
         this.selectedCell = null;
         this.clearPendingCells();
         this.turnTimer = 7;
+        this._startLocalTick();
+        this.$nextTick(() => this.updateCircle());
+        return;
+      }
+
+      if (!this.localTimerInterval) {
+        this.turnTimer = Math.ceil(timeLeft);
         this._startLocalTick();
         this.$nextTick(() => this.updateCircle());
       }
@@ -1173,7 +1182,17 @@ export default {
         if (!data.success) return;
 
         this.myTeamNumber = data.myTeamNumber ?? null;
-        const all = data.opponents.map((o) => ({ ...o, grid: Array(100).fill("") }));
+
+        // ✅ Sauvegarder les grilles actuelles AVANT tout écrasement
+        const existingGrids = {};
+        [...this.opponents, ...this.enemies, ...this.allies].forEach((o) => {
+          if (o.id && o.grid) existingGrids[String(o.id)] = o.grid;
+        });
+
+        const all = data.opponents.map((o) => ({
+          ...o,
+          grid: existingGrids[String(o.id)] ?? Array(100).fill(""),
+        }));
 
         if (this.myTeamNumber !== null) {
           this.detectedTeamMode = true;
@@ -1399,21 +1418,77 @@ export default {
       }
 
       if (this.isTeamMode) {
-        const wasCurrentEnemy = this.enemies[this.currentOpponentIndex]?.id === data.playerId;
+        const wasCurrentEnemy =
+          String(this.enemies[this.currentOpponentIndex]?.id) === String(data.playerId);
+
+        // 🔥 garder anciennes grilles
+        const oldEnemies = [...this.enemies];
+
         this.enemies = this.enemies.filter((o) => String(o.id) !== String(data.playerId));
+
         this.allies = this.allies.filter((o) => String(o.id) !== String(data.playerId));
-        if (wasCurrentEnemy && this.currentOpponentIndex >= this.enemies.length) {
+
+        // ✅ restaurer les grilles
+        this.enemies = this.enemies.map((enemy) => {
+          const existing = oldEnemies.find((e) => String(e.id) === String(enemy.id));
+
+          return existing || enemy;
+        });
+
+        // ✅ corriger index cible
+        if (this.enemies.length > 0) {
+          if (wasCurrentEnemy || this.currentOpponentIndex >= this.enemies.length) {
+            this.currentOpponentIndex = Math.min(
+              this.currentOpponentIndex,
+              this.enemies.length - 1,
+            );
+          }
+        } else {
           this.currentOpponentIndex = 0;
-          this.selectedCell = null;
         }
+
+        this.selectedCell = null;
       } else {
-        const isCurrentTarget =
-          String(this.opponents[this.currentOpponentIndex]?.id) === String(data.playerId);
-        this.opponents = this.opponents.filter((opp) => String(opp.id) !== String(data.playerId));
-        if (isCurrentTarget || this.currentOpponentIndex >= this.opponents.length) {
+        // ✅ BATTLE ROYALE / FFA
+
+        const eliminatedIndex = this.opponents.findIndex(
+          (opp) => String(opp.id) === String(data.playerId),
+        );
+
+        const wasCurrentTarget = eliminatedIndex === this.currentOpponentIndex;
+
+        const oldOpponents = [...this.opponents];
+
+        this.opponents = this.opponents
+          .filter((opp) => String(opp.id) !== String(data.playerId))
+          .map((opp) => {
+            const existing = oldOpponents.find((o) => String(o.id) === String(opp.id));
+            return existing || opp; // préserve pseudo + grid
+          });
+
+        if (this.opponents.length > 0) {
+          // ✅ Ne pas utiliser eliminatedIndex ici : après le filter, les indices ont changé.
+          // On recalcule une cible valide basée sur les survivants.
+          this.currentOpponentIndex = Math.min(
+            this.currentOpponentIndex,
+            this.opponents.length - 1,
+          );
+        } else {
           this.currentOpponentIndex = 0;
-          this.selectedCell = null;
         }
+
+        this.selectedCell = null;
+
+        // ✅ garder une cible valide
+        if (this.opponents.length > 0) {
+          if (wasCurrentTarget || this.currentOpponentIndex >= this.opponents.length) {
+            this.currentOpponentIndex = Math.min(eliminatedIndex, this.opponents.length - 1);
+          }
+        } else {
+          this.currentOpponentIndex = 0;
+        }
+
+        this.selectedCell = null;
       }
     },
 
@@ -1830,6 +1905,85 @@ body {
   margin: 0 auto;
 }
 
+.br-layout {
+  display: grid;
+  grid-template-columns: 1fr 100px 1fr;
+  align-items: end;
+  gap: 30px;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.player-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+  width: 100%;
+}
+
+.opponent-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  width: 100%;
+}
+
+.player-section .grid-container,
+.opponent-section .grid-container {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+}
+
+.player-section .grid-radar,
+.opponent-section .grid-radar {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+}
+
+.player-section .grid-label,
+.opponent-section .grid-label {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.br-layout .system-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 0;
+  padding-bottom: 10px;
+  width: 100px;
+}
+
+/* ---- RESPONSIVE 1v1 ---- */
+@media (max-width: 850px) {
+  .br-layout {
+    grid-template-columns: 1fr;
+    align-items: center;
+    max-width: 100%;
+    gap: 20px;
+    justify-items: center;
+  }
+
+  .player-section,
+  .opponent-section {
+    align-items: center;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .br-layout .system-status {
+    order: -1;
+    padding-bottom: 0;
+    width: auto;
+  }
+}
+
 .fleet-side,
 .grid-container,
 .grid-wrapper {
@@ -1848,7 +2002,18 @@ body {
   align-items: flex-end;
 }
 
-.team-right,
+/* Desktop : réserve l'espace pour les tabs absolus sur les deux colonnes */
+.team-left,
+.team-right {
+  padding-top: 50px;
+}
+
+/* team-right est le parent de référence pour les tabs absolus */
+.team-right {
+  position: relative;
+  align-items: flex-start;
+}
+
 .enemy-side {
   align-items: flex-start;
 }
@@ -2060,6 +2225,7 @@ body {
   align-items: center;
   gap: 10px;
   margin-bottom: 12px;
+  min-height: 2.4rem;
   color: var(--accent, #1de9c0);
   font-size: 1.1rem;
   font-weight: 600;
@@ -2075,6 +2241,7 @@ body {
   height: 8px;
   background: currentColor;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .clickable-title {
@@ -2708,10 +2875,10 @@ body {
     align-items: center;
   }
 
+  /* Mobile : annule le padding réservé aux tabs, les tabs repassent dans le flux */
   .team-left,
   .team-right {
-    display: flex;
-    justify-content: center;
+    padding-top: 0;
   }
 
   .system-status {
@@ -2740,7 +2907,20 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 14px;
+  /* Desktop : sort du flux pour ne pas pousser la grille */
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  margin-bottom: 0;
+}
+
+/* Mobile : les tabs repassent dans le flux */
+@media (max-width: 850px) {
+  .enemy-tabs {
+    position: static;
+    margin-bottom: 10px;
+  }
 }
 
 .enemy-tab {

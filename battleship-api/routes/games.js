@@ -1,7 +1,7 @@
 import express from "express";
 import db from "../db.js";
 import { fleetsByVersion } from "../utils/fleets.js";
-import { io, stopGameTimer, grantRewards } from '../index.js';
+import { io, stopGameTimer, grantRewards, games, startTurn } from '../index.js';
 
 const router = express.Router();
 
@@ -682,6 +682,12 @@ router.post("/place-ships", async (req, res) => {
         "UPDATE game_players SET player_status = 'in_game' WHERE id_game = ?",
         [gameId]
       );
+
+      const sId = String(gameId);
+  if (!games[sId] || !games[sId].timer) {
+    io.to(sId).emit('game-started', { timeLeft: 7 });
+    startTurn(gameId);
+  }
     }
 
     res.json({ success: true, message: "Bateaux validés avec succès !" });
@@ -884,22 +890,20 @@ router.get("/:gameId/opponents", async (req, res) => {
       `SELECT u.ID_Users as id, u.pseudo, gp.team_number
        FROM users u
        JOIN game_players gp ON u.ID_Users = gp.id_player
-       WHERE gp.id_game = ? AND u.ID_Users != ?`,
+       WHERE gp.id_game = ?
+       AND u.ID_Users != ?
+       AND gp.player_status = 'in_game'`,
       [gameId, playerId]
     );
     const [[myPlayer]] = await db.query(
       `SELECT team_number FROM game_players WHERE id_game = ? AND id_player = ?`,
       [gameId, playerId]
     );
-    if (!players.length)
-      return res
-        .status(404)
-        .json({ success: false, message: "Aucun adversaire disponible" });
     res.json({
-      success: true,
-      opponents: players,
-      myTeamNumber: myPlayer?.team_number ?? null,
-    });
+    success: true,
+    opponents: players,
+    myTeamNumber: myPlayer?.team_number ?? null,
+  });
   } catch (err) {
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
@@ -1046,12 +1050,6 @@ router.get("/:id/status", async (req, res) => {
         );
         winnerTeam = wp?.team_number ?? null;
       }
-
-      io.to(String(gameId)).emit("game-over", {
-        winnerId: game.winner_id,
-        winnerTeam,
-        isDraw: game.winner_id === null && winnerTeam === null,
-      });
 
       return res.json({
         success: true,

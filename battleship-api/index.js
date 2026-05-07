@@ -293,7 +293,7 @@ async function resolveTurn(gameId) {
         [gameId, tid]
       );
 
-      if (sunkCount >= totalCells) {
+      if (totalCells > 0 && sunkCount >= totalCells) {
         const [upd] = await db.query(
           `UPDATE game_players SET player_status='dead'
            WHERE id_game=? AND id_player=? AND player_status='in_game'`,
