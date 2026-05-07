@@ -868,8 +868,8 @@ export default {
     );
   },
   beforeUnmount() {
-    if (this.pollingInterval) clearInterval(this.pollingInterval);
-    if (this.localTickInterval) clearInterval(this.localTickInterval);
+    if (this.pollingTimer) clearInterval(this.pollingTimer);
+    if (this.localTimerInterval) clearInterval(this.localTimerInterval);
     clearInterval(this.fetchInterval);
     clearInterval(this.turnInterval);
     this.removeSocketListeners();

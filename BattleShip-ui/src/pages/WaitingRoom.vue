@@ -1102,7 +1102,6 @@ h1 {
 import api from "@/api/api.js";
 import socket from "../services/socket.js";
 import { userBus } from "@/eventBus.js";
-import { watch } from "vue";
 
 const backgroundImgs = Object.fromEntries(
   Object.entries(
@@ -1120,9 +1119,9 @@ export default {
       isHost: false,
       polling: null,
       errorMsg: "",
+      _mounted: false,
 
       //  Utilisateur et Identification
-      user: JSON.parse(localStorage.getItem("user")) || { id: 999, pseudo: "TestUser" },
       currentUser: JSON.parse(localStorage.getItem("user")) || null,
       userId: 0,
 
@@ -1132,6 +1131,13 @@ export default {
       teamAssignments: {},
     };
   },
+
+  watch: {
+    "userBus.userUpdated"() {
+      this.currentUser = JSON.parse(localStorage.getItem("user")) || null;
+    },
+  },
+
   computed: {
     backgroundStyle() {
       const folder = this.currentUser?.activeFondFolder ?? "";
@@ -1192,22 +1198,15 @@ export default {
   },
 
   async created() {
-    watch(
-      () => userBus.userUpdated,
-      () => {
-        this.currentUser = JSON.parse(localStorage.getItem("user")) || null;
-      },
-      { immediate: true },
-    );
+    this._mounted = true;
 
-    // Init
-    this.userId = Number(this.user.id || this.user.ID_Users || 999);
+    this.userId = Number(this.currentUser?.id || this.currentUser?.ID_Users || 999);
     this.localGameId = this.gameId || this.$route.params.gameId;
     await this.initRoom();
 
-    // Sockets
     socket.emit("register-user", { userId: this.userId });
-    socket.emit("join-room", this.localGameId);
+    socket.emit("join-game", { gameId: String(this.localGameId) });
+
     socket.on("friend-status-change", ({ userId, isOnline }) => {
       const f = this.friends.find((fr) => Number(this.getUserId(fr)) === Number(userId));
       if (f) f.isOnline = isOnline;
@@ -1222,12 +1221,12 @@ export default {
   },
 
   beforeUnmount() {
+    this._mounted = false;
     if (this.fetchInterval) {
       clearInterval(this.fetchInterval);
       this.fetchInterval = null;
     }
     socket.emit("leave-room", this.localGameId);
-    clearInterval(this.polling);
     socket.off("friend-status-change");
     socket.off("player-kicked");
     socket.off("room-closed");
@@ -1307,8 +1306,13 @@ export default {
       this.setupPolling();
     },
     setupPolling() {
-      if (this.polling) clearInterval(this.polling);
-      this.polling = setInterval(() => this.fetchGame(), 3000);
+      if (this.polling) clearTimeout(this.polling);
+      const tick = async () => {
+        if (!this._mounted) return;
+        await this.fetchGame();
+        this.polling = setTimeout(tick, 3000);
+      };
+      this.polling = setTimeout(tick, 3000);
     },
     async inviteFriend(friendId) {
       if (!this.game?.ID_Game || !friendId) {
@@ -1375,7 +1379,11 @@ export default {
       }
     },
     exitDueToClosure(reason = "Salle fermée.") {
-      clearInterval(this.polling);
+      this._mounted = false;
+      if (this.polling) {
+        clearTimeout(this.polling);
+        this.polling = null;
+      }
       this.$router.replace("/gamemode");
     },
   },

@@ -204,6 +204,7 @@ import AuthForm from "../components/AuthForm.vue";
 import FriendsPopup from "../components/FriendsPopup.vue";
 import logo from "@/assets/images/BATTLESHIPLOGO.png";
 import { invitationStore, userBus } from "@/eventBus.js";
+import api from "@/api/api.js";
 import { watch } from "vue";
 import { i18nStore } from "@/stores/i18n";
 
@@ -288,7 +289,7 @@ export default {
     watch(
       () => userBus.userUpdated,
       () => this.refreshUser(),
-      { immediate: true },
+      { immediate: false },
     );
   },
   methods: {
@@ -298,15 +299,17 @@ export default {
         const savedUser = localStorage.getItem("user");
         const token = localStorage.getItem("token");
 
-        if (!savedUser || savedUser === "undefined" || !token) {
-          throw new Error("Pas de session");
+        if (!savedUser || savedUser === "undefined" || savedUser === "null" || !token) {
+          this.user = null;
+          return;
         }
 
         const parsedUser = JSON.parse(savedUser);
-        if (!parsedUser?.id) throw new Error("User invalide");
+        if (!parsedUser?.id) {
+          this.user = null;
+          return;
+        }
 
-        // Vérifie que le token est encore accepté par le backend
-        await api.get(`/users/${parsedUser.id}`);
         this.user = parsedUser;
       } catch {
         this.user = null;

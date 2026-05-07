@@ -151,6 +151,7 @@ export default {
       gameLoaded: false,
       readyPlayers: [],
       readyInterval: null,
+      _mounted: false,
 
       //  Utilisateur
       user: JSON.parse(localStorage.getItem("user")),
@@ -185,6 +186,7 @@ export default {
   },
 
   mounted() {
+    this._mounted = true;
     this.userId = Number(this.user?.id || this.user?.ID_Users);
     this.game.ID_Game = Number(this.gameId);
 
@@ -208,18 +210,24 @@ export default {
       this.gameLoaded = true;
     });
 
-    this.readyInterval = setInterval(async () => {
+    const tick = async () => {
+      if (!this._mounted) return;
       const allReady = await this.checkAllPlayersReady();
       if (allReady) {
-        clearInterval(this.readyInterval);
+        this._mounted = false;
         this.$router.replace({ name: "GameBoard", params: { gameId: this.game.ID_Game } });
+        return;
       }
-    }, 2000);
+      this.readyInterval = setTimeout(tick, 2000);
+    };
+    this.readyInterval = setTimeout(tick, 2000);
   },
+
   beforeUnmount() {
-    if (this.fetchInterval) {
-      clearInterval(this.fetchInterval);
-      this.fetchInterval = null;
+    this._mounted = false;
+    if (this.readyInterval) {
+      clearTimeout(this.readyInterval);
+      this.readyInterval = null;
     }
   },
   methods: {
@@ -257,8 +265,6 @@ export default {
         if (res.data.success) {
           this.hasValidated = true;
           await this.checkAllPlayersReady();
-        } else {
-          //alert("Erreur : " + res.data.message);
         }
       } catch (err) {
         // Mode silencieux
@@ -390,6 +396,9 @@ export default {
             this.placeOrRemoveShip(start);
             placed = true;
           }
+        }
+        if (!placed) {
+          console.warn(`[PlaceShips] Impossible de placer "${ship.name}" après 150 tentatives`);
         }
       }
     },
