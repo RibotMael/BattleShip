@@ -167,7 +167,10 @@ router.delete('/:id', requireAuth, requireSelf, async (req, res) => {
   const userId = parseInt(req.params.id, 10);
 
   try {
+    await db.query('UPDATE games SET winner_id = NULL WHERE winner_id = ?', [userId]);
+    await db.query('UPDATE games SET id_creator = NULL WHERE id_creator = ?', [userId]);
     await db.query('DELETE FROM users WHERE ID_Users = ?', [userId]);
+
     io.to(`user_${userId}`).emit('account-deleted');
     res.json({ success: true, message: 'Utilisateur supprimé avec succès.' });
   } catch (err) {
