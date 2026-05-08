@@ -54,6 +54,24 @@
 
     <div v-if="isSpectator && !gameOver" class="spectator-overlay">
       <div class="overlay-msg">{{ i18nStore.t("game_eliminated") }}</div>
+      <button class="btn-tactical abandon" @click="goHome" style="margin-top: 10px">
+        <span class="btn-text">Quitter la partie</span>
+        <span class="btn-icon">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+          >
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+        </span>
+      </button>
     </div>
 
     <main v-if="isTeamMode" class="tactical-layout team-layout">
@@ -1421,21 +1439,18 @@ export default {
         const wasCurrentEnemy =
           String(this.enemies[this.currentOpponentIndex]?.id) === String(data.playerId);
 
-        // 🔥 garder anciennes grilles
         const oldEnemies = [...this.enemies];
 
         this.enemies = this.enemies.filter((o) => String(o.id) !== String(data.playerId));
 
         this.allies = this.allies.filter((o) => String(o.id) !== String(data.playerId));
 
-        // ✅ restaurer les grilles
         this.enemies = this.enemies.map((enemy) => {
           const existing = oldEnemies.find((e) => String(e.id) === String(enemy.id));
 
           return existing || enemy;
         });
 
-        // ✅ corriger index cible
         if (this.enemies.length > 0) {
           if (wasCurrentEnemy || this.currentOpponentIndex >= this.enemies.length) {
             this.currentOpponentIndex = Math.min(
@@ -1449,8 +1464,6 @@ export default {
 
         this.selectedCell = null;
       } else {
-        // ✅ BATTLE ROYALE / FFA
-
         const eliminatedIndex = this.opponents.findIndex(
           (opp) => String(opp.id) === String(data.playerId),
         );
@@ -1463,12 +1476,10 @@ export default {
           .filter((opp) => String(opp.id) !== String(data.playerId))
           .map((opp) => {
             const existing = oldOpponents.find((o) => String(o.id) === String(opp.id));
-            return existing || opp; // préserve pseudo + grid
+            return existing || opp;
           });
 
         if (this.opponents.length > 0) {
-          // ✅ Ne pas utiliser eliminatedIndex ici : après le filter, les indices ont changé.
-          // On recalcule une cible valide basée sur les survivants.
           this.currentOpponentIndex = Math.min(
             this.currentOpponentIndex,
             this.opponents.length - 1,
@@ -1712,13 +1723,17 @@ export default {
         if (!data.success) return;
 
         this.playerStatus = "dead";
-        const myTeamWon = this.isTeamMode ? data.winner_team === this.myTeamNumber : false;
 
         if (data.finished) {
+          // La partie est terminée (D était le dernier de son équipe)
+          const myTeamWon = this.isTeamMode
+            ? Number(data.winner_team) === Number(this.myTeamNumber)
+            : false;
           this.claimReward(myTeamWon);
           this.popupIcon = myTeamWon ? "trophy" : "abandon";
           this.showEndPopup(myTeamWon ? "Victoire !" : "Abandon confirmé.", myTeamWon);
         } else if (this.isTeamMode) {
+          // D a des alliés encore en vie → spectateur
           this.enterSpectatorMode();
         } else {
           this.claimReward(false);
@@ -2083,7 +2098,11 @@ body {
   top: 80px;
   left: 50%;
   z-index: 50;
-  padding: 8px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
   background: rgba(248, 113, 113, 0.15);
   border: 1px solid rgba(248, 113, 113, 0.4);
   border-radius: 4px;
