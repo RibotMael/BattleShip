@@ -241,6 +241,8 @@
                   type="date"
                   required
                   class="field-input"
+                  min="1900-01-01"
+                  :max="maxBirthDay"
                   @blur="validateBirthDay"
                 />
               </div>
@@ -333,33 +335,36 @@ const MIN_AGE_YEARS = 13;
 export default {
   data() {
     return {
-      //  État du Formulaire
       isLogin: true,
       legalAccepted: false,
       errorMsg: "",
       isLoading: false,
       showLegalModal: false,
 
-      //  Identifiants
       email: "",
       pseudo: "",
       birthDay: "",
 
-      //  Mot de passe
       password: "",
       confirmPassword: "",
       showPassword: false,
       showConfirmPassword: false,
 
-      //  Avatar
       avatars: [],
       avatar: null,
       selectedBase64: "",
       selectedMime: "",
 
-      //  Internationalisation
       i18nStore,
     };
+  },
+
+  computed: {
+    maxBirthDay() {
+      const d = new Date();
+      d.setFullYear(d.getFullYear() - MIN_AGE_YEARS);
+      return d.toISOString().split("T")[0];
+    },
   },
 
   methods: {
@@ -382,15 +387,15 @@ export default {
       const birth = new Date(this.birthDay);
       const today = new Date();
 
-      if (isNaN(birth.getTime()) || birth > today) {
-        this.errorMsg = this.i18nStore.t("auth_error_invalid_date");
+      if (isNaN(birth.getTime()) || birth > today || birth.getFullYear() < 1900) {
+        this.errorMsg = "Date de naissance invalide.";
         return false;
       }
 
       const minDate = new Date(today);
       minDate.setFullYear(minDate.getFullYear() - MIN_AGE_YEARS);
       if (birth > minDate) {
-        this.errorMsg = this.i18nStore.t("auth_error_min_age");
+        this.errorMsg = `Vous devez avoir au moins ${MIN_AGE_YEARS} ans pour vous inscrire.`;
         return false;
       }
 
@@ -417,11 +422,11 @@ export default {
     },
 
     async checkPseudo() {
-      if (!this.pseudo.trim()) return;
+      if (!this.pseudo.trim() || this.pseudo.trim().length < 3) return;
       try {
         const res = await api.post("/check-pseudo", { pseudo: this.pseudo });
         if (!res.data.available) {
-          this.errorMsg = this.i18nStore.t("auth_error_pseudo_taken");
+          this.errorMsg = "Ce pseudo est déjà utilisé, veuillez en choisir un autre.";
         } else {
           this.errorMsg = "";
         }
@@ -437,26 +442,36 @@ export default {
 
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(this.email)) {
-        this.errorMsg = this.i18nStore.t("auth_error_invalid_email");
+        this.errorMsg = "Adresse e-mail invalide (ex : nom@domaine.com).";
         return;
       }
 
       if (!this.isLogin) {
         const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
         if (!passwordRegex.test(this.password)) {
-          this.errorMsg = this.i18nStore.t("auth_error_weak_password");
+          this.errorMsg =
+            "Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.";
           return;
         }
 
         if (this.password !== this.confirmPassword) {
-          this.errorMsg = this.i18nStore.t("auth_error_password_mismatch");
+          this.errorMsg = "Les mots de passe ne correspondent pas.";
+          return;
+        }
+
+        if (this.pseudo.trim().length < 3) {
+          this.errorMsg = "Le pseudo doit contenir au moins 3 caractères.";
+          return;
+        }
+        if (this.pseudo.trim().length > 20) {
+          this.errorMsg = "Le pseudo ne peut pas dépasser 20 caractères.";
           return;
         }
 
         if (!this.validateBirthDay()) return;
 
         if (!this.avatar) {
-          this.errorMsg = this.i18nStore.t("auth_error_no_avatar");
+          this.errorMsg = "Veuillez sélectionner un avatar.";
           return;
         }
       }
@@ -488,10 +503,12 @@ export default {
             this.resetFields();
           }
         } else {
-          this.errorMsg = this.i18nStore.t("auth_error_generic");
+          this.errorMsg = data.message || "Une erreur est survenue, veuillez réessayer.";
         }
       } catch (error) {
-        this.errorMsg = this.i18nStore.t("auth_error_network");
+        const serverMsg = error?.response?.data?.message;
+        this.errorMsg =
+          serverMsg || "Impossible de contacter le serveur, vérifiez votre connexion.";
       } finally {
         this.isLoading = false;
       }
