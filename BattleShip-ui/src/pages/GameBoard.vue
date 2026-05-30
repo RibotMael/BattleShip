@@ -973,12 +973,15 @@ export default {
     socketTurnTimer({ timeLeft, turnStartAt }) {
       if (this.gameOver) return;
 
-      const isNewTurn = timeLeft >= 6.5;
+      // Recalcule le turnStartAt réel depuis les données serveur
+      const serverTurnStartAt = turnStartAt || Date.now() - (7 - timeLeft) * 1000;
 
-      !this.turnStartAt ||
-        Math.abs((turnStartAt || Date.now() - (7 - timeLeft) * 1000) - this.turnStartAt) > 2000;
+      const isNewTurn =
+        timeLeft >= 6.5 &&
+        (!this.turnStartAt || Math.abs(serverTurnStartAt - this.turnStartAt) > 2000);
 
       if (isNewTurn) {
+        this.turnStartAt = serverTurnStartAt; // ← màj du turnStartAt
         this.hasFiredThisTurn = false;
         this._firingLock = false;
         this.isSelecting = false;
@@ -990,7 +993,13 @@ export default {
         return;
       }
 
+      // Resync : on met à jour le turnStartAt sans reset le timer visuel
+      if (!this.turnStartAt || Math.abs(serverTurnStartAt - this.turnStartAt) > 2000) {
+        this.turnStartAt = serverTurnStartAt;
+      }
+
       if (!this.localTimerInterval) {
+        this.turnStartAt = serverTurnStartAt;
         this.turnTimer = Math.ceil(timeLeft);
         this._startLocalTick();
         this.$nextTick(() => this.updateCircle());
