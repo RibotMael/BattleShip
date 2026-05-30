@@ -567,6 +567,17 @@ io.on('connection', (socket) => {
   socket.on('join-game', ({ gameId }) => {
     if (!gameId) return;
     socket.join(String(gameId));
+
+    const sId = String(gameId);
+    if (games[sId] && !games[sId].finished) {
+      const elapsed = (Date.now() - games[sId].turnStartAt) / 1000;
+      const timeLeft = Math.max(0, games[sId].duration - elapsed);
+      socket.emit('turn-timer', {
+        timeLeft,
+        gameId: sId,
+        turnStartAt: games[sId].turnStartAt,
+      });
+    }
   });
 
   socket.on('player-ready', async ({ gameId, playerId }) => {
