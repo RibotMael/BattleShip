@@ -1016,7 +1016,7 @@ export default {
         if (!this.turnStartAt || this.gameOver) return;
 
         const elapsed = (Date.now() - this.turnStartAt) / 1000;
-        const computed = Math.max(0, Math.ceil(7 - elapsed));
+        const computed = Math.max(0, Math.floor(7 - elapsed + 0.1));
 
         if (computed !== this.turnTimer) {
           this.turnTimer = computed;
@@ -1027,7 +1027,7 @@ export default {
           clearInterval(this.localTimerInterval);
           this.localTimerInterval = null;
         }
-      }, 500);
+      }, 200);
     },
 
     async resyncTimer() {
@@ -1080,7 +1080,7 @@ export default {
       const circumference = 2 * Math.PI * radius;
       const ratio = Math.max(0, Math.min(this.turnTimer / 7, 1));
       const offset = circumference - ratio * circumference;
-      circle.style.transition = this.turnTimer === 7 ? "none" : "stroke-dashoffset 1s linear";
+      circle.style.transition = "stroke-dashoffset 0.2s linear";
       circle.style.strokeDashoffset = offset;
     },
 
