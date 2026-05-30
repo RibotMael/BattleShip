@@ -690,6 +690,7 @@ export default {
       currentOpponentIndex: 0,
       selectedEnemyIndex: 0,
       turnTimer: 7,
+      timerRatio: 1,
       turnStartAt: null,
       turnInterval: null,
       localTimerInterval: null,
@@ -888,6 +889,10 @@ export default {
     );
   },
   beforeUnmount() {
+    if (this._rafId) {
+      cancelAnimationFrame(this._rafId);
+      this._rafId = null;
+    }
     if (this.pollingTimer) clearInterval(this.pollingTimer);
     if (this.localTimerInterval) clearInterval(this.localTimerInterval);
     clearInterval(this.fetchInterval);
@@ -1011,18 +1016,30 @@ export default {
         clearInterval(this.localTimerInterval);
         this.localTimerInterval = null;
       }
+      if (this._rafId) {
+        cancelAnimationFrame(this._rafId);
+        this._rafId = null;
+      }
 
+      const duration = 7;
+
+      // RAF pour le cercle SVG — ultra fluide
+      const animateCircle = () => {
+        if (!this.turnStartAt || this.gameOver) return;
+        const elapsed = (Date.now() - this.turnStartAt) / 1000;
+        const ratio = Math.max(0, Math.min(1, (duration - elapsed) / duration));
+        this.timerRatio = ratio;
+        this._updateCircleFromRatio(ratio);
+        if (ratio > 0) this._rafId = requestAnimationFrame(animateCircle);
+      };
+      this._rafId = requestAnimationFrame(animateCircle);
+
+      // Intervalle pour le chiffre affiché (tous les 200ms)
       this.localTimerInterval = setInterval(() => {
         if (!this.turnStartAt || this.gameOver) return;
-
         const elapsed = (Date.now() - this.turnStartAt) / 1000;
-        const computed = Math.max(0, Math.floor(7 - elapsed + 0.1));
-
-        if (computed !== this.turnTimer) {
-          this.turnTimer = computed;
-          this.$nextTick(this.updateCircle);
-        }
-
+        const computed = Math.max(0, Math.floor(duration - elapsed + 0.1));
+        if (computed !== this.turnTimer) this.turnTimer = computed;
         if (computed <= 0) {
           clearInterval(this.localTimerInterval);
           this.localTimerInterval = null;
@@ -1073,15 +1090,26 @@ export default {
       }
     },
 
-    updateCircle() {
+    _updateCircleFromRatio(ratio) {
       const circle = this.$refs.timerCircle;
       if (!circle) return;
-      const radius = 45;
-      const circumference = 2 * Math.PI * radius;
-      const ratio = Math.max(0, Math.min(this.turnTimer / 7, 1));
-      const offset = circumference - ratio * circumference;
-      circle.style.transition = "stroke-dashoffset 0.2s linear";
-      circle.style.strokeDashoffset = offset;
+      const circumference = 2 * Math.PI * 45;
+      circle.style.transition = "none";
+      circle.style.strokeDashoffset = circumference - ratio * circumference;
+    },
+
+    updateCircle() {
+      if (!this.turnStartAt) {
+        // Appel statique (fin de partie, reset)
+        const circle = this.$refs.timerCircle;
+        if (!circle) return;
+        const circumference = 2 * Math.PI * 45;
+        const ratio = Math.max(0, Math.min(this.turnTimer / 7, 1));
+        circle.style.transition = "none";
+        circle.style.strokeDashoffset = circumference - ratio * circumference;
+        return;
+      }
+      // Sinon le RAF s'en occupe
     },
 
     handleGameStarted(data) {
@@ -2340,9 +2368,7 @@ body {
   stroke-dashoffset: 0;
   stroke-linecap: round;
   filter: drop-shadow(0 0 6px var(--accent, #1de9c0));
-  transition:
-    stroke-dashoffset 1s linear,
-    stroke 0.3s;
+  transition: stroke 0.3s;
 }
 
 .timer-bar.timer-low {
