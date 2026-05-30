@@ -975,7 +975,8 @@ export default {
 
       const isNewTurn = timeLeft >= 6.5;
 
-      this.turnStartAt = turnStartAt || Date.now() - (7 - Math.max(0, timeLeft)) * 1000;
+      !this.turnStartAt ||
+        Math.abs((turnStartAt || Date.now() - (7 - timeLeft) * 1000) - this.turnStartAt) > 2000;
 
       if (isNewTurn) {
         this.hasFiredThisTurn = false;
