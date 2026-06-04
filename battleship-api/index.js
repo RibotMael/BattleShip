@@ -360,9 +360,9 @@ async function resolveTurn(gameId) {
 function _startTick(sId, duration) {
   if (games[sId]?.timer) clearInterval(games[sId].timer);
 
-  const interval = setInterval(() => {
+  games[sId].timer = setInterval(() => {
     if (!games[sId] || games[sId].finished) {
-      clearInterval(interval);
+      clearInterval(games[sId].timer);
       return;
     }
 
@@ -377,7 +377,7 @@ function _startTick(sId, duration) {
 
     if (timeLeft <= 0 && !games[sId].ended) {
       games[sId].ended = true;
-      clearInterval(interval);
+      clearInterval(games[sId].timer);
       io.to(sId).emit('turn-ended', { reason: 'timeout', gameId: sId });
 
       setTimeout(async () => {
@@ -387,8 +387,6 @@ function _startTick(sId, duration) {
       }, 1000);
     }
   }, 1000);
-
-  games[sId].timer = interval;
 }
 
 async function startTurn(gameId, duration = 7) {
@@ -565,24 +563,25 @@ io.on('connection', (socket) => {
   });
 
   socket.on('join-game', ({ gameId }) => {
-  if (!gameId) return;
-  socket.join(String(gameId));
+    if (!gameId) return;
+    socket.join(String(gameId));
 
-  const sId = String(gameId);
-  if (games[sId] && !games[sId].finished && games[sId].turnStartAt) {
-    const elapsed = (Date.now() - games[sId].turnStartAt) / 1000;
-    const duration = games[sId].duration || 7;
-    const timeLeft = Math.max(0, duration - elapsed);
+    const sId = String(gameId);
+    if (games[sId] && !games[sId].finished && games[sId].turnStartAt) {
+      const elapsed = (Date.now() - games[sId].turnStartAt) / 1000;
+      const duration = games[sId].duration || 7;
+      
+      const timeLeft = Math.max(0, Math.ceil(duration - elapsed));
 
-    if (timeLeft > 0 && timeLeft < duration - 0.5) {
-      socket.emit('turn-timer', {
-        timeLeft: Math.ceil(timeLeft),
-        gameId: sId,
-        turnStartAt: games[sId].turnStartAt, 
-      });
+      if (timeLeft >= 0 && !games[sId].ended) {
+        socket.emit('turn-timer', {
+          timeLeft,
+          gameId: sId,
+          turnStartAt: games[sId].turnStartAt, 
+        });
+      }
     }
-  }
-});
+  });
   socket.on('player-ready', async ({ gameId, playerId }) => {
     const sId = String(gameId);
     try {
