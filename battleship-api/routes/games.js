@@ -562,13 +562,14 @@ router.get("/:gameId/timer", async (req, res) => {
     );
     if (!game) return res.status(404).json({ success: false });
 
-    const elapsed = Math.floor(Date.now() / 1000) - (game.last_turn_timestamp || 0);
-    const timeLeft = Math.max(0, Math.min(7, 7 - elapsed));
+    const turnStartMs = (game.last_turn_timestamp || 0) * 1000;
+    const elapsed = (Date.now() - turnStartMs) / 1000;
+    const timeLeft = Math.max(0, 7 - elapsed); 
 
     res.json({
       success: true,
-      timeLeft,
-      turnStartAt: game.last_turn_timestamp || null
+      timeLeft: Math.ceil(timeLeft),    
+      turnStartAt: game.last_turn_timestamp 
     });
   } catch (err) {
     res.status(500).json({ success: false });

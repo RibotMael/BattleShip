@@ -973,16 +973,20 @@ export default {
     socketTurnTimer({ timeLeft, turnStartAt }) {
       if (this.gameOver) return;
 
+      if (turnStartAt) {
+        this.turnStartAt = turnStartAt;
+      } else if (!this.turnStartAt) {
+        this.turnStartAt = Date.now() - (7 - Math.max(0, timeLeft)) * 1000;
+      }
+
       const isNewTurn = timeLeft >= 6.5;
-
-      this.turnStartAt = turnStartAt || Date.now() - (7 - Math.max(0, timeLeft)) * 1000;
-
       if (isNewTurn) {
         this.hasFiredThisTurn = false;
         this._firingLock = false;
         this.isSelecting = false;
         this.selectedCell = null;
         this.clearPendingCells();
+        this.turnStartAt = turnStartAt || Date.now();
         this.turnTimer = 7;
         this._startLocalTick();
         this.$nextTick(() => this.updateCircle());
@@ -1006,7 +1010,8 @@ export default {
         if (!this.turnStartAt || this.gameOver) return;
 
         const elapsed = (Date.now() - this.turnStartAt) / 1000;
-        const computed = Math.max(0, Math.ceil(7 - elapsed));
+        const raw = 7 - elapsed;
+        const computed = raw <= 0 ? 0 : Math.ceil(raw);
 
         if (computed !== this.turnTimer) {
           this.turnTimer = computed;
@@ -1017,31 +1022,31 @@ export default {
           clearInterval(this.localTimerInterval);
           this.localTimerInterval = null;
         }
-      }, 500);
+      }, 250);
     },
 
     async resyncTimer() {
       try {
         const res = await fetch(`${API_BASE_URL}/api/games/${this.gameId}/timer`);
         const data = await res.json();
+        if (!data.success || typeof data.timeLeft !== "number") return;
 
-        if (data.success && typeof data.timeLeft === "number") {
-          const newTs = data.turnStartAt
-            ? data.turnStartAt * 1000
-            : Date.now() - (7 - data.timeLeft) * 1000;
+        const newTs = data.turnStartAt
+          ? data.turnStartAt * 1000
+          : Date.now() - (7 - data.timeLeft) * 1000;
 
-          const isNewTurn = this.turnStartAt && Math.abs(newTs - this.turnStartAt) > 2000;
-          if (isNewTurn || this.turnTimer === 0) {
-            this.turnStartAt = newTs;
-            this.turnTimer = data.timeLeft;
-            if (data.timeLeft >= 6) {
-              this.hasFiredThisTurn = false;
-              this._firingLock = false;
-              this.clearPendingCells();
-            }
-            this._startLocalTick();
-            this.$nextTick(this.updateCircle);
+        const drift = this.turnStartAt ? Math.abs(newTs - this.turnStartAt) : Infinity;
+
+        if (drift > 1500 || this.turnTimer === 0) {
+          this.turnStartAt = newTs;
+          this.turnTimer = data.timeLeft;
+          if (data.timeLeft >= 6) {
+            this.hasFiredThisTurn = false;
+            this._firingLock = false;
+            this.clearPendingCells();
           }
+          this._startLocalTick();
+          this.$nextTick(this.updateCircle);
         }
       } catch (_) {}
     },
