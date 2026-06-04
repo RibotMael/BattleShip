@@ -973,13 +973,8 @@ export default {
     socketTurnTimer({ timeLeft, turnStartAt }) {
       if (this.gameOver) return;
 
-      if (turnStartAt) {
-        this.turnStartAt = turnStartAt;
-      } else if (!this.turnStartAt) {
-        this.turnStartAt = Date.now() - (7 - Math.max(0, timeLeft)) * 1000;
-      }
-
       const isNewTurn = timeLeft >= 6.5;
+
       if (isNewTurn) {
         this.hasFiredThisTurn = false;
         this._firingLock = false;
@@ -988,23 +983,33 @@ export default {
         this.clearPendingCells();
         this.turnStartAt = turnStartAt || Date.now();
         this.turnTimer = 7;
+
+        if (this.localTimerInterval) {
+          clearInterval(this.localTimerInterval);
+          this.localTimerInterval = null;
+        }
         this._startLocalTick();
         this.$nextTick(() => this.updateCircle());
         return;
       }
 
-      if (!this.localTimerInterval) {
+      if (turnStartAt) {
+        this.turnStartAt = turnStartAt;
+      }
+
+      if (!this.localTimerInterval && this.turnStartAt) {
         this.turnTimer = Math.ceil(timeLeft);
         this._startLocalTick();
         this.$nextTick(() => this.updateCircle());
       }
     },
-
     _startLocalTick() {
       if (this.localTimerInterval) {
         clearInterval(this.localTimerInterval);
         this.localTimerInterval = null;
       }
+
+      if (!this.turnStartAt) return;
 
       this.localTimerInterval = setInterval(() => {
         if (!this.turnStartAt || this.gameOver) return;

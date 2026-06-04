@@ -565,24 +565,24 @@ io.on('connection', (socket) => {
   });
 
   socket.on('join-game', ({ gameId }) => {
-    if (!gameId) return;
-    socket.join(String(gameId));
+  if (!gameId) return;
+  socket.join(String(gameId));
 
-    const sId = String(gameId);
-    if (games[sId] && !games[sId].finished && games[sId].turnStartAt) {
-      const elapsed = (Date.now() - games[sId].turnStartAt) / 1000;
-      const timeLeft = Math.max(0, (games[sId].duration || 7) - elapsed);
-      
-      if (timeLeft < (games[sId].duration || 7)) {
-        socket.emit('turn-timer', {
-          timeLeft,
-          gameId: sId,
-          turnStartAt: games[sId].turnStartAt,
-        });
-      }
+  const sId = String(gameId);
+  if (games[sId] && !games[sId].finished && games[sId].turnStartAt) {
+    const elapsed = (Date.now() - games[sId].turnStartAt) / 1000;
+    const duration = games[sId].duration || 7;
+    const timeLeft = Math.max(0, duration - elapsed);
+
+    if (timeLeft > 0 && timeLeft < duration - 0.5) {
+      socket.emit('turn-timer', {
+        timeLeft: Math.ceil(timeLeft),
+        gameId: sId,
+        turnStartAt: games[sId].turnStartAt, 
+      });
     }
-  });
-
+  }
+});
   socket.on('player-ready', async ({ gameId, playerId }) => {
     const sId = String(gameId);
     try {
