@@ -568,20 +568,22 @@ io.on('connection', (socket) => {
 
     const sId = String(gameId);
     if (games[sId] && !games[sId].finished && games[sId].turnStartAt) {
-      const elapsed = (Date.now() - games[sId].turnStartAt) / 1000;
+      const elapsed  = (Date.now() - games[sId].turnStartAt) / 1000;
       const duration = games[sId].duration || 7;
-      
-      const timeLeft = Math.max(0, Math.ceil(duration - elapsed));
+      const timeLeft = Math.max(0, duration - elapsed);
 
-      if (timeLeft >= 0 && !games[sId].ended) {
-        socket.emit('turn-timer', {
-          timeLeft,
-          gameId: sId,
-          turnStartAt: games[sId].turnStartAt, 
-        });
-      }
+      const timeLeftInt = Math.floor(timeLeft);
+
+      if (timeLeftInt <= 0) return;
+
+      socket.emit('turn-timer', {
+        timeLeft:    timeLeftInt,
+        gameId:      sId,
+        turnStartAt: games[sId].turnStartAt,
+      });
     }
   });
+
   socket.on('player-ready', async ({ gameId, playerId }) => {
     const sId = String(gameId);
     try {

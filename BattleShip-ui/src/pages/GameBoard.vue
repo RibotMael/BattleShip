@@ -1052,9 +1052,9 @@ export default {
 
         if (!data.success || typeof data.timeLeft !== "number") return;
 
-        const newTs = data.turnStartAt ?? Date.now() - (7 - data.timeLeft) * 1000;
+        if (!data.turnStartAt) return;
 
-        if (newTs === null) return;
+        const newTs = data.turnStartAt;
 
         const drift = this.turnStartAt ? Math.abs(newTs - this.turnStartAt) : Infinity;
 
@@ -1071,9 +1071,7 @@ export default {
           this._startLocalTick();
           this.$nextTick(this.updateCircle);
         }
-      } catch (_) {
-        // Silencieux
-      }
+      } catch (_) {}
     },
 
     endTurn() {
