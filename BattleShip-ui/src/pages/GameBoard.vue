@@ -162,9 +162,18 @@
       </section>
 
       <!-- CENTRE : timer -->
+      <!-- =============================================
+     TIMER — MODE ÉQUIPE (remplace le bloc existant)
+     ============================================= -->
       <section class="system-status timer-container">
         <div class="timer-module">
-          <svg class="progress-ring timer-svg" viewBox="0 0 100 100" width="100%" height="100%">
+          <svg
+            class="progress-ring timer-svg"
+            viewBox="0 0 100 100"
+            width="100"
+            height="100"
+            style="overflow: visible"
+          >
             <circle class="timer-bg" cx="50" cy="50" r="45" />
             <circle
               ref="timerCircle"
@@ -312,7 +321,13 @@
 
       <section class="system-status timer-container">
         <div class="timer-module">
-          <svg class="progress-ring timer-svg" width="100" height="100">
+          <svg
+            class="progress-ring timer-svg"
+            viewBox="0 0 100 100"
+            width="100"
+            height="100"
+            style="overflow: visible"
+          >
             <circle class="timer-bg" cx="50" cy="50" r="45" />
             <circle
               ref="timerCircle"
@@ -1034,26 +1049,31 @@ export default {
       try {
         const res = await fetch(`${API_BASE_URL}/api/games/${this.gameId}/timer`);
         const data = await res.json();
+
         if (!data.success || typeof data.timeLeft !== "number") return;
 
-        const newTs = data.turnStartAt
-          ? data.turnStartAt * 1000
-          : Date.now() - (7 - data.timeLeft) * 1000;
+        const newTs = data.turnStartAt ?? Date.now() - (7 - data.timeLeft) * 1000;
+
+        if (newTs === null) return;
 
         const drift = this.turnStartAt ? Math.abs(newTs - this.turnStartAt) : Infinity;
 
         if (drift > 1500 || this.turnTimer === 0) {
           this.turnStartAt = newTs;
           this.turnTimer = data.timeLeft;
+
           if (data.timeLeft >= 6) {
             this.hasFiredThisTurn = false;
             this._firingLock = false;
             this.clearPendingCells();
           }
+
           this._startLocalTick();
           this.$nextTick(this.updateCircle);
         }
-      } catch (_) {}
+      } catch (_) {
+        // Silencieux
+      }
     },
 
     endTurn() {
@@ -2313,17 +2333,22 @@ body {
   width: 120px;
   padding-top: 40px;
 }
-
 .timer-module {
   position: relative;
   width: 100px;
   height: 100px;
+  /* Centre le SVG dans le conteneur */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
+/* Taille fixe identique dans les deux modes */
 .timer-svg {
-  width: 100%;
-  height: 100%;
+  width: 100px;
+  height: 100px;
   transform: rotate(-90deg);
+  flex-shrink: 0;
 }
 
 .timer-bg {
@@ -2336,7 +2361,8 @@ body {
   fill: none;
   stroke: var(--accent, #1de9c0);
   stroke-width: 4;
-  stroke-dasharray: 282.7;
+  /* circumference = 2 * π * 45 ≈ 282.74 — ne jamais modifier r sans recalculer */
+  stroke-dasharray: 282.74;
   stroke-dashoffset: 0;
   stroke-linecap: round;
   filter: drop-shadow(0 0 6px var(--accent, #1de9c0));
@@ -2358,6 +2384,7 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
+  pointer-events: none;
 }
 
 .t-value {

@@ -557,21 +557,29 @@ router.get("/:gameId/timer", async (req, res) => {
   const { gameId } = req.params;
   try {
     const [[game]] = await db.query(
-      "SELECT last_turn_timestamp FROM games WHERE id_Game = ?",
+      "SELECT last_turn_timestamp, status FROM games WHERE id_Game = ?",
       [gameId]
     );
-    if (!game) return res.status(404).json({ success: false });
-
-    const turnStartMs = (game.last_turn_timestamp || 0) * 1000;
-    const elapsed = (Date.now() - turnStartMs) / 1000;
-    const timeLeft = Math.max(0, 7 - elapsed); 
-
+ 
+    if (!game) {
+      return res.status(404).json({ success: false, message: "Partie introuvable" });
+    }
+ 
+    if (!game.last_turn_timestamp || game.status !== "in_progress") {
+      return res.json({ success: true, timeLeft: 7, turnStartAt: null });
+    }
+ 
+    const turnStartMs = game.last_turn_timestamp * 1000;   
+    const elapsed     = (Date.now() - turnStartMs) / 1000; 
+    const timeLeftRaw = Math.max(0, 7 - elapsed);         
+ 
     res.json({
-      success: true,
-      timeLeft: Math.ceil(timeLeft),    
-      turnStartAt: game.last_turn_timestamp 
+      success:     true,
+      timeLeft:    Math.ceil(timeLeftRaw), 
+      turnStartAt: turnStartMs,           
     });
   } catch (err) {
+    console.error("[timer route]", err.message);
     res.status(500).json({ success: false });
   }
 });
