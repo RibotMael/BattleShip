@@ -839,7 +839,6 @@ export default {
     );
 
     socket.on("turn-timer", (data) => {
-      if (data.timeLeft >= 7) this.clearPendingCells();
       this.socketTurnTimer(data);
     });
 
@@ -988,7 +987,7 @@ export default {
     socketTurnTimer({ timeLeft, turnStartAt }) {
       if (this.gameOver) return;
 
-      const isNewTurn = timeLeft >= 6.5;
+      const isNewTurn = turnStartAt && turnStartAt !== this.turnStartAt && timeLeft >= 6;
 
       if (isNewTurn) {
         this.hasFiredThisTurn = false;
@@ -996,7 +995,7 @@ export default {
         this.isSelecting = false;
         this.selectedCell = null;
         this.clearPendingCells();
-        this.turnStartAt = turnStartAt || Date.now();
+        this.turnStartAt = turnStartAt;
         this.turnTimer = 7;
 
         if (this.localTimerInterval) {
@@ -1008,16 +1007,24 @@ export default {
         return;
       }
 
-      if (turnStartAt) {
+      if (!this.turnStartAt && turnStartAt && timeLeft > 0) {
         this.turnStartAt = turnStartAt;
+        this.turnTimer = Math.ceil(timeLeft);
+        if (this.localTimerInterval) {
+          clearInterval(this.localTimerInterval);
+          this.localTimerInterval = null;
+        }
+        this._startLocalTick();
+        this.$nextTick(() => this.updateCircle());
+        return;
       }
 
-      if (!this.localTimerInterval && this.turnStartAt) {
-        this.turnTimer = Math.ceil(timeLeft);
+      if (!this.localTimerInterval && this.turnStartAt && timeLeft > 0) {
         this._startLocalTick();
         this.$nextTick(() => this.updateCircle());
       }
     },
+
     _startLocalTick() {
       if (this.localTimerInterval) {
         clearInterval(this.localTimerInterval);
@@ -1051,11 +1058,10 @@ export default {
         const data = await res.json();
 
         if (!data.success || typeof data.timeLeft !== "number") return;
-
         if (!data.turnStartAt) return;
+        if (data.timeLeft <= 0) return;
 
         const newTs = data.turnStartAt;
-
         const drift = this.turnStartAt ? Math.abs(newTs - this.turnStartAt) : Infinity;
 
         if (drift > 1500 || this.turnTimer === 0) {
