@@ -999,10 +999,6 @@ export default {
         this.turnStartAt = turnStartAt || Date.now();
         this.turnTimer = 7;
 
-        if (this.localTimerInterval) {
-          clearInterval(this.localTimerInterval);
-          this.localTimerInterval = null;
-        }
         this._startLocalTick();
         this.$nextTick(() => this.updateCircle());
         return;
@@ -1012,25 +1008,31 @@ export default {
         this.turnStartAt = turnStartAt;
       }
 
-      if (!this.localTimerInterval && this.turnStartAt) {
+      if (!this.localTimerInterval || Math.abs(this.turnTimer - timeLeft) > 1.5) {
         this.turnTimer = Math.ceil(timeLeft);
         this._startLocalTick();
         this.$nextTick(() => this.updateCircle());
       }
     },
+
     _startLocalTick() {
       if (this.localTimerInterval) {
         clearInterval(this.localTimerInterval);
         this.localTimerInterval = null;
       }
 
-      if (!this.turnStartAt) return;
+      const localStartTime = Date.now();
+      const initialTimeLeft = this.turnTimer;
 
       this.localTimerInterval = setInterval(() => {
-        if (!this.turnStartAt || this.gameOver) return;
+        if (this.gameOver) {
+          clearInterval(this.localTimerInterval);
+          this.localTimerInterval = null;
+          return;
+        }
 
-        const elapsed = (Date.now() - this.turnStartAt) / 1000;
-        const raw = 7 - elapsed;
+        const elapsed = (Date.now() - localStartTime) / 1000;
+        const raw = initialTimeLeft - elapsed;
         const computed = raw <= 0 ? 0 : Math.ceil(raw);
 
         if (computed !== this.turnTimer) {
