@@ -1043,6 +1043,7 @@ export default {
         if (computed <= 0) {
           clearInterval(this.localTimerInterval);
           this.localTimerInterval = null;
+          this.endTurn();
         }
       }, 250);
     },
@@ -1070,8 +1071,13 @@ export default {
             this.clearPendingCells();
           }
 
-          this._startLocalTick();
-          this.$nextTick(this.updateCircle);
+          if (this.turnTimer <= 0) {
+            this.endTurn();
+            this.$nextTick(this.updateCircle);
+          } else {
+            this._startLocalTick();
+            this.$nextTick(this.updateCircle);
+          }
         }
       } catch (_) {}
     },
